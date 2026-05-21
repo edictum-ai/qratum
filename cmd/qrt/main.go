@@ -5,15 +5,20 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 const version = "dev"
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(runWithIO(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer) int {
+	return runWithIO(args, strings.NewReader(""), stdout, stderr)
+}
+
+func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
 		printUsage(stderr)
 		fmt.Fprintln(stderr, "error: missing command")
@@ -36,6 +41,8 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return 2
 		}
 		return status(stdout, stderr)
+	case "hook":
+		return hook(args[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unsupported command %q\n", args[0])
 		printUsage(stderr)
@@ -73,5 +80,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code")
 }
