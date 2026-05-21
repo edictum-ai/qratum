@@ -55,6 +55,8 @@ func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Write
 		return review(args[1:], stdout, stderr)
 	case "sessions":
 		return sessions(args[1:], stdout, stderr)
+	case "ui":
+		return ui(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unsupported command %q\n", args[0])
 		printUsage(stderr)
@@ -92,5 +94,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | sessions list")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | sessions list | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
 }

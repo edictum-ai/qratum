@@ -5,6 +5,14 @@
   "required": ["schema_version", "session_id", "source", "repo", "time", "summary", "review", "findings", "artifacts"],
   "properties": {
     "schema_version": { "const": "qratum.ui.session_detail.v1" },
-    "session_id": { "type": "string" }
+    "session_id": { "type": "string" },
+    "source": { "type": "string" },
+    "agent_model": { "type": "string" },
+    "repo": { "type": "object" },
+    "time": { "type": "object" },
+    "summary": { "type": "object" },
+    "review": { "type": "object" },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "artifacts": { "type": "array", "items": { "type": "object" } }
   }
 }
