@@ -567,6 +567,277 @@ func TestRedactRejectsMissingAndInvalidInput(t *testing.T) {
 	}
 }
 
+func TestEvidenceVerificationGapFixtureWritesBundle(t *testing.T) {
+	root := t.TempDir()
+	writeEvidenceFixture(t, root, "verification-gap.input.json")
+	t.Chdir(root)
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"evidence", "fixtures/evidence/verification-gap.input.json"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if got, want := stdout.String(), "wrote .qratum/evidence/ses_0001.evidence.json\n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+
+	var bundle evidenceBundle
+	evidenceData := []byte(readTextFile(t, ".qratum/evidence/ses_0001.evidence.json"))
+	assertJSONEqual(t, evidenceData, readEvidenceFixture(t, "verification-gap.evidence.golden.json"))
+	if err := json.Unmarshal(evidenceData, &bundle); err != nil {
+		t.Fatalf("decode evidence bundle: %v", err)
+	}
+	if got, want := bundle.SessionID, "ses_0001"; got != want {
+		t.Fatalf("session_id = %q, want %q", got, want)
+	}
+	if got, want := bundle.Summary.Status, evidenceStatusComplete; got != want {
+		t.Fatalf("summary.status = %q, want %q", got, want)
+	}
+	if got, want := bundle.ArtifactPaths.Evidence, ".qratum/evidence/ses_0001.evidence.json"; got != want {
+		t.Fatalf("artifact_paths.evidence = %q, want %q", got, want)
+	}
+	assertFindingTypes(t, bundle.Findings, []string{
+		findingFinalEditAfterLastTest,
+		findingMissingFinalVerification,
+		findingRepeatedFailingCommand,
+	})
+	if got, want := bundle.Findings[2].Summary, `"go test ./..." failed 2 times in this session.`; got != want {
+		t.Fatalf("repeated command summary = %q, want %q", got, want)
+	}
+	if len(bundle.Findings[2].Evidence) != 2 {
+		t.Fatalf("repeated command evidence count = %d, want 2", len(bundle.Findings[2].Evidence))
+	}
+	if !containsString(bundle.MissingEvidence, "successful verification command after 2026-05-21T21:55:00Z") {
+		t.Fatalf("missing_evidence = %v, want final verification gap", bundle.MissingEvidence)
+	}
+}
+
+func TestReviewVerificationGapEvidenceWritesReviewCard(t *testing.T) {
+	root := t.TempDir()
+	writeEvidenceFixture(t, root, "verification-gap.input.json")
+	t.Chdir(root)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"evidence", "fixtures/evidence/verification-gap.input.json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("evidence exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = run([]string{"review", ".qratum/evidence/ses_0001.evidence.json"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if got, want := stdout.String(), "wrote .qratum/reviews/ses_0001.review.json\n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+
+	var card reviewCard
+	reviewData := []byte(readTextFile(t, ".qratum/reviews/ses_0001.review.json"))
+	assertJSONEqual(t, reviewData, readReviewFixture(t, "verification-gap.review.golden.json"))
+	if err := json.Unmarshal(reviewData, &card); err != nil {
+		t.Fatalf("decode review card: %v", err)
+	}
+	if got, want := card.SessionID, "ses_0001"; got != want {
+		t.Fatalf("session_id = %q, want %q", got, want)
+	}
+	if got, want := card.Verdict, "needs_attention"; got != want {
+		t.Fatalf("verdict = %q, want %q", got, want)
+	}
+	if !strings.Contains(card.MainFinding, "internal/redaction/redactor.go changed via edit") {
+		t.Fatalf("main_finding = %q, want final edit finding", card.MainFinding)
+	}
+	if got := card.SuggestedNextHabit; strings.Contains(strings.ToLower(got), "score") || got == "" {
+		t.Fatalf("suggested_next_habit = %q, want non-score habit", got)
+	}
+	if got, want := card.SuggestedSkill, "final-verification-loop"; got != want {
+		t.Fatalf("suggested_skill = %q, want %q", got, want)
+	}
+	if len(card.Evidence) < 6 {
+		t.Fatalf("review evidence = %v, want explicit evidence for all findings", card.Evidence)
+	}
+	if !containsString(card.Warnings, "successful verification command after 2026-05-21T21:55:00Z") {
+		t.Fatalf("warnings = %v, want missing final verification warning", card.Warnings)
+	}
+	reviewText := readTextFile(t, ".qratum/reviews/ses_0001.review.json")
+	for _, banned := range []string{"score", "ranking", "shame"} {
+		if strings.Contains(strings.ToLower(reviewText), banned) {
+			t.Fatalf("review contains banned language %q: %s", banned, reviewText)
+		}
+	}
+}
+
+func TestEvidenceRejectsMissingAndInvalidInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		setup     func(t *testing.T)
+		wantCode  int
+		wantError string
+	}{
+		{
+			name:      "missing session argument",
+			args:      []string{"evidence"},
+			wantCode:  2,
+			wantError: "error: missing redacted session path",
+		},
+		{
+			name:      "extra argument",
+			args:      []string{"evidence", "one.json", "two.json"},
+			wantCode:  2,
+			wantError: "error: evidence accepts exactly one redacted session path",
+		},
+		{
+			name:      "missing file",
+			args:      []string{"evidence", "missing.json"},
+			wantCode:  1,
+			wantError: "missing redacted session missing.json",
+		},
+		{
+			name: "invalid timestamp",
+			args: []string{"evidence", "bad-timestamp.json"},
+			setup: func(t *testing.T) {
+				data := `{"schema_version":"qratum.session.v1","session_id":"ses_bad","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[{"path":"a.go","operation":"edit","timestamp":"not-time"}],"commands":[],"business_metrics":{},"provenance":{}}`
+				if err := os.WriteFile("bad-timestamp.json", []byte(data), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: "file_changes[0].timestamp must be RFC3339",
+		},
+		{
+			name: "unsafe session id",
+			args: []string{"evidence", "unsafe-session.json"},
+			setup: func(t *testing.T) {
+				data := `{"schema_version":"qratum.session.v1","session_id":"bad/session","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[],"business_metrics":{},"provenance":{}}`
+				if err := os.WriteFile("unsafe-session.json", []byte(data), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: `session_id "bad/session" is not a safe artifact id`,
+		},
+		{
+			name: "artifact path escapes project",
+			args: []string{"evidence", "bad-artifact-path.json"},
+			setup: func(t *testing.T) {
+				data := `{"schema_version":"qratum.session.v1","session_id":"ses_bad","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[],"artifact_paths":{"evidence":"../escape.evidence.json"},"business_metrics":{},"provenance":{}}`
+				if err := os.WriteFile("bad-artifact-path.json", []byte(data), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: `evidence output path "../escape.evidence.json" escapes current project`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			if tt.setup != nil {
+				tt.setup(t)
+			}
+			var stdout, stderr bytes.Buffer
+
+			code := run(tt.args, &stdout, &stderr)
+
+			if code != tt.wantCode {
+				t.Fatalf("exit code = %d, want %d", code, tt.wantCode)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), tt.wantError) {
+				t.Fatalf("stderr = %q, missing %q", stderr.String(), tt.wantError)
+			}
+		})
+	}
+}
+
+func TestReviewRejectsMissingAndInvalidInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		setup     func(t *testing.T)
+		wantCode  int
+		wantError string
+	}{
+		{
+			name:      "missing evidence argument",
+			args:      []string{"review"},
+			wantCode:  2,
+			wantError: "error: missing evidence path",
+		},
+		{
+			name:      "extra argument",
+			args:      []string{"review", "one.json", "two.json"},
+			wantCode:  2,
+			wantError: "error: review accepts exactly one evidence path",
+		},
+		{
+			name:      "missing file",
+			args:      []string{"review", "missing.json"},
+			wantCode:  1,
+			wantError: "missing evidence missing.json",
+		},
+		{
+			name: "unsupported finding type",
+			args: []string{"review", "bad-finding.json"},
+			setup: func(t *testing.T) {
+				data := `{"schema_version":"qratum.evidence.v1","session_id":"ses_bad","summary":{"status":"complete","source":"claude-code"},"findings":[{"finding_id":"future.0001","type":"tool_risk.future","title":"future","summary":"future","evidence":[],"missing_evidence":[]}],"missing_evidence":[],"artifact_paths":{"review":".qratum/reviews/ses_bad.review.json"}}`
+				if err := os.WriteFile("bad-finding.json", []byte(data), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: `unsupported findings[0].type "tool_risk.future"`,
+		},
+		{
+			name: "unsupported status",
+			args: []string{"review", "bad-status.json"},
+			setup: func(t *testing.T) {
+				data := `{"schema_version":"qratum.evidence.v1","session_id":"ses_bad","summary":{"status":"placeholder_pending","source":"claude-code"},"findings":[],"missing_evidence":[]}`
+				if err := os.WriteFile("bad-status.json", []byte(data), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: `unsupported summary.status "placeholder_pending"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			if tt.setup != nil {
+				tt.setup(t)
+			}
+			var stdout, stderr bytes.Buffer
+
+			code := run(tt.args, &stdout, &stderr)
+
+			if code != tt.wantCode {
+				t.Fatalf("exit code = %d, want %d", code, tt.wantCode)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), tt.wantError) {
+				t.Fatalf("stderr = %q, missing %q", stderr.String(), tt.wantError)
+			}
+		})
+	}
+}
+
 func TestNormalizeToleratesUnknownFieldsAndMissingOptionalTimestamps(t *testing.T) {
 	root := t.TempDir()
 	t.Chdir(root)
@@ -852,7 +1123,7 @@ func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 		t.Fatalf("redacted artifact_paths.redacted = %q, want %q", got, want)
 	}
 
-	var evidence evidencePlaceholder
+	var evidence evidenceBundle
 	readJSONFile(t, evidencePath, &evidence)
 	if got, want := evidence.SchemaVersion, qratumEvidenceSchemaVersion; got != want {
 		t.Fatalf("evidence schema_version = %q, want %q", got, want)
@@ -863,20 +1134,55 @@ func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 	if got, want := evidence.ArtifactPaths.Report, filepath.ToSlash(reportPath); got != want {
 		t.Fatalf("evidence artifact_paths.report = %q, want %q", got, want)
 	}
-	if len(evidence.MissingEvidence) == 0 {
-		t.Fatal("missing_evidence is empty, want explicit placeholder evidence")
+	if got, want := evidence.Summary.Status, evidenceStatusComplete; got != want {
+		t.Fatalf("evidence summary.status = %q, want %q", got, want)
+	}
+	if got, want := evidence.Summary.SourceEventTimestamp, defaultHookTimestamp; got != want {
+		t.Fatalf("evidence source_event_timestamp = %q, want %q", got, want)
+	}
+	assertFindingTypes(t, evidence.Findings, []string{
+		findingFinalEditAfterLastTest,
+		findingMissingFinalVerification,
+		findingRepeatedFailingCommand,
+	})
+	if got, want := evidence.Summary.LastFileChangeAt, "2026-05-21T21:55:00Z"; got != want {
+		t.Fatalf("last_file_change_at = %q, want %q", got, want)
+	}
+	if got, want := evidence.Summary.LastTestCommandAt, "2026-05-21T21:41:00Z"; got != want {
+		t.Fatalf("last_test_command_at = %q, want %q", got, want)
+	}
+	if !containsString(evidence.MissingEvidence, "successful verification command after 2026-05-21T21:55:00Z") {
+		t.Fatalf("missing_evidence = %v, want missing final verification evidence", evidence.MissingEvidence)
+	}
+	if got := readTextFile(t, evidencePath); strings.Contains(got, "score") || strings.Contains(got, "rank") {
+		t.Fatalf("evidence contains score-like language: %s", got)
 	}
 
-	var review reviewPlaceholder
+	var review reviewCard
 	readJSONFile(t, reviewPath, &review)
 	if got, want := review.SchemaVersion, qratumReviewSchemaVersion; got != want {
 		t.Fatalf("review schema_version = %q, want %q", got, want)
 	}
-	if got, want := review.Evidence[0], session.ArtifactPaths.Event; got != want {
-		t.Fatalf("review evidence[0] = %q, want event path %q", got, want)
+	if got, want := review.Verdict, "needs_attention"; got != want {
+		t.Fatalf("review verdict = %q, want %q", got, want)
 	}
-	if got, want := review.Evidence[1], filepath.ToSlash(evidencePath); got != want {
-		t.Fatalf("review evidence[1] = %q, want evidence path %q", got, want)
+	if !strings.Contains(review.MainFinding, "after the last test command") {
+		t.Fatalf("review main_finding = %q, want final edit finding", review.MainFinding)
+	}
+	if len(review.Evidence) == 0 {
+		t.Fatal("review evidence is empty")
+	}
+	reviewText := readTextFile(t, reviewPath)
+	for _, banned := range []string{"score", "rank", "shame"} {
+		if strings.Contains(strings.ToLower(reviewText), banned) {
+			t.Fatalf("review contains banned score-like language %q: %s", banned, reviewText)
+		}
+	}
+	if !strings.Contains(reviewText, "successful verification command after 2026-05-21T21:55:00Z") {
+		t.Fatalf("review = %s, want missing verification evidence", reviewText)
+	}
+	if got, want := review.ArtifactPaths.Evidence, filepath.ToSlash(evidencePath); got != want {
+		t.Fatalf("review artifact_paths.evidence = %q, want %q", got, want)
 	}
 
 	report := readTextFile(t, reportPath)
@@ -1169,6 +1475,24 @@ func readRedactionFixture(t *testing.T, name string) []byte {
 	return data
 }
 
+func readEvidenceFixture(t *testing.T, name string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), "fixtures", "evidence", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func readReviewFixture(t *testing.T, name string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), "fixtures", "review", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
@@ -1185,6 +1509,17 @@ func writeClaudeFixture(t *testing.T, root string, name string) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, readFixture(t, name), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeEvidenceFixture(t *testing.T, root string, name string) {
+	t.Helper()
+	target := filepath.Join(root, "fixtures", "evidence", name)
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, readEvidenceFixture(t, name), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1251,6 +1586,26 @@ func assertJSONEqual(t *testing.T, gotData []byte, wantData []byte) {
 		wantPretty, _ := json.MarshalIndent(want, "", "  ")
 		t.Fatalf("JSON mismatch\n got:\n%s\nwant:\n%s", gotPretty, wantPretty)
 	}
+}
+
+func assertFindingTypes(t *testing.T, findings []evidenceFinding, want []string) {
+	t.Helper()
+	got := make([]string, len(findings))
+	for i, finding := range findings {
+		got[i] = finding.Type
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("finding types = %v, want %v", got, want)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func qratumFiles(t *testing.T) []string {

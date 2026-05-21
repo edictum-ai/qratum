@@ -26,47 +26,18 @@ type daemonRunSummary struct {
 }
 
 type daemonArtifactPaths struct {
-	Event    string `json:"event"`
-	Session  string `json:"session"`
-	Redacted string `json:"redacted"`
-	Evidence string `json:"evidence"`
-	Review   string `json:"review"`
-	Report   string `json:"report"`
-	Export   string `json:"export"`
+	Event    string `json:"event,omitempty"`
+	Session  string `json:"session,omitempty"`
+	Redacted string `json:"redacted,omitempty"`
+	Evidence string `json:"evidence,omitempty"`
+	Review   string `json:"review,omitempty"`
+	Report   string `json:"report,omitempty"`
+	Export   string `json:"export,omitempty"`
 }
 
 type daemonArtifactFile struct {
 	rel string
 	abs string
-}
-
-type evidencePlaceholder struct {
-	SchemaVersion   string              `json:"schema_version"`
-	SessionID       string              `json:"session_id"`
-	Summary         evidenceSummary     `json:"summary"`
-	Findings        []any               `json:"findings"`
-	MissingEvidence []string            `json:"missing_evidence"`
-	SourceEventID   string              `json:"source_event_id"`
-	ArtifactPaths   daemonArtifactPaths `json:"artifact_paths"`
-}
-
-type evidenceSummary struct {
-	Status               string `json:"status"`
-	Source               string `json:"source"`
-	SourceEventID        string `json:"source_event_id"`
-	SourceEventType      string `json:"source_event_type"`
-	SourceEventTimestamp string `json:"source_event_timestamp"`
-}
-
-type reviewPlaceholder struct {
-	SchemaVersion      string   `json:"schema_version"`
-	SessionID          string   `json:"session_id"`
-	Verdict            string   `json:"verdict"`
-	MainFinding        string   `json:"main_finding"`
-	Evidence           []string `json:"evidence"`
-	SuggestedNextHabit string   `json:"suggested_next_habit"`
-	Warnings           []string `json:"warnings"`
-	SourceEventID      string   `json:"source_event_id"`
 }
 
 type adpPlaceholderRecord struct {
@@ -175,7 +146,7 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			return summary, fmt.Errorf("event %s normalize transcript %s: %w", event.EventID, displayPath(projectRoot, transcriptPath), err)
 		}
 
-		if err := writePipelinePlaceholders(projectRoot, event, artifacts, session); err != nil {
+		if err := writePipelineArtifacts(projectRoot, event, artifacts, session); err != nil {
 			return summary, err
 		}
 		summary.Processed++
@@ -287,16 +258,7 @@ func validArtifactStem(stem string) bool {
 }
 
 func artifactPathsForEvent(event captureEvent) daemonArtifactPaths {
-	stem := event.EventID
-	return daemonArtifactPaths{
-		Event:    slashPath(filepath.Join(".qratum", "events", stem+".json")),
-		Session:  slashPath(filepath.Join(".qratum", "sessions", stem+".normalized.json")),
-		Redacted: slashPath(filepath.Join(".qratum", "redacted", stem+".redacted.json")),
-		Evidence: slashPath(filepath.Join(".qratum", "evidence", stem+".evidence.json")),
-		Review:   slashPath(filepath.Join(".qratum", "reviews", stem+".review.json")),
-		Report:   slashPath(filepath.Join(".qratum", "reports", stem+".html")),
-		Export:   slashPath(filepath.Join(".qratum", "exports", stem+".adp.jsonl")),
-	}
+	return artifactPathsForStem(event.EventID)
 }
 
 func artifactFilesForPaths(projectRoot string, paths daemonArtifactPaths) []daemonArtifactFile {
@@ -363,10 +325,18 @@ func requireTranscriptFile(path string, projectRoot string, original string) err
 	return nil
 }
 
-func writePipelinePlaceholders(projectRoot string, event captureEvent, paths daemonArtifactPaths, session qratumSession) error {
+func writePipelineArtifacts(projectRoot string, event captureEvent, paths daemonArtifactPaths, session qratumSession) error {
 	redactedSession, err := redactQratumSession(session)
 	if err != nil {
 		return fmt.Errorf("redact session %s: %w", session.SessionID, err)
+	}
+	evidenceBundle, err := buildEvidenceBundle(redactedSession, paths)
+	if err != nil {
+		return fmt.Errorf("build evidence for session %s: %w", session.SessionID, err)
+	}
+	reviewCard, err := buildReviewCard(evidenceBundle)
+	if err != nil {
+		return fmt.Errorf("build review for session %s: %w", session.SessionID, err)
 	}
 
 	files := artifactFilesForPaths(projectRoot, paths)
@@ -382,8 +352,8 @@ func writePipelinePlaceholders(projectRoot string, event captureEvent, paths dae
 	}{
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Session)), mustJSON(session)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(redactedSession)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(buildEvidencePlaceholder(event, paths))},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(buildReviewPlaceholder(event, paths))},
+		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(evidenceBundle)},
+		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(reviewCard)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Report)), buildReportPlaceholder(event, paths)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Export)), buildADPPlaceholder(event)},
 	}
@@ -394,47 +364,6 @@ func writePipelinePlaceholders(projectRoot string, event captureEvent, paths dae
 		}
 	}
 	return nil
-}
-
-func buildEvidencePlaceholder(event captureEvent, paths daemonArtifactPaths) evidencePlaceholder {
-	return evidencePlaceholder{
-		SchemaVersion: qratumEvidenceSchemaVersion,
-		SessionID:     event.SessionRef.SessionID,
-		Summary: evidenceSummary{
-			Status:               "placeholder_pending",
-			Source:               event.Source,
-			SourceEventID:        event.EventID,
-			SourceEventType:      event.EventType,
-			SourceEventTimestamp: event.Timestamp,
-		},
-		Findings: []any{},
-		MissingEvidence: []string{
-			"evidence.not_implemented",
-			"review.not_implemented",
-			"report.not_implemented",
-			"export.not_implemented",
-		},
-		SourceEventID: event.EventID,
-		ArtifactPaths: paths,
-	}
-}
-
-func buildReviewPlaceholder(event captureEvent, paths daemonArtifactPaths) reviewPlaceholder {
-	return reviewPlaceholder{
-		SchemaVersion: qratumReviewSchemaVersion,
-		SessionID:     event.SessionRef.SessionID,
-		Verdict:       "needs_attention",
-		MainFinding:   "Pipeline shell generated placeholder artifacts; review content is pending.",
-		Evidence: []string{
-			paths.Event,
-			paths.Evidence,
-		},
-		SuggestedNextHabit: "Run the completed local pipeline before using this review.",
-		Warnings: []string{
-			"pipeline.placeholder",
-		},
-		SourceEventID: event.EventID,
-	}
 }
 
 func buildReportPlaceholder(event captureEvent, paths daemonArtifactPaths) []byte {
