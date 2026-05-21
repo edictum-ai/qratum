@@ -178,7 +178,21 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			return summary, fmt.Errorf("event %s: %w", event.EventID, err)
 		}
 
-		if err := writePipelinePlaceholders(projectRoot, event, artifacts); err != nil {
+		session, err := normalizeClaudeTranscriptFile(transcriptPath, normalizeSessionContext{
+			SessionID:            event.SessionRef.SessionID,
+			TranscriptPath:       event.SessionRef.TranscriptPath,
+			Workspace:            &event.Workspace,
+			SourceEventID:        event.EventID,
+			SourceEventType:      event.EventType,
+			SourceEventTimestamp: event.Timestamp,
+			ArtifactPaths:        &artifacts,
+			PipelineStatus:       "normalized",
+		})
+		if err != nil {
+			return summary, fmt.Errorf("event %s normalize transcript %s: %w", event.EventID, displayPath(projectRoot, transcriptPath), err)
+		}
+
+		if err := writePipelinePlaceholders(projectRoot, event, artifacts, session); err != nil {
 			return summary, err
 		}
 		summary.Processed++
@@ -366,7 +380,7 @@ func requireTranscriptFile(path string, projectRoot string, original string) err
 	return nil
 }
 
-func writePipelinePlaceholders(projectRoot string, event captureEvent, paths daemonArtifactPaths) error {
+func writePipelinePlaceholders(projectRoot string, event captureEvent, paths daemonArtifactPaths, session qratumSession) error {
 	files := artifactFilesForPaths(projectRoot, paths)
 	for _, file := range files {
 		if err := os.MkdirAll(filepath.Dir(file.abs), 0o755); err != nil {
@@ -378,7 +392,7 @@ func writePipelinePlaceholders(projectRoot string, event captureEvent, paths dae
 		path string
 		data []byte
 	}{
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Session)), mustJSON(buildSessionPlaceholder(event, paths, true))},
+		{filepath.Join(projectRoot, filepath.FromSlash(paths.Session)), mustJSON(session)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(buildSessionPlaceholder(event, paths, false))},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(buildEvidencePlaceholder(event, paths))},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(buildReviewPlaceholder(event, paths))},

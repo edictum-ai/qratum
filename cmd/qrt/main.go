@@ -45,6 +45,8 @@ func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Write
 		return hook(args[1:], stdin, stdout, stderr)
 	case "daemon":
 		return daemon(args[1:], stdout, stderr)
+	case "normalize":
+		return normalize(args[1:], stdout, stderr)
 	case "sessions":
 		return sessions(args[1:], stdout, stderr)
 	default:
@@ -84,5 +86,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | sessions list")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | normalize <transcript> | sessions list")
 }
