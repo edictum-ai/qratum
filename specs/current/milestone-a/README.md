@@ -42,20 +42,20 @@ cat fixtures/claude-code/hook-session-end.json | ./bin/qrt hook claude-code
 
 and print all generated artifact paths.
 
-## Stages
+## Execution Order
 
-| # | Prompt | Deliverable |
-|---|---|---|
-| 0 | [P0-REPO-SKELETON-CLEANUP.md](P0-REPO-SKELETON-CLEANUP.md) | Empty `qrt` binary, build/test/demo shell discipline |
-| 1 | [P1-HOOK-SPOOL.md](P1-HOOK-SPOOL.md) | `qrt hook claude-code` and CaptureEvent writer |
-| 2 | [P2-DAEMON-RUN-ONCE.md](P2-DAEMON-RUN-ONCE.md) | event reader and pipeline shell |
-| 3 | [P3-CLAUDE-PARSER.md](P3-CLAUDE-PARSER.md) | tolerant Claude JSONL parser to QratumSession |
-| 4 | [P4-REDACTION.md](P4-REDACTION.md) | deterministic redaction and golden tests |
-| 5 | [P5-EVIDENCE-REVIEW.md](P5-EVIDENCE-REVIEW.md) | findings and ReviewCard |
-| 6 | [P6-UI-DTO.md](P6-UI-DTO.md) | UI DTO mappings and CLI JSON commands |
-| 7 | [P7-HTML-REPORT.md](P7-HTML-REPORT.md) | escaped static HTML report |
-| 8 | [P8-ADP-EXPORT.md](P8-ADP-EXPORT.md) | fixture-constrained ADP strict JSONL |
-| 9 | [P9-DEMO-HARDENING.md](P9-DEMO-HARDENING.md) | full vertical slice demo hardened |
+| # | Prompt | Scope | Deliverable | Status | Depends On |
+|---|---|---|---|---|---|
+| 0 | [P0-REPO-SKELETON-CLEANUP.md](P0-REPO-SKELETON-CLEANUP.md) | cli/build | Empty `qrt` binary, build/test/demo shell discipline | [ ] | - |
+| 1 | [P1-HOOK-SPOOL.md](P1-HOOK-SPOOL.md) | capture/spool | `qrt hook claude-code` and CaptureEvent writer | [ ] | P0 |
+| 2 | [P2-DAEMON-RUN-ONCE.md](P2-DAEMON-RUN-ONCE.md) | daemon/spool | event reader and pipeline shell | [ ] | P1 |
+| 3 | [P3-CLAUDE-PARSER.md](P3-CLAUDE-PARSER.md) | normalize | tolerant Claude JSONL parser to QratumSession | [ ] | P2 |
+| 4 | [P4-REDACTION.md](P4-REDACTION.md) | redaction | deterministic redaction and golden tests | [ ] | P3 |
+| 5 | [P5-EVIDENCE-REVIEW.md](P5-EVIDENCE-REVIEW.md) | evidence/review | findings and ReviewCard | [ ] | P4 |
+| 6 | [P6-UI-DTO.md](P6-UI-DTO.md) | ui | UI DTO mappings and CLI JSON commands | [ ] | P5 |
+| 7 | [P7-HTML-REPORT.md](P7-HTML-REPORT.md) | reports/provenance | escaped static HTML report | [ ] | P6 |
+| 8 | [P8-ADP-EXPORT.md](P8-ADP-EXPORT.md) | adp | fixture-constrained ADP strict JSONL | [ ] | P7 |
+| 9 | [P9-DEMO-HARDENING.md](P9-DEMO-HARDENING.md) | demo | full vertical slice demo hardened | [ ] | P8 |
 
 ## Slop Review
 
