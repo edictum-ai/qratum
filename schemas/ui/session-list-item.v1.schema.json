@@ -7,6 +7,10 @@
     "schema_version": { "const": "qratum.ui.session_list_item.v1" },
     "session_id": { "type": "string" },
     "source": { "type": "string" },
-    "agent_model": { "type": "string" }
+    "agent_model": { "type": "string" },
+    "repo": { "type": "object" },
+    "review": { "type": "object" },
+    "metrics": { "type": "object" },
+    "artifacts": { "type": "array", "items": { "type": "object" } }
   }
 }

@@ -1,0 +1,90 @@
+[
+  {
+    "schema_version": "qratum.ui.session_list_item.v1",
+    "session_id": "ses_0001",
+    "source": "claude-code",
+    "agent_model": "claude-sonnet-4-6",
+    "repo": {
+      "workspace_id": "ws_local",
+      "repo_id": "repo_qratum",
+      "git_remote": "git@github.com:edictum-ai/qratum.git",
+      "git_branch": "main",
+      "git_head_sha": "0000000000000000000000000000000000000000"
+    },
+    "review": {
+      "verdict": "needs_attention",
+      "main_finding": "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+      "warnings": [
+        "successful verification command after 2026-05-21T21:55:00Z"
+      ],
+      "findings_count": 3,
+      "evidence_count": 7
+    },
+    "metrics": {
+      "duration_seconds": 3000,
+      "tool_calls": 6,
+      "files_changed": 2,
+      "commands_run": 2,
+      "tests_run": 2,
+      "findings": 3,
+      "warnings": 1
+    },
+    "artifacts": [
+      {
+        "schema_version": "qratum.ui.artifact_link.v1",
+        "artifact_id": "ses_0001:redacted_session",
+        "session_id": "ses_0001",
+        "type": "redacted_session",
+        "label": "Redacted session",
+        "media_type": "application/json",
+        "href": ".qratum/redacted/ses_0001.redacted.json",
+        "digest": "sha256:c96f8f746d48a055acd2cb7c50c8f5b73a16f751802a1c7cd8f2ca2e8bc8e078",
+        "created_at": "2026-05-21T22:10:00Z"
+      },
+      {
+        "schema_version": "qratum.ui.artifact_link.v1",
+        "artifact_id": "ses_0001:evidence_bundle",
+        "session_id": "ses_0001",
+        "type": "evidence_bundle",
+        "label": "Evidence bundle",
+        "media_type": "application/json",
+        "href": ".qratum/evidence/ses_0001.evidence.json",
+        "digest": "sha256:902ba16ec28ca47fdaa8211d4e87e4f13fea07a9f46f3720999879052b3613c1",
+        "created_at": "2026-05-21T22:10:00Z"
+      },
+      {
+        "schema_version": "qratum.ui.artifact_link.v1",
+        "artifact_id": "ses_0001:review_card",
+        "session_id": "ses_0001",
+        "type": "review_card",
+        "label": "Review card",
+        "media_type": "application/json",
+        "href": ".qratum/reviews/ses_0001.review.json",
+        "digest": "sha256:db7b508b23655065e21b951364af8dc23d2c7717ecd1d339d74ca9b19c44c60a",
+        "created_at": "2026-05-21T22:10:00Z"
+      },
+      {
+        "schema_version": "qratum.ui.artifact_link.v1",
+        "artifact_id": "ses_0001:html_report",
+        "session_id": "ses_0001",
+        "type": "html_report",
+        "label": "HTML report",
+        "media_type": "text/html",
+        "href": ".qratum/reports/ses_0001.html",
+        "digest": "sha256:7eebcba0121ff4a405d0b341c4236c9e87e7fb71da1212d242f349e0ea454e05",
+        "created_at": "2026-05-21T22:10:00Z"
+      },
+      {
+        "schema_version": "qratum.ui.artifact_link.v1",
+        "artifact_id": "ses_0001:adp_strict_export",
+        "session_id": "ses_0001",
+        "type": "adp_strict_export",
+        "label": "ADP strict export",
+        "media_type": "application/jsonl",
+        "href": ".qratum/exports/ses_0001.adp.jsonl",
+        "digest": "sha256:557d1570a922936d2719bd74e6bcb031492101b3895473747842236e2bebddf4",
+        "created_at": "2026-05-21T22:10:00Z"
+      }
+    ]
+  }
+]

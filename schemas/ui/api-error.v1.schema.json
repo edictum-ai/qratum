@@ -5,6 +5,13 @@
   "required": ["schema_version", "error"],
   "properties": {
     "schema_version": { "const": "qratum.ui.api_error.v1" },
-    "error": { "type": "object" }
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" }
+      }
+    }
   }
 }

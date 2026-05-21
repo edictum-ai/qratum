@@ -5,6 +5,14 @@
   "required": ["schema_version", "verdict", "main_finding", "evidence", "suggested_next_habit", "warnings"],
   "properties": {
     "schema_version": { "const": "qratum.ui.review_card.v1" },
-    "verdict": { "enum": ["clean", "needs_attention"] }
+    "session_id": { "type": "string" },
+    "verdict": { "enum": ["clean", "needs_attention"] },
+    "main_finding": { "type": "string" },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "suggested_next_habit": { "type": "string" },
+    "suggested_skill": { "type": "string" },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "artifacts": { "type": "array", "items": { "type": "object" } }
   }
 }

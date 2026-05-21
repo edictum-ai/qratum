@@ -5,6 +5,7 @@
   "required": ["schema_version", "finding_id", "type", "severity", "confidence", "title", "summary", "evidence", "missing_evidence"],
   "properties": {
     "schema_version": { "const": "qratum.ui.evidence_finding.v1" },
+    "finding_id": { "type": "string" },
     "type": {
       "enum": [
         "verification.final_edit_after_last_test",
@@ -13,6 +14,12 @@
         "redaction.secret_detected",
         "redaction.path_redacted"
       ]
-    }
+    },
+    "severity": { "enum": ["low", "medium", "high"] },
+    "confidence": { "enum": ["high"] },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } }
   }
 }

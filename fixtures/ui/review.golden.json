@@ -1,0 +1,160 @@
+{
+  "schema_version": "qratum.ui.review_card.v1",
+  "session_id": "ses_0001",
+  "verdict": "needs_attention",
+  "main_finding": "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+  "evidence": [
+    "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+    "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+    "2026-05-21T21:41:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+    "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
+    "missing: successful verification command after 2026-05-21T21:55:00Z",
+    "\"go test ./...\" failed 2 times in this session.",
+    "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted"
+  ],
+  "suggested_next_habit": "After the last edit, run the project's verification command and keep the result in the session.",
+  "suggested_skill": "final-verification-loop",
+  "warnings": [
+    "successful verification command after 2026-05-21T21:55:00Z"
+  ],
+  "findings": [
+    {
+      "schema_version": "qratum.ui.evidence_finding.v1",
+      "finding_id": "verification.final_edit_after_last_test.0001",
+      "type": "verification.final_edit_after_last_test",
+      "severity": "medium",
+      "confidence": "high",
+      "title": "Final edit happened after the last test",
+      "summary": "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+      "evidence": [
+        {
+          "label": "final_file_change",
+          "kind": "file_change",
+          "display": "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+          "timestamp": "2026-05-21T21:55:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "edit"
+        },
+        {
+          "label": "last_test_command",
+          "kind": "command",
+          "display": "2026-05-21T21:41:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+          "timestamp": "2026-05-21T21:41:00Z",
+          "command": "go test ./...",
+          "success": false,
+          "output_excerpt": "FAIL ./internal/redaction\nexpected secret to be redacted"
+        }
+      ],
+      "missing_evidence": []
+    },
+    {
+      "schema_version": "qratum.ui.evidence_finding.v1",
+      "finding_id": "verification.missing_final_verification.0002",
+      "type": "verification.missing_final_verification",
+      "severity": "high",
+      "confidence": "high",
+      "title": "Final verification is missing",
+      "summary": "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
+      "evidence": [
+        {
+          "label": "final_file_change",
+          "kind": "file_change",
+          "display": "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+          "timestamp": "2026-05-21T21:55:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "edit"
+        }
+      ],
+      "missing_evidence": [
+        "successful verification command after 2026-05-21T21:55:00Z"
+      ]
+    },
+    {
+      "schema_version": "qratum.ui.evidence_finding.v1",
+      "finding_id": "reliability.repeated_failing_command.0003",
+      "type": "reliability.repeated_failing_command",
+      "severity": "medium",
+      "confidence": "high",
+      "title": "Command failed repeatedly",
+      "summary": "\"go test ./...\" failed 2 times in this session.",
+      "evidence": [
+        {
+          "label": "first_failed_command",
+          "kind": "command",
+          "display": "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+          "timestamp": "2026-05-21T21:40:00Z",
+          "command": "go test ./...",
+          "success": false,
+          "output_excerpt": "FAIL ./internal/redaction\nexpected secret to be redacted"
+        },
+        {
+          "label": "repeated_failed_command",
+          "kind": "command",
+          "display": "2026-05-21T21:41:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+          "timestamp": "2026-05-21T21:41:00Z",
+          "command": "go test ./...",
+          "success": false,
+          "output_excerpt": "FAIL ./internal/redaction\nexpected secret to be redacted"
+        }
+      ],
+      "missing_evidence": []
+    }
+  ],
+  "artifacts": [
+    {
+      "schema_version": "qratum.ui.artifact_link.v1",
+      "artifact_id": "ses_0001:redacted_session",
+      "session_id": "ses_0001",
+      "type": "redacted_session",
+      "label": "Redacted session",
+      "media_type": "application/json",
+      "href": ".qratum/redacted/ses_0001.redacted.json",
+      "digest": "sha256:c96f8f746d48a055acd2cb7c50c8f5b73a16f751802a1c7cd8f2ca2e8bc8e078",
+      "created_at": "2026-05-21T22:10:00Z"
+    },
+    {
+      "schema_version": "qratum.ui.artifact_link.v1",
+      "artifact_id": "ses_0001:evidence_bundle",
+      "session_id": "ses_0001",
+      "type": "evidence_bundle",
+      "label": "Evidence bundle",
+      "media_type": "application/json",
+      "href": ".qratum/evidence/ses_0001.evidence.json",
+      "digest": "sha256:902ba16ec28ca47fdaa8211d4e87e4f13fea07a9f46f3720999879052b3613c1",
+      "created_at": "2026-05-21T22:10:00Z"
+    },
+    {
+      "schema_version": "qratum.ui.artifact_link.v1",
+      "artifact_id": "ses_0001:review_card",
+      "session_id": "ses_0001",
+      "type": "review_card",
+      "label": "Review card",
+      "media_type": "application/json",
+      "href": ".qratum/reviews/ses_0001.review.json",
+      "digest": "sha256:db7b508b23655065e21b951364af8dc23d2c7717ecd1d339d74ca9b19c44c60a",
+      "created_at": "2026-05-21T22:10:00Z"
+    },
+    {
+      "schema_version": "qratum.ui.artifact_link.v1",
+      "artifact_id": "ses_0001:html_report",
+      "session_id": "ses_0001",
+      "type": "html_report",
+      "label": "HTML report",
+      "media_type": "text/html",
+      "href": ".qratum/reports/ses_0001.html",
+      "digest": "sha256:7eebcba0121ff4a405d0b341c4236c9e87e7fb71da1212d242f349e0ea454e05",
+      "created_at": "2026-05-21T22:10:00Z"
+    },
+    {
+      "schema_version": "qratum.ui.artifact_link.v1",
+      "artifact_id": "ses_0001:adp_strict_export",
+      "session_id": "ses_0001",
+      "type": "adp_strict_export",
+      "label": "ADP strict export",
+      "media_type": "application/jsonl",
+      "href": ".qratum/exports/ses_0001.adp.jsonl",
+      "digest": "sha256:557d1570a922936d2719bd74e6bcb031492101b3895473747842236e2bebddf4",
+      "created_at": "2026-05-21T22:10:00Z"
+    }
+  ]
+}
