@@ -1,8 +1,16 @@
-name: qratum-milestone-a
-description: Qratum Milestone A local vertical slice workflow.
-required_files:
-  - AGENTS.md
-  - README.md
+apiVersion: edictum/v1alpha1
+kind: WorkflowProfile
+metadata:
+  name: qratum-milestone-a
+  description: Qratum Milestone A local vertical slice workflow.
+
+context:
+  required_files:
+    - AGENTS.md
+    - README.md
+  optional_files:
+    - SPEC.md
+    - go.mod
 setup:
   commands:
     - go mod download
@@ -11,3 +19,20 @@ verify:
     - go test ./...
     - make build
     - make demo
+
+review:
+  approval_message: |
+    Approve only after the review task returns PASS. Agents must never push the
+    branch; the factory post-completion pipeline owns merge.
+
+push:
+  protected_branches:
+    - main
+  allowed_git_commands:
+    - git status
+    - git diff
+    - git add
+    - git commit
+    - git log
+    - git show
+    - git branch
