@@ -676,6 +676,136 @@ func TestReviewVerificationGapEvidenceWritesReviewCard(t *testing.T) {
 	}
 }
 
+func TestExportADPStrictFixtureMatchesGolden(t *testing.T) {
+	root := t.TempDir()
+	sessionPath := writeADPExportSessionFixture(t, root)
+	t.Chdir(root)
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"export", sessionPath, "--profile", "adp-strict"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if got, want := stdout.String(), "wrote .qratum/exports/ses_0001.adp.jsonl\n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+	got := []byte(readTextFile(t, ".qratum/exports/ses_0001.adp.jsonl"))
+	if !bytes.Equal(got, readADPFixture(t, "session.adp-strict.golden.jsonl")) {
+		t.Fatalf("ADP strict export mismatch\n got:\n%s\nwant:\n%s", got, readADPFixture(t, "session.adp-strict.golden.jsonl"))
+	}
+
+	output := string(got)
+	for _, banned := range []string{
+		`"session_id"`,
+		`"artifact_paths"`,
+		`"provenance"`,
+		`"redaction"`,
+		`"pipeline_status"`,
+		`"source_event_id"`,
+		`"x-qratum-`,
+		`"secret_map"`,
+		`"content":"package redaction\n\nfunc Redact`,
+		`"old_string"`,
+		`"new_string"`,
+	} {
+		if strings.Contains(output, banned) {
+			t.Fatalf("ADP strict export contains banned Qratum-only or raw tool field %q: %s", banned, output)
+		}
+	}
+}
+
+func TestExportADPStrictRejectsMissingAndInvalidInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		setup     func(t *testing.T, root string)
+		wantCode  int
+		wantError string
+	}{
+		{
+			name:      "missing session argument",
+			args:      []string{"export"},
+			wantCode:  2,
+			wantError: "error: missing session path",
+		},
+		{
+			name:      "missing profile",
+			args:      []string{"export", ".qratum/sessions/ses_0001.normalized.json"},
+			wantCode:  2,
+			wantError: "error: export accepts exactly one session path and --profile adp-strict",
+		},
+		{
+			name:      "unsupported profile",
+			args:      []string{"export", ".qratum/sessions/ses_0001.normalized.json", "--profile", "full-adp"},
+			wantCode:  2,
+			wantError: `error: unsupported export profile "full-adp"`,
+		},
+		{
+			name:      "missing session file",
+			args:      []string{"export", ".qratum/sessions/missing.normalized.json", "--profile", "adp-strict"},
+			wantCode:  1,
+			wantError: "missing session .qratum/sessions/missing.normalized.json",
+		},
+		{
+			name: "invalid session JSON",
+			args: []string{"export", ".qratum/sessions/bad.normalized.json", "--profile", "adp-strict"},
+			setup: func(t *testing.T, root string) {
+				path := filepath.Join(root, ".qratum", "sessions", "bad.normalized.json")
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte("{not json\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: "invalid session JSON .qratum/sessions/bad.normalized.json",
+		},
+		{
+			name: "invalid timestamp",
+			args: []string{"export", ".qratum/sessions/ses_0001.normalized.json", "--profile", "adp-strict"},
+			setup: func(t *testing.T, root string) {
+				sessionPath := writeADPExportSessionFixture(t, root)
+				var session qratumSession
+				readJSONFile(t, sessionPath, &session)
+				session.Turns[0].Timestamp = "not-rfc3339"
+				if err := os.WriteFile(sessionPath, mustJSON(session), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: "turns[0].timestamp: must be RFC3339",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			t.Chdir(root)
+			if tt.setup != nil {
+				tt.setup(t, root)
+			}
+			var stdout, stderr bytes.Buffer
+
+			code := run(tt.args, &stdout, &stderr)
+
+			if code != tt.wantCode {
+				t.Fatalf("exit code = %d, want %d; stderr = %q", code, tt.wantCode, stderr.String())
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), tt.wantError) {
+				t.Fatalf("stderr = %q, missing %q", stderr.String(), tt.wantError)
+			}
+		})
+	}
+}
+
 func TestEvidenceRejectsMissingAndInvalidInput(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -988,7 +1118,7 @@ func TestNormalizeRejectsMissingAndInvalidInput(t *testing.T) {
 	}
 }
 
-func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
+func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 	root := t.TempDir()
 	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
 	t.Chdir(root)
@@ -1216,16 +1346,27 @@ func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 		}
 	}
 
-	var adp adpPlaceholderRecord
 	line := strings.TrimSpace(readTextFile(t, exportPath))
+	var adp adpStrictTrajectory
 	if err := json.Unmarshal([]byte(line), &adp); err != nil {
-		t.Fatalf("decode ADP placeholder JSONL: %v\n%s", err, line)
+		t.Fatalf("decode ADP strict JSONL: %v\n%s", err, line)
 	}
-	if got, want := adp.SessionID, "claude-session-0001"; got != want {
-		t.Fatalf("adp session_id = %q, want %q", got, want)
+	if got, want := adp.SchemaVersion, adpStrictSchemaVersion; got != want {
+		t.Fatalf("adp schema_version = %q, want %q", got, want)
 	}
-	if !adp.Placeholder {
-		t.Fatal("adp placeholder flag = false, want true")
+	if got, want := adp.ID, "claude-session-0001"; got != want {
+		t.Fatalf("adp id = %q, want %q", got, want)
+	}
+	if got, want := adp.Details.Source, claudeCodeSource; got != want {
+		t.Fatalf("adp details.source = %q, want %q", got, want)
+	}
+	if got := line; strings.Contains(got, "placeholder") || strings.Contains(got, "x-qratum-") || strings.Contains(got, "secret_map") || strings.Contains(got, "provenance") || strings.Contains(got, "artifact_paths") {
+		t.Fatalf("adp export contains placeholder or Qratum-only internals: %s", got)
+	}
+	for _, want := range []string{`"class_":"TextObservation"`, `"class_":"ApiAction"`, `"class_":"CodeAction"`, `"source":"agent"`, `"source":"environment"`} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("adp export = %s, missing %s", line, want)
+		}
 	}
 }
 
@@ -1545,6 +1686,30 @@ func writeEvidenceFixture(t *testing.T, root string, name string) {
 	if err := os.WriteFile(target, readEvidenceFixture(t, name), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func writeADPExportSessionFixture(t *testing.T, root string) string {
+	t.Helper()
+	var session qratumSession
+	if err := json.Unmarshal(readFixture(t, "transcript-verification-gap.normalized.golden.json"), &session); err != nil {
+		t.Fatalf("decode normalized fixture: %v", err)
+	}
+	session.SessionID = "ses_0001"
+	session.ArtifactPaths = nil
+	session.SourceEventID = ""
+	session.SourceEventType = ""
+	session.SourceEventTimestamp = ""
+	session.SourceTranscriptSessionID = ""
+	session.TranscriptPath = ""
+	session.PipelineStatus = ""
+	path := filepath.Join(root, ".qratum", "sessions", "ses_0001.normalized.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, mustJSON(session), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return filepath.ToSlash(path)
 }
 
 func spoolHookFixture(t *testing.T, fixture string) {
