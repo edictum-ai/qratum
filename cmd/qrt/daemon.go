@@ -39,15 +39,6 @@ type daemonArtifactFile struct {
 	abs string
 }
 
-type adpPlaceholderRecord struct {
-	RecordType  string `json:"record_type"`
-	SessionID   string `json:"session_id"`
-	Source      string `json:"source"`
-	EventType   string `json:"event_type"`
-	Timestamp   string `json:"timestamp"`
-	Placeholder bool   `json:"placeholder"`
-}
-
 type apiErrorResponse struct {
 	SchemaVersion string       `json:"schema_version"`
 	Error         apiErrorBody `json:"error"`
@@ -145,7 +136,7 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			return summary, fmt.Errorf("event %s normalize transcript %s: %w", event.EventID, displayPath(projectRoot, transcriptPath), err)
 		}
 
-		if err := writePipelineArtifacts(projectRoot, event, artifacts, session); err != nil {
+		if err := writePipelineArtifacts(projectRoot, artifacts, session); err != nil {
 			return summary, err
 		}
 		summary.Processed++
@@ -324,7 +315,7 @@ func requireTranscriptFile(path string, projectRoot string, original string) err
 	return nil
 }
 
-func writePipelineArtifacts(projectRoot string, event captureEvent, paths daemonArtifactPaths, session qratumSession) error {
+func writePipelineArtifacts(projectRoot string, paths daemonArtifactPaths, session qratumSession) error {
 	redactedSession, err := redactQratumSession(session)
 	if err != nil {
 		return fmt.Errorf("redact session %s: %w", session.SessionID, err)
@@ -345,6 +336,11 @@ func writePipelineArtifacts(projectRoot string, event captureEvent, paths daemon
 		}
 	}
 
+	adpExport, err := buildADPStrictJSONL(redactedSession)
+	if err != nil {
+		return fmt.Errorf("build ADP strict export for session %s: %w", session.SessionID, err)
+	}
+
 	writes := []struct {
 		path string
 		data []byte
@@ -353,7 +349,7 @@ func writePipelineArtifacts(projectRoot string, event captureEvent, paths daemon
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(redactedSession)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(evidenceBundle)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(reviewCard)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Export)), buildADPPlaceholder(event)},
+		{filepath.Join(projectRoot, filepath.FromSlash(paths.Export)), adpExport},
 	}
 
 	for _, write := range writes {
@@ -379,22 +375,6 @@ func writePipelineArtifacts(projectRoot string, event captureEvent, paths daemon
 		return fmt.Errorf("write artifact %s: %w", displayPath(projectRoot, reportPath), err)
 	}
 	return nil
-}
-
-func buildADPPlaceholder(event captureEvent) []byte {
-	record := adpPlaceholderRecord{
-		RecordType:  "placeholder",
-		SessionID:   event.SessionRef.SessionID,
-		Source:      event.Source,
-		EventType:   event.EventType,
-		Timestamp:   event.Timestamp,
-		Placeholder: true,
-	}
-	data, err := json.Marshal(record)
-	if err != nil {
-		panic(err)
-	}
-	return append(data, '\n')
 }
 
 func mustJSON(value any) []byte {
