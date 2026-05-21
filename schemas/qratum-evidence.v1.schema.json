@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-evidence.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "session_id", "summary", "findings", "missing_evidence"],
+  "properties": {
+    "schema_version": { "const": "qratum.evidence.v1" },
+    "session_id": { "type": "string" },
+    "summary": { "type": "object" },
+    "findings": { "type": "array" },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } }
+  }
+}

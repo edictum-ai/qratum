@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/ui/artifact-link.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "artifact_id", "session_id", "type", "label", "media_type", "href", "digest", "created_at"],
+  "properties": {
+    "schema_version": { "const": "qratum.ui.artifact_link.v1" },
+    "type": {
+      "enum": ["html_report", "adp_strict_export", "redacted_session", "evidence_bundle", "review_card", "share_card"]
+    }
+  }
+}

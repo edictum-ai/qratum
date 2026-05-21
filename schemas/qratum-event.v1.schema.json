@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-event.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "event_id", "source", "event_type", "timestamp", "session_ref", "workspace"],
+  "properties": {
+    "schema_version": { "const": "qratum.event.v1" },
+    "event_id": { "type": "string" },
+    "source": { "enum": ["claude-code"] },
+    "event_type": { "enum": ["session_start", "session_end"] },
+    "timestamp": { "type": "string" },
+    "session_ref": { "type": "object" },
+    "workspace": { "type": "object" }
+  }
+}

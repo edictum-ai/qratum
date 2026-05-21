@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-session.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "session_id", "source", "turns", "tool_calls", "file_changes", "commands"],
+  "properties": {
+    "schema_version": { "const": "qratum.session.v1" },
+    "session_id": { "type": "string" },
+    "source": { "type": "string" },
+    "agent_model": { "type": "string" },
+    "turns": { "type": "array" },
+    "tool_calls": { "type": "array" },
+    "file_changes": { "type": "array" },
+    "commands": { "type": "array" }
+  }
+}

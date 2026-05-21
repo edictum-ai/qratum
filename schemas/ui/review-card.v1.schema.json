@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/ui/review-card.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "verdict", "main_finding", "evidence", "suggested_next_habit", "warnings"],
+  "properties": {
+    "schema_version": { "const": "qratum.ui.review_card.v1" },
+    "verdict": { "enum": ["clean", "needs_attention"] }
+  }
+}

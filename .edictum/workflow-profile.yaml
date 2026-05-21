@@ -1,0 +1,13 @@
+name: qratum-milestone-a
+description: Qratum Milestone A local vertical slice workflow.
+required_files:
+  - AGENTS.md
+  - README.md
+setup:
+  commands:
+    - go mod download
+verify:
+  commands:
+    - go test ./...
+    - make build
+    - make demo

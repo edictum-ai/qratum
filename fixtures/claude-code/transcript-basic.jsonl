@@ -1,0 +1,9 @@
+{"type":"session_start","session_id":"claude-session-0001","timestamp":"2026-05-21T21:20:00Z","model":"claude-sonnet-4-6"}
+{"type":"user","timestamp":"2026-05-21T21:21:00Z","content":"Create a small Go CLI skeleton for qrt."}
+{"type":"assistant","timestamp":"2026-05-21T21:22:00Z","content":"I will inspect the repository and create the CLI skeleton."}
+{"type":"tool_use","timestamp":"2026-05-21T21:23:00Z","name":"Read","input":{"file_path":"README.md"}}
+{"type":"tool_result","timestamp":"2026-05-21T21:23:01Z","name":"Read","success":true,"content":"# qratum"}
+{"type":"tool_use","timestamp":"2026-05-21T21:24:00Z","name":"Write","input":{"file_path":"cmd/qrt/main.go","content":"package main\n\nfunc main() {}\n"}}
+{"type":"tool_result","timestamp":"2026-05-21T21:24:01Z","name":"Write","success":true,"content":"created cmd/qrt/main.go"}
+{"type":"assistant","timestamp":"2026-05-21T21:25:00Z","content":"Created the CLI skeleton."}
+{"type":"session_end","session_id":"claude-session-0001","timestamp":"2026-05-21T21:26:00Z"}

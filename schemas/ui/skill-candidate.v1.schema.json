@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/ui/skill-candidate.v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": { "const": "qratum.ui.skill_candidate.v1" }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/ui/session-list-item.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "session_id", "source", "repo", "review", "metrics", "artifacts"],
+  "properties": {
+    "schema_version": { "const": "qratum.ui.session_list_item.v1" },
+    "session_id": { "type": "string" },
+    "source": { "type": "string" },
+    "agent_model": { "type": "string" }
+  }
+}

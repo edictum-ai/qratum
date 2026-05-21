@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-review-card.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "session_id", "verdict", "main_finding", "evidence", "suggested_next_habit", "warnings"],
+  "properties": {
+    "schema_version": { "const": "qratum.review_card.v1" },
+    "session_id": { "type": "string" },
+    "verdict": { "enum": ["clean", "needs_attention"] },
+    "main_finding": { "type": "string" },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "suggested_next_habit": { "type": "string" },
+    "suggested_skill": { "type": "string" },
+    "warnings": { "type": "array" }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "session_id": "claude-session-0001",
+  "transcript_path": "fixtures/claude-code/transcript-basic.jsonl",
+  "cwd": "/Users/acartagena/project/qratum",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}

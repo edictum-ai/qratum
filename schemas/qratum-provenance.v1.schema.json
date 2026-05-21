@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-provenance.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "canonicalization", "digests", "local_only"],
+  "properties": {
+    "schema_version": { "const": "qratum.provenance.v1" },
+    "canonicalization": { "type": "string" },
+    "digests": { "type": "object" },
+    "local_only": { "type": "object" }
+  }
+}
