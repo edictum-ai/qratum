@@ -76,6 +76,45 @@ func TestUISessionJSONEmitsDetailDTOFixture(t *testing.T) {
 	}
 }
 
+func TestBuildUISessionDetailUsesRedactedSourceMetadata(t *testing.T) {
+	detail := buildUISessionDetail(uiSessionContext{
+		session: qratumSession{
+			SessionID:                 "ses_redaction_surface",
+			SourceEventID:             "raw-event-id",
+			SourceEventType:           "raw-event-type",
+			SourceEventTimestamp:      "2026-05-21T10:00:00Z",
+			SourceTranscriptSessionID: "raw-transcript-session-id",
+			Turns:                     []qratumTurn{{Role: "assistant", Content: "ok"}},
+			BusinessMetrics:           qratumBusinessMetrics{DurationSeconds: 12},
+		},
+		redacted: qratumSession{
+			SourceEventID:             "redacted-event-id",
+			SourceEventType:           "redacted-event-type",
+			SourceEventTimestamp:      "2026-05-21T11:00:00Z",
+			SourceTranscriptSessionID: "[REDACTED_SOURCE_TRANSCRIPT_SESSION_ID_001]",
+		},
+		evidence: evidenceBundle{
+			Summary: evidenceBundleSummary{Status: evidenceStatusComplete},
+		},
+	})
+
+	if got, want := detail.Time.SourceEventTimestamp, "2026-05-21T11:00:00Z"; got != want {
+		t.Fatalf("time source_event_timestamp = %q, want %q", got, want)
+	}
+	if got, want := detail.Summary.SourceEventID, "redacted-event-id"; got != want {
+		t.Fatalf("summary source_event_id = %q, want %q", got, want)
+	}
+	if got, want := detail.Summary.SourceEventType, "redacted-event-type"; got != want {
+		t.Fatalf("summary source_event_type = %q, want %q", got, want)
+	}
+	if got, want := detail.Summary.SourceEventTimestamp, "2026-05-21T11:00:00Z"; got != want {
+		t.Fatalf("summary source_event_timestamp = %q, want %q", got, want)
+	}
+	if got, want := detail.Summary.SourceTranscriptSessionID, "[REDACTED_SOURCE_TRANSCRIPT_SESSION_ID_001]"; got != want {
+		t.Fatalf("summary source_transcript_session_id = %q, want %q", got, want)
+	}
+}
+
 func TestUIReviewJSONEmitsReviewDTOFixture(t *testing.T) {
 	root := t.TempDir()
 	seedUIFixtureArtifacts(t, root)

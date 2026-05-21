@@ -17,16 +17,12 @@ const (
 	findingFinalEditAfterLastTest   = "verification.final_edit_after_last_test"
 	findingMissingFinalVerification = "verification.missing_final_verification"
 	findingRepeatedFailingCommand   = "reliability.repeated_failing_command"
-	findingRedactionSecretDetected  = "redaction.secret_detected"
-	findingRedactionPathRedacted    = "redaction.path_redacted"
 )
 
 var supportedEvidenceFindingTypes = map[string]struct{}{
 	findingFinalEditAfterLastTest:   {},
 	findingMissingFinalVerification: {},
 	findingRepeatedFailingCommand:   {},
-	findingRedactionSecretDetected:  {},
-	findingRedactionPathRedacted:    {},
 }
 
 type evidenceBundle struct {

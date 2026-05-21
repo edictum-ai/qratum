@@ -145,7 +145,6 @@ type uiSessionContext struct {
 	redacted  qratumSession
 	evidence  evidenceBundle
 	review    reviewCard
-	paths     daemonArtifactPaths
 	artifacts []uiArtifactLink
 }
 
@@ -165,14 +164,6 @@ var uiSupportedFindingTypes = map[string]uiFindingPresentation{
 	},
 	findingRepeatedFailingCommand: {
 		severity:   "medium",
-		confidence: "high",
-	},
-	findingRedactionSecretDetected: {
-		severity:   "high",
-		confidence: "high",
-	},
-	findingRedactionPathRedacted: {
-		severity:   "low",
 		confidence: "high",
 	},
 }
@@ -402,7 +393,6 @@ func loadUISessionContext(projectRoot string, sessionPath string, session qratum
 		redacted:  redacted,
 		evidence:  evidence,
 		review:    review,
-		paths:     paths,
 		artifacts: artifacts,
 	}, nil
 }
@@ -661,14 +651,14 @@ func buildUISessionDetail(context uiSessionContext) uiSessionDetail {
 			StartedAt:            context.session.StartedAt,
 			EndedAt:              context.session.EndedAt,
 			DurationSeconds:      context.session.BusinessMetrics.DurationSeconds,
-			SourceEventTimestamp: context.session.SourceEventTimestamp,
+			SourceEventTimestamp: context.redacted.SourceEventTimestamp,
 		},
 		Summary: uiSessionSummary{
 			Status:                    context.evidence.Summary.Status,
-			SourceEventID:             context.session.SourceEventID,
-			SourceEventType:           context.session.SourceEventType,
-			SourceEventTimestamp:      context.session.SourceEventTimestamp,
-			SourceTranscriptSessionID: context.session.SourceTranscriptSessionID,
+			SourceEventID:             context.redacted.SourceEventID,
+			SourceEventType:           context.redacted.SourceEventType,
+			SourceEventTimestamp:      context.redacted.SourceEventTimestamp,
+			SourceTranscriptSessionID: context.redacted.SourceTranscriptSessionID,
 			Turns:                     len(context.session.Turns),
 			ToolCalls:                 context.session.BusinessMetrics.ToolCalls,
 			FilesChanged:              context.session.BusinessMetrics.FilesChanged,
