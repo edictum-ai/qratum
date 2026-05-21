@@ -4,6 +4,20 @@
 
 Implement `qrt hook claude-code`.
 
+## Decision Trace
+
+- ADR 0002: daemon and hook model.
+- ADR 0004: filesystem JSON for Milestone A.
+- ADR 0007: local-first raw storage.
+
+## Behavior Contract
+
+- The hook reads JSON from stdin and writes exactly one CaptureEvent per call.
+- `transcript_path` comes from the hook payload.
+- Unknown hook fields are tolerated.
+- The hook does not parse transcripts, redact, render reports, export ADP, call
+  network, or call LLMs.
+
 ## Deliverables
 
 - Read Claude Code hook JSON from stdin.
@@ -17,7 +31,7 @@ Implement `qrt hook claude-code`.
 Do not parse full transcripts, redact, generate reviews, render reports, export
 ADP, call network, or call LLMs.
 
-## Acceptance
+## Verification
 
 ```sh
 rm -rf .qratum
@@ -25,3 +39,13 @@ cat fixtures/claude-code/hook-session-end.json | ./bin/qrt hook claude-code
 test -n "$(find .qratum/events -name '*.json' -print -quit)"
 go test ./...
 ```
+
+## Drift Handling
+
+If real Claude Code hook payloads differ from the fixture, add a redacted
+fixture and keep the parser tolerant rather than hardcoding local paths.
+
+## Slop Review
+
+- Attack any hook path that takes more than tiny enqueue work.
+- Test invalid hook payloads and missing `transcript_path`.

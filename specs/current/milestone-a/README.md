@@ -14,6 +14,30 @@ run-once -> transcript_path parser -> QratumSession -> deterministic
 redaction -> EvidenceBundle -> ReviewCard -> UI DTOs -> static HTML report ->
 ADP strict JSONL export.
 
+## Decision Trace
+
+- ADR 0001: Go single binary.
+- ADR 0002: daemon and hook model.
+- ADR 0003: ADP as boundary.
+- ADR 0004: filesystem JSON for Milestone A.
+- ADR 0005: compact evidence judging.
+- ADR 0006: review not score.
+- ADR 0007: local-first raw storage.
+- ADR 0008: GitHub only.
+- ADR 0009: UI contract first.
+
+## Behavior Contract
+
+- Milestone A stays local-only and filesystem-only.
+- `qrt hook claude-code` reads hook JSON from stdin, writes one CaptureEvent,
+  and exits without parsing transcripts, calling network, or invoking LLMs.
+- `qrt daemon run-once` owns heavy work and produces the expected artifact set.
+- UI outputs are DTOs, not raw transcripts, Qratum internals, ADP internals,
+  redaction internals, or provenance internals.
+- Review output leads with evidence and one next habit, never a score.
+- ADP strict export is an interchange boundary and must not include Qratum-only
+  fields.
+
 ## Non-goals
 
 Do not implement enterprise server, marketplace, Codex, OpenCode, Copilot,
@@ -42,6 +66,16 @@ cat fixtures/claude-code/hook-session-end.json | ./bin/qrt hook claude-code
 
 and print all generated artifact paths.
 
+## Drift Handling
+
+- If a stage needs a database, server, web UI, marketplace, non-Claude adapter,
+  LLM call, encrypted vault, or Edictum dependency, stop and add a new ADR
+  before implementation.
+- If fixture output changes intentionally, update the golden fixture and explain
+  the contract change in the task completion.
+- If the Claude Code fixture shape proves wrong against a real transcript,
+  add a redacted fixture and document the parser tolerance added.
+
 ## Execution Order
 
 | # | Prompt | Scope | Deliverable | Status | Depends On |
@@ -68,3 +102,5 @@ and print all generated artifact paths.
 - Attack any ADP export that includes `x-qratum-*` fields or Qratum internals.
 - Attack any output that depends on wall-clock time instead of fixture
   timestamps.
+- Test the behavior with `make demo`; do not accept shape-only code that leaves
+  the vertical slice broken.
