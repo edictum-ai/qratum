@@ -1,0 +1,27 @@
+{
+  "schema_version": "qratum.review_card.v1",
+  "session_id": "ses_0001",
+  "verdict": "needs_attention",
+  "main_finding": "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+  "evidence": [
+    "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+    "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+    "2026-05-21T21:41:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+    "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
+    "missing: successful verification command after 2026-05-21T21:55:00Z",
+    "\"go test ./...\" failed 2 times in this session.",
+    "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted"
+  ],
+  "suggested_next_habit": "After the last edit, run the project's verification command and keep the result in the session.",
+  "suggested_skill": "final-verification-loop",
+  "warnings": [
+    "successful verification command after 2026-05-21T21:55:00Z"
+  ],
+  "artifact_paths": {
+    "session": "fixtures/evidence/verification-gap.input.json",
+    "evidence": ".qratum/evidence/ses_0001.evidence.json",
+    "review": ".qratum/reviews/ses_0001.review.json",
+    "report": ".qratum/reports/ses_0001.html",
+    "export": ".qratum/exports/ses_0001.adp.jsonl"
+  }
+}
