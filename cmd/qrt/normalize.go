@@ -15,29 +15,30 @@ import (
 const maxTranscriptLineBytes = 10 << 20
 
 type qratumSession struct {
-	SchemaVersion             string                `json:"schema_version"`
-	SessionID                 string                `json:"session_id"`
-	Source                    string                `json:"source"`
-	AgentModel                string                `json:"agent_model,omitempty"`
-	WorkspaceID               string                `json:"workspace_id,omitempty"`
-	RepoID                    string                `json:"repo_id,omitempty"`
-	StartedAt                 string                `json:"started_at,omitempty"`
-	EndedAt                   string                `json:"ended_at,omitempty"`
-	Turns                     []qratumTurn          `json:"turns"`
-	ToolCalls                 []qratumToolCall      `json:"tool_calls"`
-	FileChanges               []qratumFileChange    `json:"file_changes"`
-	Commands                  []qratumCommand       `json:"commands"`
-	Git                       *qratumGitInfo        `json:"git,omitempty"`
-	Workspace                 *captureWorkspaceRef  `json:"workspace,omitempty"`
-	SourceEventID             string                `json:"source_event_id,omitempty"`
-	SourceEventType           string                `json:"source_event_type,omitempty"`
-	SourceEventTimestamp      string                `json:"source_event_timestamp,omitempty"`
-	SourceTranscriptSessionID string                `json:"source_transcript_session_id,omitempty"`
-	TranscriptPath            string                `json:"transcript_path,omitempty"`
-	PipelineStatus            string                `json:"pipeline_status,omitempty"`
-	ArtifactPaths             *daemonArtifactPaths  `json:"artifact_paths,omitempty"`
-	BusinessMetrics           qratumBusinessMetrics `json:"business_metrics"`
-	Provenance                map[string]any        `json:"provenance"`
+	SchemaVersion             string                  `json:"schema_version"`
+	SessionID                 string                  `json:"session_id"`
+	Source                    string                  `json:"source"`
+	AgentModel                string                  `json:"agent_model,omitempty"`
+	WorkspaceID               string                  `json:"workspace_id,omitempty"`
+	RepoID                    string                  `json:"repo_id,omitempty"`
+	StartedAt                 string                  `json:"started_at,omitempty"`
+	EndedAt                   string                  `json:"ended_at,omitempty"`
+	Turns                     []qratumTurn            `json:"turns"`
+	ToolCalls                 []qratumToolCall        `json:"tool_calls"`
+	FileChanges               []qratumFileChange      `json:"file_changes"`
+	Commands                  []qratumCommand         `json:"commands"`
+	Git                       *qratumGitInfo          `json:"git,omitempty"`
+	Workspace                 *captureWorkspaceRef    `json:"workspace,omitempty"`
+	SourceEventID             string                  `json:"source_event_id,omitempty"`
+	SourceEventType           string                  `json:"source_event_type,omitempty"`
+	SourceEventTimestamp      string                  `json:"source_event_timestamp,omitempty"`
+	SourceTranscriptSessionID string                  `json:"source_transcript_session_id,omitempty"`
+	TranscriptPath            string                  `json:"transcript_path,omitempty"`
+	PipelineStatus            string                  `json:"pipeline_status,omitempty"`
+	ArtifactPaths             *daemonArtifactPaths    `json:"artifact_paths,omitempty"`
+	BusinessMetrics           qratumBusinessMetrics   `json:"business_metrics"`
+	Redaction                 *qratumRedactionSummary `json:"redaction,omitempty"`
+	Provenance                map[string]any          `json:"provenance"`
 }
 
 type qratumTurn struct {

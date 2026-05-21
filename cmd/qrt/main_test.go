@@ -433,6 +433,140 @@ func TestNormalizeClaudeCodeVerificationGapFixtureMatchesGolden(t *testing.T) {
 	assertJSONEqual(t, stdout.Bytes(), readFixture(t, "transcript-verification-gap.normalized.golden.json"))
 }
 
+func TestRedactSecretSessionFixtureMatchesGolden(t *testing.T) {
+	t.Chdir(repoRoot(t))
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"redact", "fixtures/redaction/secret-session.input.json"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	assertJSONEqual(t, stdout.Bytes(), readRedactionFixture(t, "secret-session.redacted.golden.json"))
+
+	output := stdout.String()
+	for _, raw := range []string{
+		"sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890",
+		"supersecret",
+		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.signature",
+		"/Users/acartagena/project/qratum/.env",
+		"-----BEGIN PRIVATE KEY-----",
+		"MIIEvQIBADANBgkqhkiG9w0BAQEFAASC",
+		"fA9sD8f7Gh6Jk5Lm4Np3Qr2St1Uv0WxY",
+	} {
+		if strings.Contains(output, raw) {
+			t.Fatalf("redacted output leaked %q:\n%s", raw, output)
+		}
+	}
+	for _, want := range []string{
+		`"type": "redaction.secret_detected"`,
+		`"type": "redaction.path_redacted"`,
+		`"pipeline_status": "redacted"`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("redacted output = %s, missing %s", output, want)
+		}
+	}
+	if got := strings.Count(output, "[REDACTED_PATH_001]"); got < 2 {
+		t.Fatalf("[REDACTED_PATH_001] count = %d, want stable reuse in content and input", got)
+	}
+}
+
+func TestRedactRejectsMissingAndInvalidInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		setup     func(t *testing.T)
+		wantCode  int
+		wantError string
+	}{
+		{
+			name:      "missing session argument",
+			args:      []string{"redact"},
+			wantCode:  2,
+			wantError: "error: missing session path",
+		},
+		{
+			name:      "extra argument",
+			args:      []string{"redact", "one.json", "two.json"},
+			wantCode:  2,
+			wantError: "error: redact accepts exactly one session path",
+		},
+		{
+			name:      "missing file",
+			args:      []string{"redact", "missing.json"},
+			wantCode:  1,
+			wantError: "missing session missing.json",
+		},
+		{
+			name:      "relative path escaping project",
+			args:      []string{"redact", "../outside.json"},
+			wantCode:  1,
+			wantError: `session path "../outside.json" escapes current project`,
+		},
+		{
+			name: "invalid JSON",
+			args: []string{"redact", "bad.json"},
+			setup: func(t *testing.T) {
+				if err := os.WriteFile("bad.json", []byte("{not json"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: "invalid session JSON bad.json",
+		},
+		{
+			name: "unsupported schema",
+			args: []string{"redact", "bad-schema.json"},
+			setup: func(t *testing.T) {
+				data := `{"schema_version":"qratum.session.v2","session_id":"ses","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[]}`
+				if err := os.WriteFile("bad-schema.json", []byte(data), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: `unsupported schema_version "qratum.session.v2"`,
+		},
+		{
+			name: "missing session id",
+			args: []string{"redact", "missing-session-id.json"},
+			setup: func(t *testing.T) {
+				data := `{"schema_version":"qratum.session.v1","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[]}`
+				if err := os.WriteFile("missing-session-id.json", []byte(data), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantCode:  1,
+			wantError: "is missing session_id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			if tt.setup != nil {
+				tt.setup(t)
+			}
+			var stdout, stderr bytes.Buffer
+
+			code := run(tt.args, &stdout, &stderr)
+
+			if code != tt.wantCode {
+				t.Fatalf("exit code = %d, want %d", code, tt.wantCode)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), tt.wantError) {
+				t.Fatalf("stderr = %q, missing %q", stderr.String(), tt.wantError)
+			}
+		})
+	}
+}
+
 func TestNormalizeToleratesUnknownFieldsAndMissingOptionalTimestamps(t *testing.T) {
 	root := t.TempDir()
 	t.Chdir(root)
@@ -694,13 +828,28 @@ func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 		t.Fatalf("artifact_paths.export = %q, want %q", got, want)
 	}
 
-	var redacted pipelineSessionPlaceholder
+	var redacted qratumSession
 	readJSONFile(t, redactedPath, &redacted)
-	if got, want := redacted.PipelineStatus, "redaction_placeholder_pending"; got != want {
+	if got, want := redacted.PipelineStatus, "redacted"; got != want {
 		t.Fatalf("redacted pipeline_status = %q, want %q", got, want)
 	}
-	if strings.Contains(readTextFile(t, redactedPath), "fixtures/claude-code/transcript-verification-gap.jsonl") {
-		t.Fatalf("redacted placeholder leaked transcript path: %s", readTextFile(t, redactedPath))
+	if got, want := redacted.SessionID, session.SessionID; got != want {
+		t.Fatalf("redacted session_id = %q, want %q", got, want)
+	}
+	if redacted.Redaction == nil {
+		t.Fatal("redacted redaction summary is nil")
+	}
+	if got, want := redacted.Redaction.Status, "redacted"; got != want {
+		t.Fatalf("redaction status = %q, want %q", got, want)
+	}
+	if got := redacted.Redaction.PathPlaceholders; got == 0 {
+		t.Fatal("redaction path_placeholders = 0, want workspace cwd path redacted")
+	}
+	if strings.Contains(readTextFile(t, redactedPath), "/Users/acartagena/project/qratum") {
+		t.Fatalf("redacted daemon artifact leaked raw workspace path: %s", readTextFile(t, redactedPath))
+	}
+	if got, want := redacted.ArtifactPaths.Redacted, filepath.ToSlash(redactedPath); got != want {
+		t.Fatalf("redacted artifact_paths.redacted = %q, want %q", got, want)
 	}
 
 	var evidence evidencePlaceholder
@@ -1005,6 +1154,15 @@ func TestDaemonRunOnceRejectsBadArguments(t *testing.T) {
 func readFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(repoRoot(t), "fixtures", "claude-code", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func readRedactionFixture(t *testing.T, name string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), "fixtures", "redaction", name))
 	if err != nil {
 		t.Fatal(err)
 	}
