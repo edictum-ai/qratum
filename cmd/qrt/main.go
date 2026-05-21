@@ -43,6 +43,10 @@ func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Write
 		return status(stdout, stderr)
 	case "hook":
 		return hook(args[1:], stdin, stdout, stderr)
+	case "daemon":
+		return daemon(args[1:], stdout, stderr)
+	case "sessions":
+		return sessions(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unsupported command %q\n", args[0])
 		printUsage(stderr)
@@ -80,5 +84,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | sessions list")
 }
