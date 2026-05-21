@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"os"
 	"path/filepath"
@@ -354,7 +353,6 @@ func writePipelineArtifacts(projectRoot string, event captureEvent, paths daemon
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(redactedSession)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(evidenceBundle)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(reviewCard)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Report)), buildReportPlaceholder(event, paths)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Export)), buildADPPlaceholder(event)},
 	}
 
@@ -363,49 +361,24 @@ func writePipelineArtifacts(projectRoot string, event captureEvent, paths daemon
 			return fmt.Errorf("write artifact %s: %w", displayPath(projectRoot, write.path), err)
 		}
 	}
-	return nil
-}
 
-func buildReportPlaceholder(event captureEvent, paths daemonArtifactPaths) []byte {
-	var b strings.Builder
-	b.WriteString("<!doctype html>\n")
-	b.WriteString("<html lang=\"en\">\n<head>\n")
-	b.WriteString("<meta charset=\"utf-8\">\n")
-	b.WriteString("<title>Qratum Session ")
-	b.WriteString(html.EscapeString(event.SessionRef.SessionID))
-	b.WriteString("</title>\n")
-	b.WriteString("</head>\n<body>\n")
-	b.WriteString("<h1>Qratum Session ")
-	b.WriteString(html.EscapeString(event.SessionRef.SessionID))
-	b.WriteString("</h1>\n")
-	b.WriteString("<p>Pipeline shell placeholder generated for event ")
-	b.WriteString(html.EscapeString(event.EventID))
-	b.WriteString(".</p>\n")
-	b.WriteString("<p>Event timestamp: ")
-	b.WriteString(html.EscapeString(event.Timestamp))
-	b.WriteString("</p>\n")
-	b.WriteString("<h2>Artifact paths</h2>\n<ul>\n")
-	for _, item := range []struct {
-		label string
-		path  string
-	}{
-		{"Event", paths.Event},
-		{"Session", paths.Session},
-		{"Redacted", paths.Redacted},
-		{"Evidence", paths.Evidence},
-		{"Review", paths.Review},
-		{"Report", paths.Report},
-		{"Export", paths.Export},
-	} {
-		b.WriteString("<li>")
-		b.WriteString(html.EscapeString(item.label))
-		b.WriteString(": ")
-		b.WriteString(html.EscapeString(item.path))
-		b.WriteString("</li>\n")
+	reportData, err := buildReportDocument(projectRoot, reportContext{
+		session:     session,
+		redacted:    redactedSession,
+		evidence:    evidenceBundle,
+		review:      reviewCard,
+		paths:       paths,
+		sessionPath: paths.Session,
+		artifactsAt: uiArtifactCreatedAt(session, evidenceBundle),
+	})
+	if err != nil {
+		return fmt.Errorf("build report for session %s: %w", session.SessionID, err)
 	}
-	b.WriteString("</ul>\n")
-	b.WriteString("</body>\n</html>\n")
-	return []byte(b.String())
+	reportPath := filepath.Join(projectRoot, filepath.FromSlash(paths.Report))
+	if err := writeFileAtomic(reportPath, reportData, 0o644); err != nil {
+		return fmt.Errorf("write artifact %s: %w", displayPath(projectRoot, reportPath), err)
+	}
+	return nil
 }
 
 func buildADPPlaceholder(event captureEvent) []byte {

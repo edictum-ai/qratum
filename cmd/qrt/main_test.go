@@ -1186,11 +1186,34 @@ func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 	}
 
 	report := readTextFile(t, reportPath)
-	if !strings.Contains(report, "Pipeline shell placeholder generated") {
-		t.Fatalf("report = %q, want placeholder message", report)
+	for _, want := range []string{
+		"<h2>Session summary</h2>",
+		"<h2>Review card</h2>",
+		"<h2>Evidence findings</h2>",
+		"<h2>Missing evidence</h2>",
+		"<h2>Redaction summary</h2>",
+		"<h2>Artifacts</h2>",
+		"<h2>Provenance digests</h2>",
+		"sha256:",
+		"successful verification command after 2026-05-21T21:55:00Z",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report = %q, missing %q", report, want)
+		}
 	}
-	if strings.Contains(report, "FAIL ./internal/redaction") {
-		t.Fatalf("report rendered raw transcript content: %q", report)
+	for _, banned := range []string{
+		"Pipeline shell placeholder generated",
+		"Implement deterministic redaction for obvious secrets.",
+		`"turns": [`,
+		`"tool_calls": [`,
+		`"secret_map"`,
+		"<script",
+		"<link",
+		`href="javascript:`,
+	} {
+		if strings.Contains(report, banned) {
+			t.Fatalf("report contains banned content %q: %q", banned, report)
+		}
 	}
 
 	var adp adpPlaceholderRecord
