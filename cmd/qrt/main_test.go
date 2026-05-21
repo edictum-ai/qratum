@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -402,6 +403,186 @@ func TestHookClaudeCodeRejectsBadArguments(t *testing.T) {
 	}
 }
 
+func TestNormalizeClaudeCodeBasicFixtureMatchesGolden(t *testing.T) {
+	t.Chdir(repoRoot(t))
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"normalize", "fixtures/claude-code/transcript-basic.jsonl"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	assertJSONEqual(t, stdout.Bytes(), readFixture(t, "transcript-basic.normalized.golden.json"))
+}
+
+func TestNormalizeClaudeCodeVerificationGapFixtureMatchesGolden(t *testing.T) {
+	t.Chdir(repoRoot(t))
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"normalize", "fixtures/claude-code/transcript-verification-gap.jsonl"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	assertJSONEqual(t, stdout.Bytes(), readFixture(t, "transcript-verification-gap.normalized.golden.json"))
+}
+
+func TestNormalizeToleratesUnknownFieldsAndMissingOptionalTimestamps(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	transcript := strings.Join([]string{
+		`{"type":"session_start","session_id":"claude-session-tolerant","model":"claude-sonnet-4-6","unknown":{"ignored":true}}`,
+		`{"type":"user","content":"Run the tests.","extra":"ignored"}`,
+		`{"type":"tool_use","name":"Bash","input":{"command":"go test ./..."},"unexpected":[1,2,3]}`,
+		`{"type":"tool_result","name":"Bash","success":true,"content":"ok ./...","timestamp":"2026-05-21T21:23:00Z"}`,
+		`{"type":"session_end","session_id":"claude-session-tolerant","timestamp":"2026-05-21T21:24:00Z"}`,
+	}, "\n") + "\n"
+	if err := os.WriteFile("transcript.jsonl", []byte(transcript), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"normalize", "transcript.jsonl"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	var session qratumSession
+	if err := json.Unmarshal(stdout.Bytes(), &session); err != nil {
+		t.Fatalf("decode normalized session: %v\n%s", err, stdout.String())
+	}
+	if got, want := session.SessionID, "claude-session-tolerant"; got != want {
+		t.Fatalf("session_id = %q, want %q", got, want)
+	}
+	if got, want := session.AgentModel, "claude-sonnet-4-6"; got != want {
+		t.Fatalf("agent_model = %q, want %q", got, want)
+	}
+	if got, want := len(session.Turns), 1; got != want {
+		t.Fatalf("turn count = %d, want %d", got, want)
+	}
+	if got, want := session.Turns[0].Timestamp, ""; got != want {
+		t.Fatalf("turn timestamp = %q, want missing optional timestamp to remain empty", got)
+	}
+	if got, want := len(session.Commands), 1; got != want {
+		t.Fatalf("command count = %d, want %d", got, want)
+	}
+	if session.Commands[0].Success == nil || !*session.Commands[0].Success {
+		t.Fatalf("command success = %v, want true", session.Commands[0].Success)
+	}
+	if got, want := session.BusinessMetrics.TestsRun, 1; got != want {
+		t.Fatalf("tests_run = %d, want %d", got, want)
+	}
+}
+
+func TestNormalizeFailsOnMalformedJSONL(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	transcript := strings.Join([]string{
+		`{"type":"session_start","session_id":"claude-session-bad"}`,
+		`{not json}`,
+	}, "\n") + "\n"
+	if err := os.WriteFile("bad.jsonl", []byte(transcript), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"normalize", "bad.jsonl"}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "line 2: invalid JSON") {
+		t.Fatalf("stderr = %q, want malformed line error", stderr.String())
+	}
+}
+
+func TestNormalizeRejectsUnsupportedRecordType(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	transcript := `{"type":"summary","session_id":"claude-session-drift","content":"future drift"}`
+	if err := os.WriteFile("drift.jsonl", []byte(transcript+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"normalize", "drift.jsonl"}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), `unsupported transcript record type "summary"`) {
+		t.Fatalf("stderr = %q, want unsupported record type error", stderr.String())
+	}
+}
+
+func TestNormalizeRejectsMissingAndInvalidInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantCode  int
+		wantError string
+	}{
+		{
+			name:      "missing transcript argument",
+			args:      []string{"normalize"},
+			wantCode:  2,
+			wantError: "error: missing transcript path",
+		},
+		{
+			name:      "extra argument",
+			args:      []string{"normalize", "one.jsonl", "two.jsonl"},
+			wantCode:  2,
+			wantError: "error: normalize accepts exactly one transcript path",
+		},
+		{
+			name:      "missing file",
+			args:      []string{"normalize", "missing.jsonl"},
+			wantCode:  1,
+			wantError: `missing transcript missing.jsonl`,
+		},
+		{
+			name:      "relative path escaping project",
+			args:      []string{"normalize", "../outside.jsonl"},
+			wantCode:  1,
+			wantError: `relative path "../outside.jsonl" escapes current project`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			var stdout, stderr bytes.Buffer
+
+			code := run(tt.args, &stdout, &stderr)
+
+			if code != tt.wantCode {
+				t.Fatalf("exit code = %d, want %d", code, tt.wantCode)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), tt.wantError) {
+				t.Fatalf("stderr = %q, missing %q", stderr.String(), tt.wantError)
+			}
+		})
+	}
+}
+
 func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 	root := t.TempDir()
 	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
@@ -435,7 +616,7 @@ func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 	reportPath := singleGlob(t, ".qratum/reports/*.html")
 	exportPath := singleGlob(t, ".qratum/exports/*.adp.jsonl")
 
-	var session pipelineSessionPlaceholder
+	var session qratumSession
 	readJSONFile(t, sessionPath, &session)
 	if got, want := session.SchemaVersion, qratumSessionSchemaVersion; got != want {
 		t.Fatalf("session schema_version = %q, want %q", got, want)
@@ -452,8 +633,47 @@ func TestDaemonRunOnceGeneratesPlaceholderArtifactsFromHookEvent(t *testing.T) {
 	if got, want := session.SourceEventTimestamp, defaultHookTimestamp; got != want {
 		t.Fatalf("source_event_timestamp = %q, want deterministic hook timestamp %q", got, want)
 	}
+	if got, want := session.SourceTranscriptSessionID, "claude-session-verify-gap"; got != want {
+		t.Fatalf("source_transcript_session_id = %q, want %q", got, want)
+	}
 	if got, want := session.TranscriptPath, "fixtures/claude-code/transcript-verification-gap.jsonl"; got != want {
 		t.Fatalf("transcript_path = %q, want %q", got, want)
+	}
+	if got, want := session.PipelineStatus, "normalized"; got != want {
+		t.Fatalf("pipeline_status = %q, want %q", got, want)
+	}
+	if got, want := session.AgentModel, "claude-sonnet-4-6"; got != want {
+		t.Fatalf("agent_model = %q, want %q", got, want)
+	}
+	if got, want := session.StartedAt, "2026-05-21T21:20:00Z"; got != want {
+		t.Fatalf("started_at = %q, want %q", got, want)
+	}
+	if got, want := session.EndedAt, "2026-05-21T22:10:00Z"; got != want {
+		t.Fatalf("ended_at = %q, want %q", got, want)
+	}
+	if got, want := len(session.Turns), 3; got != want {
+		t.Fatalf("turn count = %d, want %d", got, want)
+	}
+	if got, want := len(session.ToolCalls), 5; got != want {
+		t.Fatalf("tool call count = %d, want %d", got, want)
+	}
+	if got, want := len(session.FileChanges), 2; got != want {
+		t.Fatalf("file change count = %d, want %d", got, want)
+	}
+	if got, want := session.FileChanges[1].Operation, "edit"; got != want {
+		t.Fatalf("file_changes[1].operation = %q, want %q", got, want)
+	}
+	if got, want := len(session.Commands), 2; got != want {
+		t.Fatalf("command count = %d, want %d", got, want)
+	}
+	if session.Commands[0].Success == nil || *session.Commands[0].Success {
+		t.Fatalf("commands[0].success = %v, want false", session.Commands[0].Success)
+	}
+	if got, want := session.BusinessMetrics.DurationSeconds, 3000; got != want {
+		t.Fatalf("duration_seconds = %d, want %d", got, want)
+	}
+	if session.ArtifactPaths == nil {
+		t.Fatal("artifact_paths is nil, want generated artifact paths")
 	}
 	if got, want := session.ArtifactPaths.Session, filepath.ToSlash(sessionPath); got != want {
 		t.Fatalf("artifact_paths.session = %q, want %q", got, want)
@@ -856,6 +1076,23 @@ func readTextFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func assertJSONEqual(t *testing.T, gotData []byte, wantData []byte) {
+	t.Helper()
+	var got any
+	if err := json.Unmarshal(gotData, &got); err != nil {
+		t.Fatalf("decode got JSON: %v\n%s", err, string(gotData))
+	}
+	var want any
+	if err := json.Unmarshal(wantData, &want); err != nil {
+		t.Fatalf("decode want JSON: %v\n%s", err, string(wantData))
+	}
+	if !reflect.DeepEqual(got, want) {
+		gotPretty, _ := json.MarshalIndent(got, "", "  ")
+		wantPretty, _ := json.MarshalIndent(want, "", "  ")
+		t.Fatalf("JSON mismatch\n got:\n%s\nwant:\n%s", gotPretty, wantPretty)
+	}
 }
 
 func qratumFiles(t *testing.T) []string {
