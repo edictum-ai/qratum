@@ -1,0 +1,169 @@
+kind: Spec
+metadata:
+  name: milestone-a-dispatch
+  project: qratum
+spec:
+  status: approved
+  document: |
+    Dispatch manifest for Qratum Milestone A.
+
+    Source spec: specs/current/milestone-a/README.md
+    Builder: gpt-5-5
+    Reviewer: opus
+
+    Each task prompt points agents to the canonical P-file in this directory.
+    The target is the local Qratum repo, so Ductum creates a Qratum worktree and
+    uses .edictum/workflow-profile.yaml for setup and verification.
+  tasks:
+    - name: P0-REPO-SKELETON-CLEANUP
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: simple
+      verification:
+        - go test ./...
+        - make build
+        - ./bin/qrt --version
+        - ./bin/qrt status
+      prompt: |
+        Implement specs/current/milestone-a/P0-REPO-SKELETON-CLEANUP.md.
+        Read SPEC.md, AGENTS.md, README.md, and the P0 file first.
+        Keep scope to the minimal qrt binary and build/status commands.
+
+    - name: P1-HOOK-SPOOL
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P0-REPO-SKELETON-CLEANUP]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P1-HOOK-SPOOL.md.
+        Build only the Claude Code hook CaptureEvent spool path.
+
+    - name: P2-DAEMON-RUN-ONCE
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P1-HOOK-SPOOL]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P2-DAEMON-RUN-ONCE.md.
+        Build the run-once daemon pipeline shell only.
+
+    - name: P3-CLAUDE-PARSER
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P2-DAEMON-RUN-ONCE]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P3-CLAUDE-PARSER.md.
+        Parse tolerant Claude-like JSONL fixtures into QratumSession.
+
+    - name: P4-REDACTION
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P3-CLAUDE-PARSER]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P4-REDACTION.md.
+        Build deterministic local redaction and golden tests only.
+
+    - name: P5-EVIDENCE-REVIEW
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P4-REDACTION]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P5-EVIDENCE-REVIEW.md.
+        Build deterministic findings and ReviewCard, with no scores or LLMs.
+
+    - name: P6-UI-DTO
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P5-EVIDENCE-REVIEW]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P6-UI-DTO.md.
+        Build UI DTO mappers and JSON CLI outputs, no HTTP server.
+
+    - name: P7-HTML-REPORT
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P6-UI-DTO]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P7-HTML-REPORT.md.
+        Render escaped static HTML with no JavaScript or external assets.
+
+    - name: P8-ADP-EXPORT
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P7-HTML-REPORT]
+      verification:
+        - go test ./...
+        - make build
+      prompt: |
+        Implement specs/current/milestone-a/P8-ADP-EXPORT.md.
+        Export fixture-constrained ADP strict JSONL without Qratum-only fields.
+
+    - name: P9-DEMO-HARDENING
+      target: qratum
+      repos:
+        - /Users/acartagena/project/qratum
+      assignedAgent: gpt-5-5
+      requiredRole: builder
+      complexity: standard
+      depends_on: [P8-ADP-EXPORT]
+      verification:
+        - go test ./...
+        - make build
+        - make demo
+      prompt: |
+        Implement specs/current/milestone-a/P9-DEMO-HARDENING.md.
+        Make make demo the full Milestone A vertical-slice proof.
