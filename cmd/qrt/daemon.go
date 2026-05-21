@@ -40,23 +40,6 @@ type daemonArtifactFile struct {
 	abs string
 }
 
-type pipelineSessionPlaceholder struct {
-	SchemaVersion        string               `json:"schema_version"`
-	SessionID            string               `json:"session_id"`
-	Source               string               `json:"source"`
-	Turns                []any                `json:"turns"`
-	ToolCalls            []any                `json:"tool_calls"`
-	FileChanges          []any                `json:"file_changes"`
-	Commands             []any                `json:"commands"`
-	SourceEventID        string               `json:"source_event_id"`
-	SourceEventType      string               `json:"source_event_type"`
-	SourceEventTimestamp string               `json:"source_event_timestamp"`
-	TranscriptPath       string               `json:"transcript_path,omitempty"`
-	Workspace            *captureWorkspaceRef `json:"workspace,omitempty"`
-	PipelineStatus       string               `json:"pipeline_status"`
-	ArtifactPaths        daemonArtifactPaths  `json:"artifact_paths"`
-}
-
 type evidencePlaceholder struct {
 	SchemaVersion   string              `json:"schema_version"`
 	SessionID       string              `json:"session_id"`
@@ -381,6 +364,11 @@ func requireTranscriptFile(path string, projectRoot string, original string) err
 }
 
 func writePipelinePlaceholders(projectRoot string, event captureEvent, paths daemonArtifactPaths, session qratumSession) error {
+	redactedSession, err := redactQratumSession(session)
+	if err != nil {
+		return fmt.Errorf("redact session %s: %w", session.SessionID, err)
+	}
+
 	files := artifactFilesForPaths(projectRoot, paths)
 	for _, file := range files {
 		if err := os.MkdirAll(filepath.Dir(file.abs), 0o755); err != nil {
@@ -393,7 +381,7 @@ func writePipelinePlaceholders(projectRoot string, event captureEvent, paths dae
 		data []byte
 	}{
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Session)), mustJSON(session)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(buildSessionPlaceholder(event, paths, false))},
+		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(redactedSession)},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(buildEvidencePlaceholder(event, paths))},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(buildReviewPlaceholder(event, paths))},
 		{filepath.Join(projectRoot, filepath.FromSlash(paths.Report)), buildReportPlaceholder(event, paths)},
@@ -406,34 +394,6 @@ func writePipelinePlaceholders(projectRoot string, event captureEvent, paths dae
 		}
 	}
 	return nil
-}
-
-func buildSessionPlaceholder(event captureEvent, paths daemonArtifactPaths, normalized bool) pipelineSessionPlaceholder {
-	status := "redaction_placeholder_pending"
-	transcriptPath := ""
-	var workspace *captureWorkspaceRef
-	if normalized {
-		status = "normalize_placeholder_pending"
-		transcriptPath = event.SessionRef.TranscriptPath
-		workspace = &event.Workspace
-	}
-
-	return pipelineSessionPlaceholder{
-		SchemaVersion:        qratumSessionSchemaVersion,
-		SessionID:            event.SessionRef.SessionID,
-		Source:               event.Source,
-		Turns:                []any{},
-		ToolCalls:            []any{},
-		FileChanges:          []any{},
-		Commands:             []any{},
-		SourceEventID:        event.EventID,
-		SourceEventType:      event.EventType,
-		SourceEventTimestamp: event.Timestamp,
-		TranscriptPath:       transcriptPath,
-		Workspace:            workspace,
-		PipelineStatus:       status,
-		ArtifactPaths:        paths,
-	}
 }
 
 func buildEvidencePlaceholder(event captureEvent, paths daemonArtifactPaths) evidencePlaceholder {
@@ -449,9 +409,10 @@ func buildEvidencePlaceholder(event captureEvent, paths daemonArtifactPaths) evi
 		},
 		Findings: []any{},
 		MissingEvidence: []string{
-			"normalize.not_implemented",
-			"redaction.not_implemented",
 			"evidence.not_implemented",
+			"review.not_implemented",
+			"report.not_implemented",
+			"export.not_implemented",
 		},
 		SourceEventID: event.EventID,
 		ArtifactPaths: paths,
