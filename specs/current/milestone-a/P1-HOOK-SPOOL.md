@@ -12,6 +12,19 @@ Implement `qrt hook claude-code`.
 
 ## Behavior Contract
 
+- CLI runtime must fail visibly when required input is missing or invalid.
+- Output schema evidence must preserve session IDs, artifact paths, and deterministic fixture timestamps.
+- Missing artifacts must reject the run or demo instead of being silently swallowed.
+- Verification output must be operator-visible when behavior fails.
+- Invalid config or input must refuse processing with an error.
+- Runtime resolution logic must remain scoped to the current project and session.
+- Evidence paths must round-trip through generated artifacts.
+- Session state must preserve source IDs instead of silently inventing replacements.
+- Runtime behavior must be deterministic under fixture inputs.
+- Missing or invalid files must fail loudly with an operator-visible message.
+- Output must preserve explicit evidence for every generated review or report.
+- Schema output must reject unsupported values rather than silently accepting drift.
+
 - The hook reads JSON from stdin and writes exactly one CaptureEvent per call.
 - `transcript_path` comes from the hook payload.
 - Unknown hook fields are tolerated.
@@ -46,6 +59,10 @@ If real Claude Code hook payloads differ from the fixture, add a redacted
 fixture and keep the parser tolerant rather than hardcoding local paths.
 
 ## Slop Review
+
+- Require behavioral tests for missing or invalid inputs.
+- Attack swallowed failures, missing explicit evidence, duplicate resolution logic, dead config, and future features.
+- Attack behavior contract drift where runtime output no longer matches fixture evidence.
 
 - Attack any hook path that takes more than tiny enqueue work.
 - Test invalid hook payloads and missing `transcript_path`.
