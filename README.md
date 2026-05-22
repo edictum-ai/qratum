@@ -39,10 +39,15 @@ best-effort alpha quality.
 ## Verification
 
 ```sh
-go test ./...
 make build
+make test
 make demo
+make dogfood-demo
+make supply-chain
+make security
 ```
+
+Use `make verify` for the full local CI mirror.
 
 ## Scope
 

@@ -352,9 +352,6 @@ func sanitizeADPMap(input map[string]any) map[string]any {
 		}
 		output[key] = sanitizeADPValue(value)
 	}
-	if output == nil {
-		return map[string]any{}
-	}
 	return output
 }
 

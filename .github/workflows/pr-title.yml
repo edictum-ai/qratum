@@ -1,0 +1,37 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require conventional PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          case "$PR_TITLE" in
+            feat:\ *|feat\(*\):\ *|feat!:\ *|feat\(*\)!:\ *|\
+            fix:\ *|fix\(*\):\ *|fix!:\ *|fix\(*\)!:\ *|\
+            docs:\ *|docs\(*\):\ *|docs!:\ *|docs\(*\)!:\ *|\
+            test:\ *|test\(*\):\ *|test!:\ *|test\(*\)!:\ *|\
+            refactor:\ *|refactor\(*\):\ *|refactor!:\ *|refactor\(*\)!:\ *|\
+            chore:\ *|chore\(*\):\ *|chore!:\ *|chore\(*\)!:\ *|\
+            ci:\ *|ci\(*\):\ *|ci!:\ *|ci\(*\)!:\ *|\
+            build:\ *|build\(*\):\ *|build!:\ *|build\(*\)!:\ *|\
+            perf:\ *|perf\(*\):\ *|perf!:\ *|perf\(*\)!:\ *|\
+            revert:\ *)
+              exit 0
+              ;;
+          esac
+
+          echo "PR title must use a conventional commit prefix." >&2
+          echo "Allowed: feat, fix, docs, test, refactor, chore, ci, build, perf, revert." >&2
+          echo "Actual: $PR_TITLE" >&2
+          exit 1

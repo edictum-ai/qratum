@@ -399,7 +399,7 @@ func (p *claudeTranscriptParser) parseMessage(lineNo int, message map[string]jso
 
 func (p *claudeTranscriptParser) parseContentBlocks(lineNo int, raw json.RawMessage, role string, timestamp string) (bool, string, error) {
 	var blocks []map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &blocks); err != nil {
+	if json.Unmarshal(raw, &blocks) != nil {
 		return false, "", nil
 	}
 
@@ -687,7 +687,7 @@ func (p *claudeTranscriptParser) captureWorkspace(fields map[string]json.RawMess
 		return nil
 	}
 	var workspace captureWorkspaceRef
-	if err := json.Unmarshal(raw, &workspace); err != nil {
+	if json.Unmarshal(raw, &workspace) != nil {
 		return nil
 	}
 	workspace.CWD = strings.TrimSpace(workspace.CWD)
@@ -706,7 +706,7 @@ func (p *claudeTranscriptParser) captureGit(fields map[string]json.RawMessage, l
 	raw, ok := fields["git"]
 	if ok && len(bytes.TrimSpace(raw)) > 0 && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		var incoming qratumGitInfo
-		if err := json.Unmarshal(raw, &incoming); err != nil {
+		if json.Unmarshal(raw, &incoming) != nil {
 			return nil
 		}
 		if git.Remote == "" {
@@ -788,17 +788,6 @@ func (p *claudeTranscriptParser) removePendingName(index int) {
 	p.pendingByName[name] = queue
 }
 
-func requiredStringField(fields map[string]json.RawMessage, name string) (string, error) {
-	value, err := optionalStringField(fields, name)
-	if err != nil {
-		return "", err
-	}
-	if value == "" {
-		return "", fmt.Errorf("missing required field %s", name)
-	}
-	return value, nil
-}
-
 func optionalFirstStringField(fields map[string]json.RawMessage, names ...string) (string, error) {
 	for _, name := range names {
 		value, err := optionalStringField(fields, name)
@@ -818,7 +807,7 @@ func optionalStringField(fields map[string]json.RawMessage, name string) (string
 		return "", nil
 	}
 	var value string
-	if err := json.Unmarshal(raw, &value); err != nil {
+	if json.Unmarshal(raw, &value) != nil {
 		return "", nil
 	}
 	return strings.TrimSpace(value), nil
@@ -832,7 +821,7 @@ func optionalTimestampField(fields map[string]json.RawMessage, name string) (str
 	if value == "" {
 		return "", nil
 	}
-	if _, err := time.Parse(time.RFC3339, value); err != nil {
+	if _, parseErr := time.Parse(time.RFC3339, value); parseErr != nil {
 		return "", nil
 	}
 	return value, nil
@@ -844,7 +833,7 @@ func optionalBoolField(fields map[string]json.RawMessage, name string) (*bool, e
 		return nil, nil
 	}
 	var value bool
-	if err := json.Unmarshal(raw, &value); err != nil {
+	if json.Unmarshal(raw, &value) != nil {
 		return nil, nil
 	}
 	return &value, nil
@@ -856,7 +845,7 @@ func objectField(fields map[string]json.RawMessage, name string) (map[string]any
 		return map[string]any{}, nil
 	}
 	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
+	if json.Unmarshal(raw, &value) != nil {
 		return map[string]any{}, nil
 	}
 	if value == nil {
@@ -871,7 +860,7 @@ func objectRawField(fields map[string]json.RawMessage, name string) (map[string]
 		return nil, false, nil
 	}
 	var value map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &value); err != nil {
+	if json.Unmarshal(raw, &value) != nil {
 		return nil, false, nil
 	}
 	if value == nil {

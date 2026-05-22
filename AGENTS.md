@@ -84,6 +84,18 @@ Every behavior must be fixture-driven where practical.
 Update fixtures and golden files when output contracts intentionally change.
 
 `make test` must run all tests. `make demo` must run the first vertical slice.
+`make verify` mirrors the CI pipeline and includes supply-chain checks.
+
+## Supply-chain rule
+
+Follow `docs/supply-chain.md`.
+
+- Pin GitHub Actions by commit SHA.
+- Do not add pipe-to-shell installers.
+- Do not use floating tool versions in CI or scripts.
+- Do not add npm, npx, pip, curl installers, or shell-fetched binaries to the
+  Qratum runtime pipeline.
+- Keep Go modules readonly in verification commands.
 
 ## Ductum factory rules
 

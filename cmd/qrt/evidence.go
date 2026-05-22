@@ -530,9 +530,10 @@ func newRepeatedFailingCommandFinding(sequence int, group []indexedCommand) evid
 	evidence := make([]evidenceFact, 0, len(group))
 	for i, item := range group {
 		label := "failed_command"
-		if i == 0 {
+		switch i {
+		case 0:
 			label = "first_failed_command"
-		} else if i == 1 {
+		case 1:
 			label = "repeated_failed_command"
 		}
 		evidence = append(evidence, commandFact(label, item))
