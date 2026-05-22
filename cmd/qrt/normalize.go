@@ -228,13 +228,9 @@ func (p *claudeTranscriptParser) parseLine(lineNo int, line []byte) error {
 		return fmt.Errorf("line %d: invalid JSON: %w", lineNo, err)
 	}
 	if len(fields) == 0 {
-		return fmt.Errorf("line %d: empty transcript record", lineNo)
+		return nil
 	}
 
-	recordType, err := requiredStringField(fields, "type")
-	if err != nil {
-		return fmt.Errorf("line %d: %w", lineNo, err)
-	}
 	timestamp, err := optionalTimestampField(fields, "timestamp")
 	if err != nil {
 		return fmt.Errorf("line %d: %w", lineNo, err)
@@ -244,6 +240,17 @@ func (p *claudeTranscriptParser) parseLine(lineNo int, line []byte) error {
 
 	if err := p.captureCommonContext(fields, lineNo); err != nil {
 		return err
+	}
+	if err := p.rememberTranscriptSessionID(lineNo, fields); err != nil {
+		return err
+	}
+	if err := p.captureModel(fields, lineNo); err != nil {
+		return err
+	}
+
+	recordType, err := optionalStringField(fields, "type")
+	if err != nil {
+		return fmt.Errorf("line %d: %w", lineNo, err)
 	}
 
 	switch recordType {
@@ -258,7 +265,7 @@ func (p *claudeTranscriptParser) parseLine(lineNo int, line []byte) error {
 	case "tool_result":
 		return p.parseToolResult(lineNo, fields, timestamp)
 	default:
-		return fmt.Errorf("line %d: unsupported transcript record type %q", lineNo, recordType)
+		return nil
 	}
 }
 
@@ -289,10 +296,60 @@ func (p *claudeTranscriptParser) parseSessionEnd(lineNo int, fields map[string]j
 	return nil
 }
 
+func (p *claudeTranscriptParser) captureModel(fields map[string]json.RawMessage, lineNo int) error {
+	model, err := optionalStringField(fields, "model")
+	if err != nil {
+		return fmt.Errorf("line %d: %w", lineNo, err)
+	}
+	if model != "" {
+		p.session.AgentModel = model
+	}
+
+	message, ok, err := objectRawField(fields, "message")
+	if err != nil {
+		return fmt.Errorf("line %d: %w", lineNo, err)
+	}
+	if !ok {
+		return nil
+	}
+	model, err = optionalStringField(message, "model")
+	if err != nil {
+		return fmt.Errorf("line %d: message.%w", lineNo, err)
+	}
+	if model != "" {
+		p.session.AgentModel = model
+	}
+	return nil
+}
+
 func (p *claudeTranscriptParser) parseTurn(lineNo int, fields map[string]json.RawMessage, role string, timestamp string) error {
+	if message, ok, err := objectRawField(fields, "message"); err != nil {
+		return fmt.Errorf("line %d: %w", lineNo, err)
+	} else if ok {
+		return p.parseMessage(lineNo, message, role, timestamp)
+	}
+
+	if raw, ok := fields["content"]; ok {
+		if handled, text, err := p.parseContentBlocks(lineNo, raw, role, timestamp); err != nil {
+			return err
+		} else if handled {
+			if strings.TrimSpace(text) != "" {
+				p.session.Turns = append(p.session.Turns, qratumTurn{
+					Role:      role,
+					Timestamp: timestamp,
+					Content:   text,
+				})
+			}
+			return nil
+		}
+	}
+
 	content, err := contentField(fields, "content")
 	if err != nil {
 		return fmt.Errorf("line %d: %w", lineNo, err)
+	}
+	if strings.TrimSpace(content) == "" {
+		return nil
 	}
 	p.session.Turns = append(p.session.Turns, qratumTurn{
 		Role:      role,
@@ -302,10 +359,96 @@ func (p *claudeTranscriptParser) parseTurn(lineNo int, fields map[string]json.Ra
 	return nil
 }
 
+func (p *claudeTranscriptParser) parseMessage(lineNo int, message map[string]json.RawMessage, fallbackRole string, timestamp string) error {
+	role, err := optionalStringField(message, "role")
+	if err != nil {
+		return fmt.Errorf("line %d: message.%w", lineNo, err)
+	}
+	if role != "user" && role != "assistant" {
+		role = fallbackRole
+	}
+
+	if raw, ok := message["content"]; ok {
+		if handled, text, err := p.parseContentBlocks(lineNo, raw, role, timestamp); err != nil {
+			return err
+		} else if handled {
+			if strings.TrimSpace(text) != "" {
+				p.session.Turns = append(p.session.Turns, qratumTurn{
+					Role:      role,
+					Timestamp: timestamp,
+					Content:   text,
+				})
+			}
+			return nil
+		}
+	}
+
+	content, err := contentField(message, "content")
+	if err != nil {
+		return fmt.Errorf("line %d: message.%w", lineNo, err)
+	}
+	if strings.TrimSpace(content) != "" {
+		p.session.Turns = append(p.session.Turns, qratumTurn{
+			Role:      role,
+			Timestamp: timestamp,
+			Content:   content,
+		})
+	}
+	return nil
+}
+
+func (p *claudeTranscriptParser) parseContentBlocks(lineNo int, raw json.RawMessage, role string, timestamp string) (bool, string, error) {
+	var blocks []map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		return false, "", nil
+	}
+
+	textParts := []string{}
+	for _, block := range blocks {
+		blockType, err := optionalStringField(block, "type")
+		if err != nil {
+			return true, "", fmt.Errorf("line %d: content block: %w", lineNo, err)
+		}
+		switch blockType {
+		case "text":
+			text, err := contentField(block, "text")
+			if err != nil {
+				return true, "", fmt.Errorf("line %d: content block text: %w", lineNo, err)
+			}
+			if text != "" {
+				textParts = append(textParts, text)
+			}
+		case "tool_use":
+			if role == "assistant" {
+				if err := p.parseToolUse(lineNo, block, timestamp); err != nil {
+					return true, "", err
+				}
+			}
+		case "tool_result":
+			if err := p.parseToolResult(lineNo, block, timestamp); err != nil {
+				return true, "", err
+			}
+		default:
+			text, err := contentField(block, "text")
+			if err != nil {
+				return true, "", fmt.Errorf("line %d: content block text: %w", lineNo, err)
+			}
+			if text != "" {
+				textParts = append(textParts, text)
+			}
+		}
+	}
+
+	return true, strings.Join(textParts, "\n"), nil
+}
+
 func (p *claudeTranscriptParser) parseToolUse(lineNo int, fields map[string]json.RawMessage, timestamp string) error {
-	name, err := requiredStringField(fields, "name")
+	name, err := optionalStringField(fields, "name")
 	if err != nil {
 		return fmt.Errorf("line %d: %w", lineNo, err)
+	}
+	if name == "" {
+		name = "unknown_tool"
 	}
 	input, err := objectField(fields, "input")
 	if err != nil {
@@ -340,37 +483,52 @@ func (p *claudeTranscriptParser) parseToolUse(lineNo int, fields map[string]json
 	p.pendingByName[name] = append(p.pendingByName[name], toolIndex)
 
 	if op, ok := fileOperationForTool(name); ok {
-		path, err := stringFromAny(input, "file_path", "path")
-		if err != nil {
-			return fmt.Errorf("line %d: %w", lineNo, err)
+		path := stringFromAnyTolerant(input, "file_path", "path")
+		if path != "" {
+			p.session.FileChanges = append(p.session.FileChanges, qratumFileChange{
+				Path:      path,
+				Operation: op,
+				Timestamp: timestamp,
+			})
 		}
-		if path == "" {
-			return fmt.Errorf("line %d: %s tool input is missing file_path", lineNo, name)
-		}
-		p.session.FileChanges = append(p.session.FileChanges, qratumFileChange{
-			Path:      path,
-			Operation: op,
-			Timestamp: timestamp,
-		})
 	}
 
 	if strings.EqualFold(name, "Bash") {
-		command, err := stringFromAny(input, "command")
-		if err != nil {
-			return fmt.Errorf("line %d: %w", lineNo, err)
+		command := stringFromAnyTolerant(input, "command")
+		if command != "" {
+			commandIndex := len(p.session.Commands)
+			p.session.Commands = append(p.session.Commands, qratumCommand{
+				Command:   command,
+				Timestamp: timestamp,
+			})
+			p.commandByToolIndex[toolIndex] = commandIndex
 		}
-		if command == "" {
-			return fmt.Errorf("line %d: Bash tool input is missing command", lineNo)
-		}
-		commandIndex := len(p.session.Commands)
-		p.session.Commands = append(p.session.Commands, qratumCommand{
-			Command:   command,
-			Timestamp: timestamp,
-		})
-		p.commandByToolIndex[toolIndex] = commandIndex
 	}
 
 	return nil
+}
+
+func (p *claudeTranscriptParser) appendUnmatchedToolResult(resultID string, name string, timestamp string, success *bool, result string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "ToolResult"
+	}
+	toolCallID := strings.TrimSpace(resultID)
+	if toolCallID == "" {
+		toolCallID = fmt.Sprintf("tool_result_%04d", len(p.session.ToolCalls)+1)
+	}
+	toolCall := qratumToolCall{
+		ToolCallID: toolCallID,
+		Name:       name,
+		Input:      map[string]any{},
+		Success:    success,
+		Result:     result,
+		ResultTime: timestamp,
+	}
+	if strings.TrimSpace(resultID) != "" {
+		toolCall.ResultSourceID = strings.TrimSpace(resultID)
+	}
+	p.session.ToolCalls = append(p.session.ToolCalls, toolCall)
 }
 
 func (p *claudeTranscriptParser) parseToolResult(lineNo int, fields map[string]json.RawMessage, timestamp string) error {
@@ -382,21 +540,22 @@ func (p *claudeTranscriptParser) parseToolResult(lineNo int, fields map[string]j
 	if err != nil {
 		return fmt.Errorf("line %d: %w", lineNo, err)
 	}
-	if resultID == "" && name == "" {
-		return fmt.Errorf("line %d: tool_result is missing name or tool_use_id", lineNo)
-	}
 
 	toolIndex, ok := p.matchPendingToolResult(resultID, name)
-	if !ok {
-		if resultID != "" {
-			return fmt.Errorf("line %d: tool_result for %q has no matching tool_use", lineNo, resultID)
-		}
-		return fmt.Errorf("line %d: tool_result for %q has no matching tool_use", lineNo, name)
-	}
 
 	success, err := optionalBoolField(fields, "success")
 	if err != nil {
 		return fmt.Errorf("line %d: %w", lineNo, err)
+	}
+	if success == nil {
+		isError, err := optionalBoolField(fields, "is_error")
+		if err != nil {
+			return fmt.Errorf("line %d: %w", lineNo, err)
+		}
+		if isError != nil {
+			value := !*isError
+			success = &value
+		}
 	}
 	result, err := contentField(fields, "content")
 	if err != nil {
@@ -407,6 +566,11 @@ func (p *claudeTranscriptParser) parseToolResult(lineNo int, fields map[string]j
 		if err != nil {
 			return fmt.Errorf("line %d: %w", lineNo, err)
 		}
+	}
+
+	if !ok {
+		p.appendUnmatchedToolResult(resultID, name, timestamp, success, result)
+		return nil
 	}
 
 	p.session.ToolCalls[toolIndex].Success = success
@@ -470,7 +634,7 @@ func (p *claudeTranscriptParser) observeTimestamp(timestamp string) {
 }
 
 func (p *claudeTranscriptParser) rememberTranscriptSessionID(lineNo int, fields map[string]json.RawMessage) error {
-	sessionID, err := optionalStringField(fields, "session_id")
+	sessionID, err := optionalFirstStringField(fields, "session_id", "sessionId")
 	if err != nil {
 		return fmt.Errorf("line %d: %w", lineNo, err)
 	}
@@ -524,7 +688,7 @@ func (p *claudeTranscriptParser) captureWorkspace(fields map[string]json.RawMess
 	}
 	var workspace captureWorkspaceRef
 	if err := json.Unmarshal(raw, &workspace); err != nil {
-		return fmt.Errorf("line %d: workspace must be an object: %w", lineNo, err)
+		return nil
 	}
 	workspace.CWD = strings.TrimSpace(workspace.CWD)
 	if workspace.CWD != "" {
@@ -543,7 +707,7 @@ func (p *claudeTranscriptParser) captureGit(fields map[string]json.RawMessage, l
 	if ok && len(bytes.TrimSpace(raw)) > 0 && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		var incoming qratumGitInfo
 		if err := json.Unmarshal(raw, &incoming); err != nil {
-			return fmt.Errorf("line %d: git must be an object: %w", lineNo, err)
+			return nil
 		}
 		if git.Remote == "" {
 			git.Remote = strings.TrimSpace(incoming.Remote)
@@ -655,7 +819,7 @@ func optionalStringField(fields map[string]json.RawMessage, name string) (string
 	}
 	var value string
 	if err := json.Unmarshal(raw, &value); err != nil {
-		return "", fmt.Errorf("%s must be a string", name)
+		return "", nil
 	}
 	return strings.TrimSpace(value), nil
 }
@@ -669,7 +833,7 @@ func optionalTimestampField(fields map[string]json.RawMessage, name string) (str
 		return "", nil
 	}
 	if _, err := time.Parse(time.RFC3339, value); err != nil {
-		return "", fmt.Errorf("%s must be RFC3339: %w", name, err)
+		return "", nil
 	}
 	return value, nil
 }
@@ -681,7 +845,7 @@ func optionalBoolField(fields map[string]json.RawMessage, name string) (*bool, e
 	}
 	var value bool
 	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, fmt.Errorf("%s must be a boolean", name)
+		return nil, nil
 	}
 	return &value, nil
 }
@@ -693,12 +857,27 @@ func objectField(fields map[string]json.RawMessage, name string) (map[string]any
 	}
 	var value map[string]any
 	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, fmt.Errorf("%s must be an object", name)
+		return map[string]any{}, nil
 	}
 	if value == nil {
 		value = map[string]any{}
 	}
 	return value, nil
+}
+
+func objectRawField(fields map[string]json.RawMessage, name string) (map[string]json.RawMessage, bool, error) {
+	raw, ok := fields[name]
+	if !ok || len(bytes.TrimSpace(raw)) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, false, nil
+	}
+	var value map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, false, nil
+	}
+	if value == nil {
+		return nil, false, nil
+	}
+	return value, true, nil
 }
 
 func contentField(fields map[string]json.RawMessage, name string) (string, error) {
@@ -749,6 +928,24 @@ func stringFromAny(input map[string]any, names ...string) (string, error) {
 		return strings.TrimSpace(text), nil
 	}
 	return "", nil
+}
+
+func stringFromAnyTolerant(input map[string]any, names ...string) string {
+	for _, name := range names {
+		value, ok := input[name]
+		if !ok || value == nil {
+			continue
+		}
+		text, ok := value.(string)
+		if !ok {
+			continue
+		}
+		text = strings.TrimSpace(text)
+		if text != "" {
+			return text
+		}
+	}
+	return ""
 }
 
 func fileOperationForTool(name string) (string, bool) {
