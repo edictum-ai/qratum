@@ -45,6 +45,8 @@ func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Write
 		return hook(args[1:], stdin, stdout, stderr)
 	case "daemon":
 		return daemon(args[1:], stdout, stderr)
+	case "dogfood":
+		return dogfood(args[1:], stdout, stderr)
 	case "normalize":
 		return normalize(args[1:], stdout, stderr)
 	case "redact":
@@ -98,5 +100,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | dogfood import <transcript_path> | dogfood latest | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
 }

@@ -22,6 +22,20 @@ Or run the whole vertical slice:
 make demo
 ```
 
+## Dogfood on a local transcript
+
+Process a local Claude Code JSONL transcript without uploading it:
+
+```sh
+qrt dogfood import /path/to/transcript.jsonl
+qrt dogfood latest
+```
+
+Raw transcripts stay local and Qratum does not upload anything. The dogfood
+import reads the transcript, writes redacted Qratum artifacts under `.qratum/`,
+and does not copy the raw JSONL transcript there. Deterministic redaction is
+best-effort alpha quality.
+
 ## Verification
 
 ```sh

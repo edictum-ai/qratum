@@ -1,0 +1,28 @@
+{
+  "schema_version": "qratum.review_card.v1",
+  "session_id": "dogfood-session-0001",
+  "verdict": "needs_attention",
+  "main_finding": "[REDACTED_PATH_003] changed via edit at 2026-05-21T18:12:00Z after the last test command at 2026-05-21T18:07:00Z.",
+  "evidence": [
+    "[REDACTED_PATH_003] changed via edit at 2026-05-21T18:12:00Z after the last test command at 2026-05-21T18:07:00Z.",
+    "2026-05-21T18:12:00Z | edit [REDACTED_PATH_003]",
+    "2026-05-21T18:07:00Z | command \"go test ./...\" | failed | output: FAIL ./cmd/qrt\nmissing dogfood command",
+    "No successful verification command ran after the final file change at 2026-05-21T18:12:00Z.",
+    "missing: successful verification command after 2026-05-21T18:12:00Z",
+    "\"go test ./...\" failed 2 times in this session.",
+    "2026-05-21T18:05:00Z | command \"go test ./...\" | failed | output: FAIL ./cmd/qrt\nmissing dogfood command"
+  ],
+  "suggested_next_habit": "After the last edit, run the project's verification command and keep the result in the session.",
+  "suggested_skill": "final-verification-loop",
+  "warnings": [
+    "successful verification command after 2026-05-21T18:12:00Z"
+  ],
+  "artifact_paths": {
+    "session": ".qratum/sessions/dogfood-session-0001.normalized.json",
+    "redacted": ".qratum/redacted/dogfood-session-0001.redacted.json",
+    "evidence": ".qratum/evidence/dogfood-session-0001.evidence.json",
+    "review": ".qratum/reviews/dogfood-session-0001.review.json",
+    "report": ".qratum/reports/dogfood-session-0001.html",
+    "export": ".qratum/exports/dogfood-session-0001.adp.jsonl"
+  }
+}

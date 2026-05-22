@@ -1043,7 +1043,7 @@ func TestNormalizeFailsOnMalformedJSONL(t *testing.T) {
 	}
 }
 
-func TestNormalizeRejectsUnsupportedRecordType(t *testing.T) {
+func TestNormalizeToleratesUnsupportedRecordType(t *testing.T) {
 	root := t.TempDir()
 	t.Chdir(root)
 	transcript := `{"type":"summary","session_id":"claude-session-drift","content":"future drift"}`
@@ -1054,14 +1054,21 @@ func TestNormalizeRejectsUnsupportedRecordType(t *testing.T) {
 
 	code := run([]string{"normalize", "drift.jsonl"}, &stdout, &stderr)
 
-	if code != 1 {
-		t.Fatalf("exit code = %d, want 1", code)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	if stdout.Len() != 0 {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	if !strings.Contains(stderr.String(), `unsupported transcript record type "summary"`) {
-		t.Fatalf("stderr = %q, want unsupported record type error", stderr.String())
+	var session qratumSession
+	if err := json.Unmarshal(stdout.Bytes(), &session); err != nil {
+		t.Fatalf("decode normalized session: %v\n%s", err, stdout.String())
+	}
+	if got, want := session.SessionID, "claude-session-drift"; got != want {
+		t.Fatalf("session_id = %q, want %q", got, want)
+	}
+	if got := len(session.Turns); got != 0 {
+		t.Fatalf("turn count = %d, want unknown record not to create turns", got)
 	}
 }
 
