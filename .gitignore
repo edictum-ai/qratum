@@ -1,3 +1,4 @@
 bin/
+/qrt
 .qratum/
 .DS_Store
