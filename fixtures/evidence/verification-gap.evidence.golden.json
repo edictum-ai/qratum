@@ -14,7 +14,52 @@
   },
   "findings": [
     {
-      "finding_id": "verification.final_edit_after_last_test.0001",
+      "finding_id": "verification.only_failed_verification.0001",
+      "type": "verification.only_failed_verification",
+      "title": "Verification never succeeded in this session",
+      "summary": "2 verification command(s) ran in this session and none succeeded.",
+      "evidence": [
+        {
+          "label": "first_failed_verification_command",
+          "kind": "command",
+          "timestamp": "2026-05-21T21:40:00Z",
+          "command": "go test ./...",
+          "success": false,
+          "output_excerpt": "FAIL ./internal/redaction\nexpected secret to be redacted"
+        },
+        {
+          "label": "failed_verification_command",
+          "kind": "command",
+          "timestamp": "2026-05-21T21:41:00Z",
+          "command": "go test ./...",
+          "success": false,
+          "output_excerpt": "FAIL ./internal/redaction\nexpected secret to be redacted"
+        }
+      ],
+      "missing_evidence": [
+        "successful verification command at any point in this session"
+      ]
+    },
+    {
+      "finding_id": "verification.missing_final_verification.0002",
+      "type": "verification.missing_final_verification",
+      "title": "Final verification is missing",
+      "summary": "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
+      "evidence": [
+        {
+          "label": "final_file_change",
+          "kind": "file_change",
+          "timestamp": "2026-05-21T21:55:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "edit"
+        }
+      ],
+      "missing_evidence": [
+        "successful verification command after 2026-05-21T21:55:00Z"
+      ]
+    },
+    {
+      "finding_id": "verification.final_edit_after_last_test.0003",
       "type": "verification.final_edit_after_last_test",
       "title": "Final edit happened after the last test",
       "summary": "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
@@ -38,25 +83,7 @@
       "missing_evidence": []
     },
     {
-      "finding_id": "verification.missing_final_verification.0002",
-      "type": "verification.missing_final_verification",
-      "title": "Final verification is missing",
-      "summary": "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
-      "evidence": [
-        {
-          "label": "final_file_change",
-          "kind": "file_change",
-          "timestamp": "2026-05-21T21:55:00Z",
-          "path": "internal/redaction/redactor.go",
-          "operation": "edit"
-        }
-      ],
-      "missing_evidence": [
-        "successful verification command after 2026-05-21T21:55:00Z"
-      ]
-    },
-    {
-      "finding_id": "reliability.repeated_failing_command.0003",
+      "finding_id": "reliability.repeated_failing_command.0004",
       "type": "reliability.repeated_failing_command",
       "title": "Command failed repeatedly",
       "summary": "\"go test ./...\" failed 2 times in this session.",
@@ -79,10 +106,37 @@
         }
       ],
       "missing_evidence": []
+    },
+    {
+      "finding_id": "scope.source_changed_without_test_change.0005",
+      "type": "scope.source_changed_without_test_change",
+      "title": "Source changed without test change",
+      "summary": "2 source file change(s) recorded in this session, but no test files changed.",
+      "evidence": [
+        {
+          "label": "source_file_change_1",
+          "kind": "file_change",
+          "timestamp": "2026-05-21T21:30:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "write"
+        },
+        {
+          "label": "source_file_change_2",
+          "kind": "file_change",
+          "timestamp": "2026-05-21T21:55:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "edit"
+        }
+      ],
+      "missing_evidence": [
+        "test file change in the same session"
+      ]
     }
   ],
   "missing_evidence": [
-    "successful verification command after 2026-05-21T21:55:00Z"
+    "successful verification command at any point in this session",
+    "successful verification command after 2026-05-21T21:55:00Z",
+    "test file change in the same session"
   ],
   "artifact_paths": {
     "session": "fixtures/evidence/verification-gap.input.json",

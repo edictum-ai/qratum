@@ -68,10 +68,10 @@ func TestUISessionJSONEmitsDetailDTOFixture(t *testing.T) {
 	if got, want := detail.SchemaVersion, qratumUISessionDetailSchemaVersion; got != want {
 		t.Fatalf("schema_version = %q, want %q", got, want)
 	}
-	if got, want := len(detail.Findings), 3; got != want {
+	if got, want := len(detail.Findings), 5; got != want {
 		t.Fatalf("findings = %d, want %d", got, want)
 	}
-	if got, want := detail.Findings[0].Severity, "medium"; got != want {
+	if got, want := detail.Findings[0].Severity, "high"; got != want {
 		t.Fatalf("first finding severity = %q, want %q", got, want)
 	}
 }

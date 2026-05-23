@@ -162,9 +162,33 @@ var uiSupportedFindingTypes = map[string]uiFindingPresentation{
 		severity:   "high",
 		confidence: "high",
 	},
+	findingFinalVerificationFailed: {
+		severity:   "high",
+		confidence: "high",
+	},
+	findingOnlyFailedVerification: {
+		severity:   "high",
+		confidence: "high",
+	},
 	findingRepeatedFailingCommand: {
 		severity:   "medium",
 		confidence: "high",
+	},
+	findingDestructiveCommand: {
+		severity:   "high",
+		confidence: "high",
+	},
+	findingNetworkCallWithoutNeed: {
+		severity:   "medium",
+		confidence: "medium",
+	},
+	findingSourceChangedWithoutTest: {
+		severity:   "medium",
+		confidence: "medium",
+	},
+	findingBroadFileChange: {
+		severity:   "medium",
+		confidence: "medium",
 	},
 }
 

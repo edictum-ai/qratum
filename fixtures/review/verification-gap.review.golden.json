@@ -2,20 +2,27 @@
   "schema_version": "qratum.review_card.v1",
   "session_id": "ses_0001",
   "verdict": "needs_attention",
-  "main_finding": "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+  "main_finding": "2 verification command(s) ran in this session and none succeeded.",
   "evidence": [
-    "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
-    "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+    "2 verification command(s) ran in this session and none succeeded.",
+    "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
     "2026-05-21T21:41:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+    "missing: successful verification command at any point in this session",
     "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
+    "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
     "missing: successful verification command after 2026-05-21T21:55:00Z",
+    "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
     "\"go test ./...\" failed 2 times in this session.",
-    "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted"
+    "2 source file change(s) recorded in this session, but no test files changed.",
+    "2026-05-21T21:30:00Z | write internal/redaction/redactor.go",
+    "missing: test file change in the same session"
   ],
   "suggested_next_habit": "After the last edit, run the project's verification command and keep the result in the session.",
   "suggested_skill": "final-verification-loop",
   "warnings": [
-    "successful verification command after 2026-05-21T21:55:00Z"
+    "successful verification command at any point in this session",
+    "successful verification command after 2026-05-21T21:55:00Z",
+    "test file change in the same session"
   ],
   "artifact_paths": {
     "session": "fixtures/evidence/verification-gap.input.json",

@@ -13,6 +13,7 @@ const dogfoodImportStatus = "dogfood_imported"
 
 type dogfoodLatestReview struct {
 	card       reviewCard
+	evidence   evidenceBundle
 	reportPath string
 	exportPath string
 }
@@ -205,10 +206,40 @@ func dogfoodLatest(stdout io.Writer, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "session_id: %s\n", latest.card.SessionID)
 	fmt.Fprintf(stdout, "verdict: %s\n", latest.card.Verdict)
 	fmt.Fprintf(stdout, "main_finding: %s\n", latest.card.MainFinding)
+	writeDogfoodFindingsList(stdout, "top_findings", latest.evidence.Findings, 5)
+	writeDogfoodEvidenceList(stdout, "evidence", latest.card.Evidence, 6)
 	fmt.Fprintf(stdout, "suggested_next_habit: %s\n", latest.card.SuggestedNextHabit)
 	fmt.Fprintf(stdout, "html_report_path: %s\n", latest.reportPath)
 	fmt.Fprintf(stdout, "adp_export_path: %s\n", latest.exportPath)
 	return 0
+}
+
+func writeDogfoodFindingsList(w io.Writer, label string, findings []evidenceFinding, max int) {
+	fmt.Fprintf(w, "%s:\n", label)
+	if len(findings) == 0 {
+		fmt.Fprintln(w, "- (none)")
+		return
+	}
+	for i, finding := range findings {
+		if i >= max {
+			break
+		}
+		fmt.Fprintf(w, "- %s: %s\n", finding.Type, finding.Summary)
+	}
+}
+
+func writeDogfoodEvidenceList(w io.Writer, label string, evidence []string, max int) {
+	fmt.Fprintf(w, "%s:\n", label)
+	if len(evidence) == 0 {
+		fmt.Fprintln(w, "- (none)")
+		return
+	}
+	for i, item := range evidence {
+		if i >= max {
+			break
+		}
+		fmt.Fprintf(w, "- %s\n", item)
+	}
 }
 
 func findLatestDogfoodReview(projectRoot string) (dogfoodLatestReview, error) {
@@ -222,6 +253,7 @@ func findLatestDogfoodReview(projectRoot string) (dogfoodLatestReview, error) {
 	latest := entries[0]
 	return dogfoodLatestReview{
 		card:       latest.review,
+		evidence:   latest.evidence,
 		reportPath: latest.paths.Report,
 		exportPath: latest.paths.Export,
 	}, nil
@@ -306,6 +338,14 @@ func dogfoodShow(sessionID string, stdout io.Writer, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "ended_at: %s\n", dashIfEmpty(match.session.EndedAt))
 	fmt.Fprintf(stdout, "verdict: %s\n", match.review.Verdict)
 	fmt.Fprintf(stdout, "main_finding: %s\n", match.review.MainFinding)
+	fmt.Fprintln(stdout, "findings:")
+	if len(match.evidence.Findings) == 0 {
+		fmt.Fprintln(stdout, "- (none)")
+	} else {
+		for _, finding := range match.evidence.Findings {
+			fmt.Fprintf(stdout, "- %s: %s\n", finding.Type, finding.Summary)
+		}
+	}
 	fmt.Fprintln(stdout, "evidence:")
 	if len(match.review.Evidence) == 0 {
 		fmt.Fprintln(stdout, "- (none)")

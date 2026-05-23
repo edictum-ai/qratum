@@ -623,15 +623,17 @@ func TestEvidenceVerificationGapFixtureWritesBundle(t *testing.T) {
 		t.Fatalf("artifact_paths.evidence = %q, want %q", got, want)
 	}
 	assertFindingTypes(t, bundle.Findings, []string{
-		findingFinalEditAfterLastTest,
+		findingOnlyFailedVerification,
 		findingMissingFinalVerification,
+		findingFinalEditAfterLastTest,
 		findingRepeatedFailingCommand,
+		findingSourceChangedWithoutTest,
 	})
-	if got, want := bundle.Findings[2].Summary, `"go test ./..." failed 2 times in this session.`; got != want {
+	if got, want := bundle.Findings[3].Summary, `"go test ./..." failed 2 times in this session.`; got != want {
 		t.Fatalf("repeated command summary = %q, want %q", got, want)
 	}
-	if len(bundle.Findings[2].Evidence) != 2 {
-		t.Fatalf("repeated command evidence count = %d, want 2", len(bundle.Findings[2].Evidence))
+	if len(bundle.Findings[3].Evidence) != 2 {
+		t.Fatalf("repeated command evidence count = %d, want 2", len(bundle.Findings[3].Evidence))
 	}
 	if !containsString(bundle.MissingEvidence, "successful verification command after 2026-05-21T21:55:00Z") {
 		t.Fatalf("missing_evidence = %v, want final verification gap", bundle.MissingEvidence)
@@ -675,8 +677,8 @@ func TestReviewVerificationGapEvidenceWritesReviewCard(t *testing.T) {
 	if got, want := card.Verdict, "needs_attention"; got != want {
 		t.Fatalf("verdict = %q, want %q", got, want)
 	}
-	if !strings.Contains(card.MainFinding, "internal/redaction/redactor.go changed via edit") {
-		t.Fatalf("main_finding = %q, want final edit finding", card.MainFinding)
+	if !strings.Contains(card.MainFinding, "verification command(s) ran in this session and none succeeded") {
+		t.Fatalf("main_finding = %q, want strongest verification finding", card.MainFinding)
 	}
 	if got := card.SuggestedNextHabit; strings.Contains(strings.ToLower(got), "score") || got == "" {
 		t.Fatalf("suggested_next_habit = %q, want non-score habit", got)
@@ -1332,9 +1334,11 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 		t.Fatalf("evidence source_event_timestamp = %q, want %q", got, want)
 	}
 	assertFindingTypes(t, evidence.Findings, []string{
-		findingFinalEditAfterLastTest,
+		findingOnlyFailedVerification,
 		findingMissingFinalVerification,
+		findingFinalEditAfterLastTest,
 		findingRepeatedFailingCommand,
+		findingSourceChangedWithoutTest,
 	})
 	if got, want := evidence.Summary.LastFileChangeAt, "2026-05-21T21:55:00Z"; got != want {
 		t.Fatalf("last_file_change_at = %q, want %q", got, want)
@@ -1357,8 +1361,8 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 	if got, want := review.Verdict, "needs_attention"; got != want {
 		t.Fatalf("review verdict = %q, want %q", got, want)
 	}
-	if !strings.Contains(review.MainFinding, "after the last test command") {
-		t.Fatalf("review main_finding = %q, want final edit finding", review.MainFinding)
+	if !strings.Contains(review.MainFinding, "verification command(s) ran in this session and none succeeded") {
+		t.Fatalf("review main_finding = %q, want strongest verification finding", review.MainFinding)
 	}
 	if len(review.Evidence) == 0 {
 		t.Fatal("review evidence is empty")

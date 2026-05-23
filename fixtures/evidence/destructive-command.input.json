@@ -1,0 +1,43 @@
+{
+  "schema_version": "qratum.session.v1",
+  "session_id": "ses_destructive",
+  "source": "claude-code",
+  "started_at": "2026-05-21T21:00:00Z",
+  "ended_at": "2026-05-21T21:30:00Z",
+  "turns": [],
+  "tool_calls": [],
+  "file_changes": [
+    {
+      "path": "src/handler.go",
+      "operation": "edit",
+      "timestamp": "2026-05-21T21:05:00Z"
+    },
+    {
+      "path": "src/handler_test.go",
+      "operation": "edit",
+      "timestamp": "2026-05-21T21:06:00Z"
+    }
+  ],
+  "commands": [
+    {
+      "command": "rm -rf build",
+      "timestamp": "2026-05-21T21:10:00Z",
+      "success": true,
+      "output": ""
+    },
+    {
+      "command": "go test ./...",
+      "timestamp": "2026-05-21T21:20:00Z",
+      "success": true,
+      "output": "ok ./..."
+    }
+  ],
+  "business_metrics": {
+    "duration_seconds": 1800,
+    "tool_calls": 4,
+    "files_changed": 2,
+    "commands_run": 2,
+    "tests_run": 1
+  },
+  "provenance": {}
+}

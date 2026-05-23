@@ -16,13 +16,27 @@ const (
 
 	findingFinalEditAfterLastTest   = "verification.final_edit_after_last_test"
 	findingMissingFinalVerification = "verification.missing_final_verification"
+	findingFinalVerificationFailed  = "verification.final_verification_failed"
+	findingOnlyFailedVerification   = "verification.only_failed_verification"
 	findingRepeatedFailingCommand   = "reliability.repeated_failing_command"
+	findingDestructiveCommand       = "tool_risk.destructive_command"
+	findingNetworkCallWithoutNeed   = "tool_risk.network_call_without_need"
+	findingSourceChangedWithoutTest = "scope.source_changed_without_test_change"
+	findingBroadFileChange          = "scope.broad_file_change"
+
+	broadFileChangeThreshold = 8
 )
 
 var supportedEvidenceFindingTypes = map[string]struct{}{
 	findingFinalEditAfterLastTest:   {},
 	findingMissingFinalVerification: {},
+	findingFinalVerificationFailed:  {},
+	findingOnlyFailedVerification:   {},
 	findingRepeatedFailingCommand:   {},
+	findingDestructiveCommand:       {},
+	findingNetworkCallWithoutNeed:   {},
+	findingSourceChangedWithoutTest: {},
+	findingBroadFileChange:          {},
 }
 
 type evidenceBundle struct {
@@ -343,15 +357,51 @@ func buildEvidenceBundle(session qratumSession, paths daemonArtifactPaths) (evid
 		return isVerificationCommand(command.Command) && command.Success != nil && *command.Success
 	})
 
+	verificationCommands := filterCommands(commands, func(c qratumCommand) bool {
+		return isVerificationCommand(c.Command)
+	})
+	onlyFailedVerification := hasOnlyFailedVerifications(verificationCommands)
+
+	lastVerificationAfterEdit, hasLastVerificationAfterEdit := lastVerificationAfterFileChange(commands, lastFileChange, hasLastFileChange)
+	finalVerificationFailed := hasLastVerificationAfterEdit &&
+		lastVerificationAfterEdit.Command.Success != nil &&
+		!*lastVerificationAfterEdit.Command.Success
+
+	missingFinalVerification := hasLastFileChange &&
+		(!hasLastSuccessfulVerification || !lastSuccessfulVerification.At.After(lastFileChange.At))
+
 	findings := []evidenceFinding{}
+
+	// Priority order: strongest deterministic signals first.
+	if onlyFailedVerification {
+		findings = append(findings, newOnlyFailedVerificationFinding(len(findings)+1, verificationCommands))
+	}
+	if finalVerificationFailed {
+		findings = append(findings, newFinalVerificationFailedFinding(len(findings)+1, lastFileChange, lastVerificationAfterEdit))
+	}
+	for _, cmd := range filterCommands(commands, func(c qratumCommand) bool { return isDestructiveCommand(c.Command) }) {
+		findings = append(findings, newDestructiveCommandFinding(len(findings)+1, cmd))
+	}
+	if missingFinalVerification {
+		findings = append(findings, newMissingFinalVerificationFinding(len(findings)+1, lastFileChange, lastSuccessfulVerification, hasLastSuccessfulVerification))
+	}
 	if hasLastFileChange && hasLastTestCommand && lastFileChange.At.After(lastTestCommand.At) {
 		findings = append(findings, newFinalEditAfterLastTestFinding(len(findings)+1, lastFileChange, lastTestCommand))
 	}
-	if hasLastFileChange && (!hasLastSuccessfulVerification || !lastSuccessfulVerification.At.After(lastFileChange.At)) {
-		findings = append(findings, newMissingFinalVerificationFinding(len(findings)+1, lastFileChange, lastSuccessfulVerification, hasLastSuccessfulVerification))
+	if hasLastFileChange && len(session.FileChanges) >= broadFileChangeThreshold &&
+		(!hasLastSuccessfulVerification || finalVerificationFailed || onlyFailedVerification) {
+		findings = append(findings, newBroadFileChangeFinding(len(findings)+1, len(session.FileChanges), lastFileChange, lastSuccessfulVerification, hasLastSuccessfulVerification))
 	}
 	for _, group := range repeatedFailingCommandGroups(commands) {
 		findings = append(findings, newRepeatedFailingCommandFinding(len(findings)+1, group))
+	}
+	if hasNetworkCallWithoutPackageContext(commands, session) {
+		for _, cmd := range filterCommands(commands, func(c qratumCommand) bool { return isNetworkCommand(c.Command) }) {
+			findings = append(findings, newNetworkCallWithoutNeedFinding(len(findings)+1, cmd))
+		}
+	}
+	if sourceChangedWithoutTestChange(session.FileChanges) {
+		findings = append(findings, newSourceChangedWithoutTestFinding(len(findings)+1, session.FileChanges))
 	}
 
 	for _, finding := range findings {
@@ -460,6 +510,49 @@ func lastCommandMatching(commands []indexedCommand, matches func(qratumCommand) 
 	return last, hasLast
 }
 
+func filterCommands(commands []indexedCommand, matches func(qratumCommand) bool) []indexedCommand {
+	out := make([]indexedCommand, 0, len(commands))
+	for _, c := range commands {
+		if matches(c.Command) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func hasOnlyFailedVerifications(verificationCommands []indexedCommand) bool {
+	if len(verificationCommands) == 0 {
+		return false
+	}
+	for _, c := range verificationCommands {
+		if c.Command.Success == nil || *c.Command.Success {
+			return false
+		}
+	}
+	return true
+}
+
+func lastVerificationAfterFileChange(commands []indexedCommand, lastFileChange indexedFileChange, hasLastFileChange bool) (indexedCommand, bool) {
+	if !hasLastFileChange {
+		return indexedCommand{}, false
+	}
+	var last indexedCommand
+	has := false
+	for _, c := range commands {
+		if !c.HasTime || !isVerificationCommand(c.Command.Command) {
+			continue
+		}
+		if !c.At.After(lastFileChange.At) {
+			continue
+		}
+		if !has || c.At.After(last.At) || c.At.Equal(last.At) && c.Index > last.Index {
+			last = c
+			has = true
+		}
+	}
+	return last, has
+}
+
 func repeatedFailingCommandGroups(commands []indexedCommand) [][]indexedCommand {
 	groups := map[string][]indexedCommand{}
 	firstIndex := map[string]int{}
@@ -520,6 +613,117 @@ func newMissingFinalVerificationFinding(sequence int, change indexedFileChange, 
 		Type:            findingMissingFinalVerification,
 		Title:           "Final verification is missing",
 		Summary:         fmt.Sprintf("No successful verification command ran after the final file change at %s.", change.Change.Timestamp),
+		Evidence:        evidence,
+		MissingEvidence: missing,
+	}
+}
+
+func newFinalVerificationFailedFinding(sequence int, change indexedFileChange, failed indexedCommand) evidenceFinding {
+	return evidenceFinding{
+		FindingID: fmt.Sprintf("%s.%04d", findingFinalVerificationFailed, sequence),
+		Type:      findingFinalVerificationFailed,
+		Title:     "Final verification command failed",
+		Summary: fmt.Sprintf("The last verification command %q after the final file change at %s failed at %s.",
+			normalizeCommandText(failed.Command.Command), change.Change.Timestamp, failed.Command.Timestamp),
+		Evidence: []evidenceFact{
+			fileChangeFact("final_file_change", change),
+			commandFact("last_verification_after_edit", failed),
+		},
+		MissingEvidence: []string{
+			fmt.Sprintf("successful verification command after %s", failed.Command.Timestamp),
+		},
+	}
+}
+
+func newOnlyFailedVerificationFinding(sequence int, verifications []indexedCommand) evidenceFinding {
+	evidence := make([]evidenceFact, 0, len(verifications))
+	for i, c := range verifications {
+		label := "failed_verification_command"
+		if i == 0 {
+			label = "first_failed_verification_command"
+		}
+		evidence = append(evidence, commandFact(label, c))
+	}
+	return evidenceFinding{
+		FindingID: fmt.Sprintf("%s.%04d", findingOnlyFailedVerification, sequence),
+		Type:      findingOnlyFailedVerification,
+		Title:     "Verification never succeeded in this session",
+		Summary: fmt.Sprintf("%d verification command(s) ran in this session and none succeeded.",
+			len(verifications)),
+		Evidence:        evidence,
+		MissingEvidence: []string{"successful verification command at any point in this session"},
+	}
+}
+
+func newDestructiveCommandFinding(sequence int, cmd indexedCommand) evidenceFinding {
+	return evidenceFinding{
+		FindingID: fmt.Sprintf("%s.%04d", findingDestructiveCommand, sequence),
+		Type:      findingDestructiveCommand,
+		Title:     "Destructive shell command ran",
+		Summary: fmt.Sprintf("Destructive command %q ran at %s.",
+			normalizeCommandText(cmd.Command.Command), cmd.Command.Timestamp),
+		Evidence: []evidenceFact{
+			commandFact("destructive_command", cmd),
+		},
+		MissingEvidence: []string{},
+	}
+}
+
+func newNetworkCallWithoutNeedFinding(sequence int, cmd indexedCommand) evidenceFinding {
+	return evidenceFinding{
+		FindingID: fmt.Sprintf("%s.%04d", findingNetworkCallWithoutNeed, sequence),
+		Type:      findingNetworkCallWithoutNeed,
+		Title:     "Network or install command ran without a package task",
+		Summary: fmt.Sprintf("Network or install command %q ran at %s with no package or dependency file change in this session.",
+			normalizeCommandText(cmd.Command.Command), cmd.Command.Timestamp),
+		Evidence: []evidenceFact{
+			commandFact("network_command", cmd),
+		},
+		MissingEvidence: []string{},
+	}
+}
+
+func newSourceChangedWithoutTestFinding(sequence int, changes []qratumFileChange) evidenceFinding {
+	sources := classifiableSourcePaths(changes)
+	evidence := make([]evidenceFact, 0, len(sources))
+	for i, change := range sources {
+		label := fmt.Sprintf("source_file_change_%d", i+1)
+		evidence = append(evidence, evidenceFact{
+			Label:     label,
+			Kind:      "file_change",
+			Timestamp: change.Timestamp,
+			Path:      change.Path,
+			Operation: change.Operation,
+		})
+	}
+	summary := "Source files changed in this session but no test files changed."
+	if len(sources) > 0 {
+		summary = fmt.Sprintf("%d source file change(s) recorded in this session, but no test files changed.", len(sources))
+	}
+	return evidenceFinding{
+		FindingID:       fmt.Sprintf("%s.%04d", findingSourceChangedWithoutTest, sequence),
+		Type:            findingSourceChangedWithoutTest,
+		Title:           "Source changed without test change",
+		Summary:         summary,
+		Evidence:        evidence,
+		MissingEvidence: []string{"test file change in the same session"},
+	}
+}
+
+func newBroadFileChangeFinding(sequence int, count int, lastChange indexedFileChange, lastSuccess indexedCommand, hasLastSuccess bool) evidenceFinding {
+	evidence := []evidenceFact{
+		fileChangeFact("final_file_change", lastChange),
+	}
+	if hasLastSuccess {
+		evidence = append(evidence, commandFact("last_successful_verification", lastSuccess))
+	}
+	missing := []string{"successful verification command covering this broad change"}
+	return evidenceFinding{
+		FindingID: fmt.Sprintf("%s.%04d", findingBroadFileChange, sequence),
+		Type:      findingBroadFileChange,
+		Title:     "Broad multi-file change without successful verification",
+		Summary: fmt.Sprintf("%d files changed in this session and no successful verification command covered the result.",
+			count),
 		Evidence:        evidence,
 		MissingEvidence: missing,
 	}
@@ -590,12 +794,206 @@ func isVerificationCommand(command string) bool {
 	if strings.Contains(lower, "test") {
 		return true
 	}
-	for _, token := range []string{"make build", "make demo", "go vet", "go build"} {
+	for _, token := range []string{"make build", "make demo", "make verify", "make lint", "make vet", "go vet", "go build", "golangci-lint"} {
 		if strings.Contains(lower, token) {
 			return true
 		}
 	}
 	return false
+}
+
+// isDestructiveCommand flags obvious destructive shell patterns. Conservative
+// by design: pattern must appear as a contiguous fragment of the command.
+func isDestructiveCommand(command string) bool {
+	lower := strings.ToLower(strings.TrimSpace(command))
+	if lower == "" {
+		return false
+	}
+	patterns := []string{
+		"rm -rf",
+		"rm -fr",
+		"rm -r -f",
+		"rm -f -r",
+		"git reset --hard",
+		"chmod -r",
+		"chmod -rf",
+		"chown -r",
+		"chown -rf",
+		"sudo rm",
+	}
+	for _, p := range patterns {
+		if strings.Contains(lower, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// isNetworkCommand flags curl/wget and common package install commands. Returns
+// true only when the network/install verb is the *first* token (or follows sudo),
+// to avoid flagging substrings like comments or pipeline tails.
+func isNetworkCommand(command string) bool {
+	lower := strings.ToLower(strings.TrimSpace(command))
+	if lower == "" {
+		return false
+	}
+	fields := strings.Fields(lower)
+	if len(fields) == 0 {
+		return false
+	}
+	head := fields[0]
+	rest := fields[1:]
+	if head == "sudo" && len(rest) > 0 {
+		head = rest[0]
+		rest = rest[1:]
+	}
+	switch head {
+	case "curl", "wget":
+		return true
+	case "npm", "pnpm", "yarn":
+		if len(rest) > 0 && (rest[0] == "install" || rest[0] == "i" || rest[0] == "add") {
+			return true
+		}
+	case "pip", "pip3":
+		if len(rest) > 0 && rest[0] == "install" {
+			return true
+		}
+	case "brew":
+		if len(rest) > 0 && rest[0] == "install" {
+			return true
+		}
+	case "apt", "apt-get":
+		if len(rest) > 0 && rest[0] == "install" {
+			return true
+		}
+	case "go":
+		if len(rest) > 0 && (rest[0] == "install" || rest[0] == "get") {
+			return true
+		}
+	case "cargo":
+		if len(rest) > 0 && rest[0] == "install" {
+			return true
+		}
+	}
+	return false
+}
+
+// hasNetworkCallWithoutPackageContext returns true if the session has any network
+// command AND no dependency-manifest file change appears in the session.
+func hasNetworkCallWithoutPackageContext(commands []indexedCommand, session qratumSession) bool {
+	hasNetwork := false
+	for _, c := range commands {
+		if isNetworkCommand(c.Command.Command) {
+			hasNetwork = true
+			break
+		}
+	}
+	if !hasNetwork {
+		return false
+	}
+	return !sessionHasDependencyManifestChange(session.FileChanges)
+}
+
+func sessionHasDependencyManifestChange(changes []qratumFileChange) bool {
+	for _, fc := range changes {
+		base := strings.ToLower(filepath.Base(fc.Path))
+		switch base {
+		case "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
+			"go.mod", "go.sum",
+			"requirements.txt", "pyproject.toml", "poetry.lock", "pipfile", "pipfile.lock",
+			"cargo.toml", "cargo.lock",
+			"gemfile", "gemfile.lock",
+			"composer.json", "composer.lock":
+			return true
+		}
+	}
+	return false
+}
+
+// isRedactedPath is true when the path has been deterministically redacted and
+// can no longer be classified by suffix or directory.
+func isRedactedPath(path string) bool {
+	return strings.HasPrefix(strings.TrimSpace(path), "[REDACTED_PATH_")
+}
+
+func isTestFilePath(path string) bool {
+	if path == "" || isRedactedPath(path) {
+		return false
+	}
+	lower := strings.ToLower(path)
+	base := filepath.Base(lower)
+	if strings.HasSuffix(base, "_test.go") {
+		return true
+	}
+	if strings.HasSuffix(base, "_test.py") {
+		return true
+	}
+	if strings.HasPrefix(base, "test_") && (strings.HasSuffix(base, ".py") || strings.HasSuffix(base, ".rb")) {
+		return true
+	}
+	if strings.Contains(base, ".test.") || strings.Contains(base, ".spec.") {
+		return true
+	}
+	slashed := "/" + strings.ReplaceAll(lower, "\\", "/")
+	for _, dir := range []string{"/tests/", "/test/", "/__tests__/", "/spec/"} {
+		if strings.Contains(slashed, dir) {
+			return true
+		}
+	}
+	return false
+}
+
+// isSourceFilePath returns true for likely source code files. Excludes docs,
+// configs, fully-redacted paths, and known test files.
+func isSourceFilePath(path string) bool {
+	if path == "" || isRedactedPath(path) || isTestFilePath(path) {
+		return false
+	}
+	lower := strings.ToLower(filepath.Base(path))
+	for _, suffix := range []string{
+		".md", ".txt", ".rst", ".adoc",
+		".yaml", ".yml", ".json", ".toml", ".ini", ".lock", ".env",
+		".gitignore", ".gitattributes",
+	} {
+		if strings.HasSuffix(lower, suffix) {
+			return false
+		}
+	}
+	// Require a recognized source extension to avoid false positives.
+	for _, suffix := range []string{
+		".go", ".py", ".rb", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+		".java", ".kt", ".scala", ".rs", ".c", ".cc", ".cpp", ".h", ".hpp",
+		".cs", ".php", ".sh", ".bash", ".zsh", ".swift", ".m", ".mm",
+		".html", ".css", ".scss", ".sass", ".vue", ".svelte",
+	} {
+		if strings.HasSuffix(lower, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func classifiableSourcePaths(changes []qratumFileChange) []qratumFileChange {
+	out := make([]qratumFileChange, 0, len(changes))
+	for _, fc := range changes {
+		if isSourceFilePath(fc.Path) {
+			out = append(out, fc)
+		}
+	}
+	return out
+}
+
+func sourceChangedWithoutTestChange(changes []qratumFileChange) bool {
+	hasSource := false
+	for _, fc := range changes {
+		if isTestFilePath(fc.Path) {
+			return false
+		}
+		if isSourceFilePath(fc.Path) {
+			hasSource = true
+		}
+	}
+	return hasSource
 }
 
 func normalizeCommandText(command string) string {
@@ -785,10 +1183,19 @@ func formatEvidenceFact(fact evidenceFact) string {
 
 func reviewHabitAndSkill(findingType string) (string, string) {
 	switch findingType {
-	case findingFinalEditAfterLastTest, findingMissingFinalVerification:
+	case findingFinalEditAfterLastTest, findingMissingFinalVerification,
+		findingFinalVerificationFailed, findingOnlyFailedVerification:
 		return "After the last edit, run the project's verification command and keep the result in the session.", "final-verification-loop"
 	case findingRepeatedFailingCommand:
 		return "When a command fails twice, change the code or command before running it again.", "debug-failing-command-loop"
+	case findingDestructiveCommand:
+		return "Before running destructive shell commands, confirm exactly what they will delete and avoid running them inside an unrelated task.", "destructive-command-guard"
+	case findingNetworkCallWithoutNeed:
+		return "Avoid network or install commands unless the task explicitly adds or upgrades a dependency.", "network-call-guard"
+	case findingSourceChangedWithoutTest:
+		return "When you change a source file, add or update a test in the same session.", "source-with-test-loop"
+	case findingBroadFileChange:
+		return "Before making broad multi-file changes, run a fast verification command and capture its result.", "broad-change-verification-loop"
 	default:
 		return "Keep the next session evidence explicit and deterministic.", ""
 	}

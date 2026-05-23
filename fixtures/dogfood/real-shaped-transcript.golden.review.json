@@ -2,19 +2,22 @@
   "schema_version": "qratum.review_card.v1",
   "session_id": "dogfood-session-0001",
   "verdict": "needs_attention",
-  "main_finding": "[REDACTED_PATH_003] changed via edit at 2026-05-21T18:12:00Z after the last test command at 2026-05-21T18:07:00Z.",
+  "main_finding": "2 verification command(s) ran in this session and none succeeded.",
   "evidence": [
-    "[REDACTED_PATH_003] changed via edit at 2026-05-21T18:12:00Z after the last test command at 2026-05-21T18:07:00Z.",
-    "2026-05-21T18:12:00Z | edit [REDACTED_PATH_003]",
+    "2 verification command(s) ran in this session and none succeeded.",
+    "2026-05-21T18:05:00Z | command \"go test ./...\" | failed | output: FAIL ./cmd/qrt\nmissing dogfood command",
     "2026-05-21T18:07:00Z | command \"go test ./...\" | failed | output: FAIL ./cmd/qrt\nmissing dogfood command",
+    "missing: successful verification command at any point in this session",
     "No successful verification command ran after the final file change at 2026-05-21T18:12:00Z.",
+    "2026-05-21T18:12:00Z | edit [REDACTED_PATH_003]",
     "missing: successful verification command after 2026-05-21T18:12:00Z",
-    "\"go test ./...\" failed 2 times in this session.",
-    "2026-05-21T18:05:00Z | command \"go test ./...\" | failed | output: FAIL ./cmd/qrt\nmissing dogfood command"
+    "[REDACTED_PATH_003] changed via edit at 2026-05-21T18:12:00Z after the last test command at 2026-05-21T18:07:00Z.",
+    "\"go test ./...\" failed 2 times in this session."
   ],
   "suggested_next_habit": "After the last edit, run the project's verification command and keep the result in the session.",
   "suggested_skill": "final-verification-loop",
   "warnings": [
+    "successful verification command at any point in this session",
     "successful verification command after 2026-05-21T18:12:00Z"
   ],
   "artifact_paths": {

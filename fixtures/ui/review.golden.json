@@ -2,25 +2,86 @@
   "schema_version": "qratum.ui.review_card.v1",
   "session_id": "ses_0001",
   "verdict": "needs_attention",
-  "main_finding": "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
+  "main_finding": "2 verification command(s) ran in this session and none succeeded.",
   "evidence": [
-    "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
-    "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+    "2 verification command(s) ran in this session and none succeeded.",
+    "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
     "2026-05-21T21:41:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+    "missing: successful verification command at any point in this session",
     "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
+    "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
     "missing: successful verification command after 2026-05-21T21:55:00Z",
+    "internal/redaction/redactor.go changed via edit at 2026-05-21T21:55:00Z after the last test command at 2026-05-21T21:41:00Z.",
     "\"go test ./...\" failed 2 times in this session.",
-    "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted"
+    "2 source file change(s) recorded in this session, but no test files changed.",
+    "2026-05-21T21:30:00Z | write internal/redaction/redactor.go",
+    "missing: test file change in the same session"
   ],
   "suggested_next_habit": "After the last edit, run the project's verification command and keep the result in the session.",
   "suggested_skill": "final-verification-loop",
   "warnings": [
-    "successful verification command after 2026-05-21T21:55:00Z"
+    "successful verification command at any point in this session",
+    "successful verification command after 2026-05-21T21:55:00Z",
+    "test file change in the same session"
   ],
   "findings": [
     {
       "schema_version": "qratum.ui.evidence_finding.v1",
-      "finding_id": "verification.final_edit_after_last_test.0001",
+      "finding_id": "verification.only_failed_verification.0001",
+      "type": "verification.only_failed_verification",
+      "severity": "high",
+      "confidence": "high",
+      "title": "Verification never succeeded in this session",
+      "summary": "2 verification command(s) ran in this session and none succeeded.",
+      "evidence": [
+        {
+          "label": "first_failed_verification_command",
+          "kind": "command",
+          "display": "2026-05-21T21:40:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+          "timestamp": "2026-05-21T21:40:00Z",
+          "command": "go test ./...",
+          "success": false,
+          "output_excerpt": "FAIL ./internal/redaction\nexpected secret to be redacted"
+        },
+        {
+          "label": "failed_verification_command",
+          "kind": "command",
+          "display": "2026-05-21T21:41:00Z | command \"go test ./...\" | failed | output: FAIL ./internal/redaction\nexpected secret to be redacted",
+          "timestamp": "2026-05-21T21:41:00Z",
+          "command": "go test ./...",
+          "success": false,
+          "output_excerpt": "FAIL ./internal/redaction\nexpected secret to be redacted"
+        }
+      ],
+      "missing_evidence": [
+        "successful verification command at any point in this session"
+      ]
+    },
+    {
+      "schema_version": "qratum.ui.evidence_finding.v1",
+      "finding_id": "verification.missing_final_verification.0002",
+      "type": "verification.missing_final_verification",
+      "severity": "high",
+      "confidence": "high",
+      "title": "Final verification is missing",
+      "summary": "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
+      "evidence": [
+        {
+          "label": "final_file_change",
+          "kind": "file_change",
+          "display": "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+          "timestamp": "2026-05-21T21:55:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "edit"
+        }
+      ],
+      "missing_evidence": [
+        "successful verification command after 2026-05-21T21:55:00Z"
+      ]
+    },
+    {
+      "schema_version": "qratum.ui.evidence_finding.v1",
+      "finding_id": "verification.final_edit_after_last_test.0003",
       "type": "verification.final_edit_after_last_test",
       "severity": "medium",
       "confidence": "high",
@@ -49,29 +110,7 @@
     },
     {
       "schema_version": "qratum.ui.evidence_finding.v1",
-      "finding_id": "verification.missing_final_verification.0002",
-      "type": "verification.missing_final_verification",
-      "severity": "high",
-      "confidence": "high",
-      "title": "Final verification is missing",
-      "summary": "No successful verification command ran after the final file change at 2026-05-21T21:55:00Z.",
-      "evidence": [
-        {
-          "label": "final_file_change",
-          "kind": "file_change",
-          "display": "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
-          "timestamp": "2026-05-21T21:55:00Z",
-          "path": "internal/redaction/redactor.go",
-          "operation": "edit"
-        }
-      ],
-      "missing_evidence": [
-        "successful verification command after 2026-05-21T21:55:00Z"
-      ]
-    },
-    {
-      "schema_version": "qratum.ui.evidence_finding.v1",
-      "finding_id": "reliability.repeated_failing_command.0003",
+      "finding_id": "reliability.repeated_failing_command.0004",
       "type": "reliability.repeated_failing_command",
       "severity": "medium",
       "confidence": "high",
@@ -98,6 +137,36 @@
         }
       ],
       "missing_evidence": []
+    },
+    {
+      "schema_version": "qratum.ui.evidence_finding.v1",
+      "finding_id": "scope.source_changed_without_test_change.0005",
+      "type": "scope.source_changed_without_test_change",
+      "severity": "medium",
+      "confidence": "medium",
+      "title": "Source changed without test change",
+      "summary": "2 source file change(s) recorded in this session, but no test files changed.",
+      "evidence": [
+        {
+          "label": "source_file_change_1",
+          "kind": "file_change",
+          "display": "2026-05-21T21:30:00Z | write internal/redaction/redactor.go",
+          "timestamp": "2026-05-21T21:30:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "write"
+        },
+        {
+          "label": "source_file_change_2",
+          "kind": "file_change",
+          "display": "2026-05-21T21:55:00Z | edit internal/redaction/redactor.go",
+          "timestamp": "2026-05-21T21:55:00Z",
+          "path": "internal/redaction/redactor.go",
+          "operation": "edit"
+        }
+      ],
+      "missing_evidence": [
+        "test file change in the same session"
+      ]
     }
   ],
   "artifacts": [
@@ -120,7 +189,7 @@
       "label": "Evidence bundle",
       "media_type": "application/json",
       "href": ".qratum/evidence/ses_0001.evidence.json",
-      "digest": "sha256:902ba16ec28ca47fdaa8211d4e87e4f13fea07a9f46f3720999879052b3613c1",
+      "digest": "sha256:ecbdd4d6949f206de08be2a29c484cce9179e294d860cd9d1c43a1c36c88b666",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
@@ -131,7 +200,7 @@
       "label": "Review card",
       "media_type": "application/json",
       "href": ".qratum/reviews/ses_0001.review.json",
-      "digest": "sha256:db7b508b23655065e21b951364af8dc23d2c7717ecd1d339d74ca9b19c44c60a",
+      "digest": "sha256:2753ba543577e31c5b9d916aac812335e21397d4f5e827840bfce7edce8a6737",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
