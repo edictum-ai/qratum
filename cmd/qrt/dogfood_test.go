@@ -123,6 +123,13 @@ func TestDogfoodLatestPrintsCompactReview(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("dogfood import exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
+	cloneDogfoodArtifacts(t, artifactPathsForStem("normal-session-newer"), func(data []byte) []byte {
+		s := string(data)
+		s = strings.ReplaceAll(s, "dogfood-session-0001", "normal-session-newer")
+		s = strings.ReplaceAll(s, `"pipeline_status": "dogfood_imported"`, `"pipeline_status": "normalized"`)
+		s = strings.ReplaceAll(s, "2026-05-21T18:15:00Z", "2026-05-22T18:15:00Z")
+		return []byte(s)
+	})
 	stdout.Reset()
 	stderr.Reset()
 
@@ -133,6 +140,9 @@ func TestDogfoodLatestPrintsCompactReview(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if strings.Contains(stdout.String(), "normal-session-newer") {
+		t.Fatalf("dogfood latest included a non-dogfood session:\n%s", stdout.String())
 	}
 	for _, want := range []string{
 		"session_id: dogfood-session-0001\n",
@@ -145,6 +155,140 @@ func TestDogfoodLatestPrintsCompactReview(t *testing.T) {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, missing %q", stdout.String(), want)
 		}
+	}
+}
+
+func TestDogfoodListShowsImportedSessionsNewestFirst(t *testing.T) {
+	root := t.TempDir()
+	writeDogfoodFixture(t, root, "real-shaped-transcript.jsonl")
+	t.Chdir(root)
+
+	importDogfood := func(t *testing.T) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"dogfood", "import", "fixtures/dogfood/real-shaped-transcript.jsonl"}, &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("dogfood import exit code = %d, want 0; stderr = %q", code, stderr.String())
+		}
+	}
+	importDogfood(t)
+
+	// Add a second imported session with a different session_id and earlier ended_at so we can verify ordering.
+	cloneDogfoodArtifacts(t, artifactPathsForStem("dogfood-session-older"), func(data []byte) []byte {
+		s := string(data)
+		s = strings.ReplaceAll(s, "dogfood-session-0001", "dogfood-session-older")
+		s = strings.ReplaceAll(s, "2026-05-21T18:15:00Z", "2026-05-20T10:15:00Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:12:10Z", "2026-05-20T10:00:10Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:12:00Z", "2026-05-20T10:00:00Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:07:30Z", "2026-05-20T09:55:30Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:07:00Z", "2026-05-20T09:55:00Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:05:30Z", "2026-05-20T09:50:30Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:05:00Z", "2026-05-20T09:50:00Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:01:02Z", "2026-05-20T09:31:02Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:01:00Z", "2026-05-20T09:31:00Z")
+		s = strings.ReplaceAll(s, "2026-05-21T18:00:00Z", "2026-05-20T09:30:00Z")
+		return []byte(s)
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"dogfood", "list"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("dogfood list exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+
+	output := stdout.String()
+	firstIdx := strings.Index(output, "session_id: dogfood-session-0001")
+	secondIdx := strings.Index(output, "session_id: dogfood-session-older")
+	if firstIdx < 0 || secondIdx < 0 {
+		t.Fatalf("dogfood list output missing entries:\n%s", output)
+	}
+	if firstIdx > secondIdx {
+		t.Fatalf("expected newest session first, got:\n%s", output)
+	}
+	for _, want := range []string{
+		"source: claude-code\n",
+		"verdict: needs_attention\n",
+		"files_changed: 1\n",
+		"commands_run: 2\n",
+		"tests_run: 2\n",
+		"report_path: .qratum/reports/dogfood-session-0001.html\n",
+		"report_path: .qratum/reports/dogfood-session-older.html\n",
+		"started_at:",
+		"ended_at: 2026-05-21T18:15:00Z\n",
+		"ended_at: 2026-05-20T10:15:00Z\n",
+		"main_finding:",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("dogfood list output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestDogfoodShowPrintsDetailWithArtifactPaths(t *testing.T) {
+	root := t.TempDir()
+	writeDogfoodFixture(t, root, "real-shaped-transcript.jsonl")
+	t.Chdir(root)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"dogfood", "import", "fixtures/dogfood/real-shaped-transcript.jsonl"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("import exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = run([]string{"dogfood", "show", "dogfood-session-0001"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("show exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+
+	for _, want := range []string{
+		"session_id: dogfood-session-0001\n",
+		"source: claude-code\n",
+		"agent_model: claude-sonnet-4-20250514\n",
+		"verdict: needs_attention\n",
+		"main_finding:",
+		"evidence:\n",
+		"suggested_next_habit: After the last edit, run the project's verification command",
+		"files_changed: 1\n",
+		"commands_run: 2\n",
+		"tests_run: 2\n",
+		"last_file_change_at: 2026-05-21T18:12:00Z\n",
+		"last_test_command_at: 2026-05-21T18:07:00Z\n",
+		"last_successful_verification_at: -\n",
+		"html_report_path: .qratum/reports/dogfood-session-0001.html\n",
+		"adp_export_path: .qratum/exports/dogfood-session-0001.adp.jsonl\n",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("dogfood show output missing %q:\n%s", want, stdout.String())
+		}
+	}
+}
+
+func TestDogfoodShowMissingSessionFails(t *testing.T) {
+	root := t.TempDir()
+	writeDogfoodFixture(t, root, "real-shaped-transcript.jsonl")
+	t.Chdir(root)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"dogfood", "import", "fixtures/dogfood/real-shaped-transcript.jsonl"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("import exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+
+	code = run([]string{"dogfood", "show", "nope"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected non-zero exit code for unknown session")
+	}
+	if !strings.Contains(stderr.String(), `session "nope" not found`) {
+		t.Fatalf("stderr = %q, want not found error", stderr.String())
 	}
 }
 
@@ -191,6 +335,21 @@ func TestDogfoodRejectsBadArguments(t *testing.T) {
 			args:      []string{"dogfood", "latest", "extra"},
 			wantError: "error: dogfood latest does not accept arguments",
 		},
+		{
+			name:      "list extra arg",
+			args:      []string{"dogfood", "list", "extra"},
+			wantError: "error: dogfood list does not accept arguments",
+		},
+		{
+			name:      "show missing session_id",
+			args:      []string{"dogfood", "show"},
+			wantError: "error: missing session_id",
+		},
+		{
+			name:      "show extra arg",
+			args:      []string{"dogfood", "show", "ses_0001", "extra"},
+			wantError: "error: dogfood show accepts exactly one session_id",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -228,6 +387,35 @@ func writeDogfoodFixture(t *testing.T, root string, name string) {
 	}
 	if err := os.WriteFile(target, readDogfoodFixture(t, name), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func cloneDogfoodArtifacts(t *testing.T, paths daemonArtifactPaths, mutate func([]byte) []byte) {
+	t.Helper()
+	for _, item := range []struct {
+		source string
+		target string
+	}{
+		{source: ".qratum/sessions/dogfood-session-0001.normalized.json", target: paths.Session},
+		{source: ".qratum/redacted/dogfood-session-0001.redacted.json", target: paths.Redacted},
+		{source: ".qratum/evidence/dogfood-session-0001.evidence.json", target: paths.Evidence},
+		{source: ".qratum/reviews/dogfood-session-0001.review.json", target: paths.Review},
+		{source: ".qratum/reports/dogfood-session-0001.html", target: paths.Report},
+		{source: ".qratum/exports/dogfood-session-0001.adp.jsonl", target: paths.Export},
+	} {
+		data, err := os.ReadFile(item.source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mutate != nil {
+			data = mutate(data)
+		}
+		if err := os.MkdirAll(filepath.Dir(item.target), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(item.target, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

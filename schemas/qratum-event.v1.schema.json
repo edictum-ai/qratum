@@ -9,6 +9,7 @@
     "source": { "enum": ["claude-code"] },
     "event_type": { "enum": ["session_start", "session_end"] },
     "timestamp": { "type": "string" },
+    "timestamp_source": { "enum": ["hook_payload", "capture_time", "transcript_end"] },
     "session_ref": { "type": "object" },
     "workspace": { "type": "object" }
   }

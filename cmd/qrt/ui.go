@@ -580,7 +580,7 @@ func uiArtifactCreatedAt(session qratumSession, evidence evidenceBundle) string 
 			return value
 		}
 	}
-	return defaultHookTimestamp
+	return currentTimestamp()
 }
 
 func buildUIArtifactLinks(projectRoot string, sessionID string, createdAt string, paths daemonArtifactPaths) ([]uiArtifactLink, error) {

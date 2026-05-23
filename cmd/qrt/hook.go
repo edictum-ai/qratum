@@ -9,13 +9,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
-	captureEventSchemaVersion = "qratum.event.v1"
-	claudeCodeSource          = "claude-code"
-	defaultHookTimestamp      = "1970-01-01T00:00:00Z"
-	maxHookPayloadBytes       = 1 << 20
+	captureEventSchemaVersion        = "qratum.event.v1"
+	claudeCodeSource                 = "claude-code"
+	deprecatedUnixZeroHookTimestamp  = "1970-01-01T00:00:00Z"
+	hookTimestampSourceHookPayload   = "hook_payload"
+	hookTimestampSourceCaptureTime   = "capture_time"
+	hookTimestampSourceTranscriptEnd = "transcript_end"
+	maxHookPayloadBytes              = 1 << 20
 )
 
 type claudeCodeHookPayload struct {
@@ -27,13 +31,14 @@ type claudeCodeHookPayload struct {
 }
 
 type captureEvent struct {
-	SchemaVersion string              `json:"schema_version"`
-	EventID       string              `json:"event_id"`
-	Source        string              `json:"source"`
-	EventType     string              `json:"event_type"`
-	Timestamp     string              `json:"timestamp"`
-	SessionRef    captureSessionRef   `json:"session_ref"`
-	Workspace     captureWorkspaceRef `json:"workspace"`
+	SchemaVersion   string              `json:"schema_version"`
+	EventID         string              `json:"event_id"`
+	Source          string              `json:"source"`
+	EventType       string              `json:"event_type"`
+	Timestamp       string              `json:"timestamp"`
+	TimestampSource string              `json:"timestamp_source,omitempty"`
+	SessionRef      captureSessionRef   `json:"session_ref"`
+	Workspace       captureWorkspaceRef `json:"workspace"`
 }
 
 type captureSessionRef struct {
@@ -122,6 +127,11 @@ func readClaudeCodeHookPayload(stdin io.Reader) (claudeCodeHookPayload, error) {
 	if payload.HookEventName == "" {
 		return claudeCodeHookPayload{}, fmt.Errorf("missing required hook field hook_event_name")
 	}
+	if payload.Timestamp != "" {
+		if _, err := time.Parse(time.RFC3339Nano, payload.Timestamp); err != nil {
+			return claudeCodeHookPayload{}, fmt.Errorf("invalid hook field timestamp: must be RFC3339")
+		}
+	}
 
 	return payload, nil
 }
@@ -139,15 +149,18 @@ func claudeCodeEventType(hookEventName string) (string, error) {
 
 func newCaptureEvent(payload claudeCodeHookPayload, eventType string) captureEvent {
 	timestamp := payload.Timestamp
+	timestampSource := hookTimestampSourceHookPayload
 	if timestamp == "" {
-		timestamp = defaultHookTimestamp
+		timestamp = currentTimestamp()
+		timestampSource = hookTimestampSourceCaptureTime
 	}
 
 	event := captureEvent{
-		SchemaVersion: captureEventSchemaVersion,
-		Source:        claudeCodeSource,
-		EventType:     eventType,
-		Timestamp:     timestamp,
+		SchemaVersion:   captureEventSchemaVersion,
+		Source:          claudeCodeSource,
+		EventType:       eventType,
+		Timestamp:       timestamp,
+		TimestampSource: timestampSource,
 		SessionRef: captureSessionRef{
 			SessionID:      payload.SessionID,
 			TranscriptPath: payload.TranscriptPath,
@@ -160,12 +173,15 @@ func newCaptureEvent(payload claudeCodeHookPayload, eventType string) captureEve
 	return event
 }
 
+func currentTimestamp() string {
+	return time.Now().UTC().Format(time.RFC3339Nano)
+}
+
 func deterministicEventID(event captureEvent) string {
 	hash := sha256.New()
 	for _, part := range []string{
 		event.Source,
 		event.EventType,
-		event.Timestamp,
 		event.SessionRef.SessionID,
 		event.SessionRef.TranscriptPath,
 		event.Workspace.CWD,

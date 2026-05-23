@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 const (
@@ -22,7 +23,15 @@ type daemonRunSummary struct {
 	Events    int
 	Processed int
 	Skipped   int
+	Skips     []daemonSkippedEvent
 }
+
+type daemonSkippedEvent struct {
+	EventID string
+	Reason  string
+}
+
+const skipReasonAlreadyProcessed = "already_processed"
 
 type daemonArtifactPaths struct {
 	Event    string `json:"event,omitempty"`
@@ -76,6 +85,13 @@ func daemon(args []string, stdout io.Writer, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "events: %d\n", summary.Events)
 	fmt.Fprintf(stdout, "processed: %d\n", summary.Processed)
 	fmt.Fprintf(stdout, "skipped: %d\n", summary.Skipped)
+	if len(summary.Skips) > 0 {
+		fmt.Fprintln(stdout, "skipped_events:")
+		for _, skip := range summary.Skips {
+			fmt.Fprintf(stdout, "- event_id: %s\n", skip.EventID)
+			fmt.Fprintf(stdout, "  reason: %s\n", skip.Reason)
+		}
+	}
 	return 0
 }
 
@@ -101,13 +117,17 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			return summary, err
 		}
 
-		artifacts := artifactPathsForEvent(event)
+		artifacts, err := artifactPathsForEvent(event)
+		if err != nil {
+			return summary, fmt.Errorf("event %s has invalid artifact stem: %w", event.EventID, err)
+		}
 		completed, empty, missing, existing, err := inspectArtifactCompletion(artifactFilesForPaths(projectRoot, artifacts))
 		if err != nil {
 			return summary, err
 		}
 		if completed {
 			summary.Skipped++
+			summary.Skips = append(summary.Skips, daemonSkippedEvent{EventID: event.EventID, Reason: skipReasonAlreadyProcessed})
 			continue
 		}
 		if !empty {
@@ -135,6 +155,13 @@ func runDaemonOnce() (daemonRunSummary, error) {
 		if err != nil {
 			return summary, fmt.Errorf("event %s normalize transcript %s: %w", event.EventID, displayPath(projectRoot, transcriptPath), err)
 		}
+		if applySourceEventTimestampFallback(&event, session) {
+			eventPath := filepath.Join(projectRoot, filepath.FromSlash(artifacts.Event))
+			if err := writeFileAtomic(eventPath, mustJSON(event), 0o644); err != nil {
+				return summary, fmt.Errorf("update capture event %s: %w", displayPath(projectRoot, eventPath), err)
+			}
+		}
+		session.SourceEventTimestamp = event.Timestamp
 
 		if err := writePipelineArtifacts(projectRoot, artifacts, session); err != nil {
 			return summary, err
@@ -191,6 +218,7 @@ func validateCaptureEventFile(event *captureEvent, path string) error {
 	event.Source = strings.TrimSpace(event.Source)
 	event.EventType = strings.TrimSpace(event.EventType)
 	event.Timestamp = strings.TrimSpace(event.Timestamp)
+	event.TimestampSource = strings.TrimSpace(event.TimestampSource)
 	event.SessionRef.SessionID = strings.TrimSpace(event.SessionRef.SessionID)
 	event.SessionRef.TranscriptPath = strings.TrimSpace(event.SessionRef.TranscriptPath)
 	event.Workspace.CWD = strings.TrimSpace(event.Workspace.CWD)
@@ -217,6 +245,14 @@ func validateCaptureEventFile(event *captureEvent, path string) error {
 	}
 	if event.Timestamp == "" {
 		return fmt.Errorf("missing timestamp")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, event.Timestamp); err != nil {
+		return fmt.Errorf("timestamp must be RFC3339")
+	}
+	switch event.TimestampSource {
+	case "", hookTimestampSourceHookPayload, hookTimestampSourceCaptureTime, hookTimestampSourceTranscriptEnd:
+	default:
+		return fmt.Errorf("unsupported timestamp_source %q", event.TimestampSource)
 	}
 	if event.SessionRef.SessionID == "" {
 		return fmt.Errorf("missing session_ref.session_id")
@@ -247,8 +283,25 @@ func validArtifactStem(stem string) bool {
 	return true
 }
 
-func artifactPathsForEvent(event captureEvent) daemonArtifactPaths {
-	return artifactPathsForStem(event.EventID)
+func artifactPathsForEvent(event captureEvent) (daemonArtifactPaths, error) {
+	stem, err := artifactStemForSession(event.SessionRef.SessionID)
+	if err != nil {
+		return daemonArtifactPaths{}, err
+	}
+	paths := artifactPathsForStem(stem)
+	paths.Event = slashPath(filepath.Join(".qratum", "events", event.EventID+".json"))
+	return paths, nil
+}
+
+func applySourceEventTimestampFallback(event *captureEvent, session qratumSession) bool {
+	if event.TimestampSource == hookTimestampSourceCaptureTime || event.Timestamp == deprecatedUnixZeroHookTimestamp {
+		if strings.TrimSpace(session.EndedAt) != "" {
+			event.Timestamp = session.EndedAt
+			event.TimestampSource = hookTimestampSourceTranscriptEnd
+			return true
+		}
+	}
+	return false
 }
 
 func artifactFilesForPaths(projectRoot string, paths daemonArtifactPaths) []daemonArtifactFile {

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestVersionPrintsFixedDevelopmentVersion(t *testing.T) {
@@ -162,8 +163,10 @@ func TestHookClaudeCodeSpoolsCaptureEventFromFixture(t *testing.T) {
 	input := readFixture(t, "hook-session-end.json")
 	t.Chdir(t.TempDir())
 	var stdout, stderr bytes.Buffer
+	started := time.Now().UTC().Add(-time.Second)
 
 	code := runWithIO([]string{"hook", "claude-code"}, bytes.NewReader(input), &stdout, &stderr)
+	ended := time.Now().UTC().Add(time.Second)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
@@ -207,8 +210,15 @@ func TestHookClaudeCodeSpoolsCaptureEventFromFixture(t *testing.T) {
 	if got, want := event.EventType, "session_end"; got != want {
 		t.Fatalf("event_type = %q, want %q", got, want)
 	}
-	if got, want := event.Timestamp, defaultHookTimestamp; got != want {
-		t.Fatalf("timestamp = %q, want deterministic fallback %q", got, want)
+	timestamp, err := time.Parse(time.RFC3339Nano, event.Timestamp)
+	if err != nil {
+		t.Fatalf("timestamp = %q, want RFC3339 timestamp: %v", event.Timestamp, err)
+	}
+	if timestamp.Before(started) || timestamp.After(ended) {
+		t.Fatalf("timestamp = %q, want between %q and %q", event.Timestamp, started.Format(time.RFC3339Nano), ended.Format(time.RFC3339Nano))
+	}
+	if got, want := event.TimestampSource, hookTimestampSourceCaptureTime; got != want {
+		t.Fatalf("timestamp_source = %q, want %q", got, want)
 	}
 	if got, want := event.SessionRef.SessionID, "claude-session-0001"; got != want {
 		t.Fatalf("session_ref.session_id = %q, want %q", got, want)
@@ -229,6 +239,7 @@ func TestHookClaudeCodeToleratesUnknownFields(t *testing.T) {
 		"transcript_path": "fixtures/claude-code/transcript-basic.jsonl",
 		"cwd": "/tmp/qratum",
 		"hook_event_name": "SessionStart",
+		"timestamp": "2026-05-21T20:00:00Z",
 		"unexpected": {"still": "accepted"}
 	}`
 
@@ -255,6 +266,12 @@ func TestHookClaudeCodeToleratesUnknownFields(t *testing.T) {
 	}
 	if got, want := event.EventType, "session_start"; got != want {
 		t.Fatalf("event_type = %q, want %q", got, want)
+	}
+	if got, want := event.Timestamp, "2026-05-21T20:00:00Z"; got != want {
+		t.Fatalf("timestamp = %q, want %q", got, want)
+	}
+	if got, want := event.TimestampSource, hookTimestampSourceHookPayload; got != want {
+		t.Fatalf("timestamp_source = %q, want %q", got, want)
 	}
 	if got, want := event.SessionRef.TranscriptPath, "fixtures/claude-code/transcript-basic.jsonl"; got != want {
 		t.Fatalf("transcript_path = %q, want %q", got, want)
@@ -335,6 +352,11 @@ func TestHookClaudeCodeFailsOnInvalidInput(t *testing.T) {
 				"hook_event_name": "UnknownHook"
 			}`,
 			wantError: `error: unsupported Claude Code hook_event_name "UnknownHook"`,
+		},
+		{
+			name:      "invalid timestamp",
+			input:     `{"session_id":"claude-session-0001","transcript_path":"fixtures/claude-code/transcript-basic.jsonl","cwd":"/tmp/qratum","hook_event_name":"SessionEnd","timestamp":"not-time"}`,
+			wantError: "error: invalid hook field timestamp: must be RFC3339",
 		},
 	}
 
@@ -1151,12 +1173,41 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 		}
 	}
 
+	eventPath := singleGlob(t, ".qratum/events/*.json")
 	sessionPath := singleGlob(t, ".qratum/sessions/*.normalized.json")
 	redactedPath := singleGlob(t, ".qratum/redacted/*.redacted.json")
 	evidencePath := singleGlob(t, ".qratum/evidence/*.evidence.json")
 	reviewPath := singleGlob(t, ".qratum/reviews/*.review.json")
 	reportPath := singleGlob(t, ".qratum/reports/*.html")
 	exportPath := singleGlob(t, ".qratum/exports/*.adp.jsonl")
+	wantArtifactPaths := artifactPathsForStem("claude-session-0001")
+	if got, want := filepath.ToSlash(sessionPath), wantArtifactPaths.Session; got != want {
+		t.Fatalf("session artifact path = %q, want %q", got, want)
+	}
+	if got, want := filepath.ToSlash(redactedPath), wantArtifactPaths.Redacted; got != want {
+		t.Fatalf("redacted artifact path = %q, want %q", got, want)
+	}
+	if got, want := filepath.ToSlash(evidencePath), wantArtifactPaths.Evidence; got != want {
+		t.Fatalf("evidence artifact path = %q, want %q", got, want)
+	}
+	if got, want := filepath.ToSlash(reviewPath), wantArtifactPaths.Review; got != want {
+		t.Fatalf("review artifact path = %q, want %q", got, want)
+	}
+	if got, want := filepath.ToSlash(reportPath), wantArtifactPaths.Report; got != want {
+		t.Fatalf("report artifact path = %q, want %q", got, want)
+	}
+	if got, want := filepath.ToSlash(exportPath), wantArtifactPaths.Export; got != want {
+		t.Fatalf("export artifact path = %q, want %q", got, want)
+	}
+
+	var event captureEvent
+	readJSONFile(t, eventPath, &event)
+	if got, want := event.Timestamp, "2026-05-21T22:10:00Z"; got != want {
+		t.Fatalf("event timestamp = %q, want transcript end timestamp %q", got, want)
+	}
+	if got, want := event.TimestampSource, hookTimestampSourceTranscriptEnd; got != want {
+		t.Fatalf("event timestamp_source = %q, want %q", got, want)
+	}
 
 	var session qratumSession
 	readJSONFile(t, sessionPath, &session)
@@ -1172,8 +1223,8 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 	if got, want := session.Source, claudeCodeSource; got != want {
 		t.Fatalf("source = %q, want %q", got, want)
 	}
-	if got, want := session.SourceEventTimestamp, defaultHookTimestamp; got != want {
-		t.Fatalf("source_event_timestamp = %q, want deterministic hook timestamp %q", got, want)
+	if got, want := session.SourceEventTimestamp, "2026-05-21T22:10:00Z"; got != want {
+		t.Fatalf("source_event_timestamp = %q, want transcript end timestamp %q", got, want)
 	}
 	if got, want := session.SourceTranscriptSessionID, "claude-session-verify-gap"; got != want {
 		t.Fatalf("source_transcript_session_id = %q, want %q", got, want)
@@ -1216,6 +1267,9 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 	}
 	if session.ArtifactPaths == nil {
 		t.Fatal("artifact_paths is nil, want generated artifact paths")
+	}
+	if got, want := session.ArtifactPaths.Event, filepath.ToSlash(eventPath); got != want {
+		t.Fatalf("artifact_paths.event = %q, want %q", got, want)
 	}
 	if got, want := session.ArtifactPaths.Session, filepath.ToSlash(sessionPath); got != want {
 		t.Fatalf("artifact_paths.session = %q, want %q", got, want)
@@ -1274,7 +1328,7 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 	if got, want := evidence.Summary.Status, evidenceStatusComplete; got != want {
 		t.Fatalf("evidence summary.status = %q, want %q", got, want)
 	}
-	if got, want := evidence.Summary.SourceEventTimestamp, defaultHookTimestamp; got != want {
+	if got, want := evidence.Summary.SourceEventTimestamp, "2026-05-21T22:10:00Z"; got != want {
 		t.Fatalf("evidence source_event_timestamp = %q, want %q", got, want)
 	}
 	assertFindingTypes(t, evidence.Findings, []string{
@@ -1400,7 +1454,7 @@ func TestDaemonRunOnceIsIdempotentForCompletedEvents(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	for _, want := range []string{"processed: 0\n", "skipped: 1\n"} {
+	for _, want := range []string{"processed: 0\n", "skipped: 1\n", "skipped_events:\n", "reason: already_processed\n"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, missing %q", stdout.String(), want)
 		}
@@ -1408,6 +1462,207 @@ func TestDaemonRunOnceIsIdempotentForCompletedEvents(t *testing.T) {
 	after := qratumFiles(t)
 	if got, want := strings.Join(after, "\n"), strings.Join(before, "\n"); got != want {
 		t.Fatalf("qratum files changed after idempotent second run:\n got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestDaemonRunOnceSilentSkippedEventsWhenZero(t *testing.T) {
+	root := t.TempDir()
+	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
+	t.Chdir(root)
+	spoolHookFixture(t, "hook-session-end.json")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "skipped_events:") {
+		t.Fatalf("stdout = %q, must not include skipped_events when skipped is 0", stdout.String())
+	}
+}
+
+func TestHookClaudeCodeNeverWritesUnixZeroTimestamp(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name: "missing timestamp uses capture time",
+			input: `{
+				"session_id": "claude-session-no-ts",
+				"transcript_path": "fixtures/claude-code/transcript-basic.jsonl",
+				"cwd": "/tmp/qratum",
+				"hook_event_name": "SessionEnd"
+			}`,
+		},
+		{
+			name: "empty string timestamp uses capture time",
+			input: `{
+				"session_id": "claude-session-empty-ts",
+				"transcript_path": "fixtures/claude-code/transcript-basic.jsonl",
+				"cwd": "/tmp/qratum",
+				"hook_event_name": "SessionEnd",
+				"timestamp": ""
+			}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			var stdout, stderr bytes.Buffer
+			code := runWithIO([]string{"hook", "claude-code"}, strings.NewReader(tt.input), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+			}
+			files, err := filepath.Glob(".qratum/events/*.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(files) != 1 {
+				t.Fatalf("event files = %v, want exactly one", files)
+			}
+			var event captureEvent
+			readJSONFile(t, files[0], &event)
+			if event.Timestamp == "1970-01-01T00:00:00Z" || strings.HasPrefix(event.Timestamp, "1970-") {
+				t.Fatalf("hook wrote Unix zero timestamp %q", event.Timestamp)
+			}
+			parsed, err := time.Parse(time.RFC3339Nano, event.Timestamp)
+			if err != nil {
+				t.Fatalf("invalid timestamp %q: %v", event.Timestamp, err)
+			}
+			if parsed.Year() < 2020 {
+				t.Fatalf("timestamp %q is suspiciously old (year %d)", event.Timestamp, parsed.Year())
+			}
+		})
+	}
+}
+
+func TestCleanReviewIncludesVerificationProof(t *testing.T) {
+	t.Chdir(t.TempDir())
+	bundle := evidenceBundle{
+		SchemaVersion: qratumEvidenceSchemaVersion,
+		SessionID:     "ses-clean-0001",
+		Summary: evidenceBundleSummary{
+			Status:                 evidenceStatusComplete,
+			Source:                 claudeCodeSource,
+			FilesChanged:           2,
+			CommandsRun:            3,
+			TestsRun:               1,
+			LastFileChangeAt:       "2026-05-21T19:00:00Z",
+			LastTestCommandAt:      "2026-05-21T19:05:00Z",
+			LastSuccessfulVerifyAt: "2026-05-21T19:05:00Z",
+		},
+		Findings:        []evidenceFinding{},
+		MissingEvidence: []string{},
+	}
+	card, err := buildReviewCard(bundle)
+	if err != nil {
+		t.Fatalf("buildReviewCard: %v", err)
+	}
+	if got, want := card.Verdict, "clean"; got != want {
+		t.Fatalf("verdict = %q, want %q", got, want)
+	}
+	wantEvidence := []string{
+		"files_changed: 2",
+		"commands_run: 3",
+		"tests_run: 1",
+		"final_file_edit_at: 2026-05-21T19:00:00Z",
+		"last_test_command_at: 2026-05-21T19:05:00Z",
+		"last_successful_verification_at: 2026-05-21T19:05:00Z",
+		"verification_after_final_edit: true",
+	}
+	joined := strings.Join(card.Evidence, "\n")
+	for _, want := range wantEvidence {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("clean review evidence missing %q:\n%s", want, joined)
+		}
+	}
+	lowered := strings.ToLower(joined)
+	for _, banned := range []string{"score", "rank", "shame"} {
+		if strings.Contains(lowered, banned) {
+			t.Fatalf("clean review contains banned language %q: %s", banned, joined)
+		}
+	}
+}
+
+func TestNewArtifactsAreSessionIDBased(t *testing.T) {
+	root := t.TempDir()
+	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
+	t.Chdir(root)
+	spoolHookFixture(t, "hook-session-end.json")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+
+	expect := artifactPathsForStem("claude-session-0001")
+	for _, path := range []string{expect.Session, expect.Redacted, expect.Evidence, expect.Review, expect.Report, expect.Export} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected session-id-based artifact %s: %v", path, err)
+		}
+		if strings.Contains(path, "evt_") {
+			t.Fatalf("artifact path %s contains event-id prefix", path)
+		}
+	}
+}
+
+func TestExistingEventIDArtifactsRemainReadable(t *testing.T) {
+	root := t.TempDir()
+	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
+	t.Chdir(root)
+	spoolHookFixture(t, "hook-session-end.json")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+
+	// Simulate legacy on-disk layout: rename artifacts to event-id-based paths,
+	// rewrite session.ArtifactPaths to point at those legacy names, and confirm
+	// the read pipeline still resolves them via the `evidence` command.
+	eventPath := singleGlob(t, ".qratum/events/*.json")
+	var event captureEvent
+	readJSONFile(t, eventPath, &event)
+	legacyStem := event.EventID
+
+	legacyPaths := artifactPathsForStem(legacyStem)
+	legacyPaths.Event = ".qratum/events/" + legacyStem + ".json"
+
+	currentPaths := artifactPathsForStem("claude-session-0001")
+	moveRename := func(from string, to string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Rename(from, to); err != nil {
+			t.Fatalf("rename %s -> %s: %v", from, to, err)
+		}
+	}
+	moveRename(currentPaths.Session, legacyPaths.Session)
+	moveRename(currentPaths.Redacted, legacyPaths.Redacted)
+	moveRename(currentPaths.Evidence, legacyPaths.Evidence)
+	moveRename(currentPaths.Review, legacyPaths.Review)
+	moveRename(currentPaths.Report, legacyPaths.Report)
+	moveRename(currentPaths.Export, legacyPaths.Export)
+
+	// Patch the session.normalized.json to point ArtifactPaths at the legacy filenames.
+	var session qratumSession
+	readJSONFile(t, legacyPaths.Session, &session)
+	session.ArtifactPaths = &legacyPaths
+	if err := os.WriteFile(legacyPaths.Session, mustJSON(session), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// `qrt evidence` rebuilds the bundle from the redacted artifact; it should resolve
+	// the legacy paths from session.ArtifactPaths without crashing.
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"evidence", legacyPaths.Redacted}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("evidence on legacy paths exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
 }
 

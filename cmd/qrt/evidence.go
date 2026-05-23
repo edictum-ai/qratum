@@ -695,7 +695,7 @@ func buildReviewCard(bundle evidenceBundle) (reviewCard, error) {
 	if len(bundle.Findings) == 0 {
 		card.Verdict = "clean"
 		card.MainFinding = "No evidence findings were detected in this session."
-		card.Evidence = []string{fmt.Sprintf("session %s produced %d commands and %d file changes", bundle.SessionID, bundle.Summary.CommandsRun, bundle.Summary.FilesChanged)}
+		card.Evidence = buildCleanReviewProof(bundle.Summary)
 		card.SuggestedNextHabit = "Keep ending sessions with a visible verification command."
 		return card, nil
 	}
@@ -706,6 +706,31 @@ func buildReviewCard(bundle evidenceBundle) (reviewCard, error) {
 	card.Evidence = reviewEvidenceStrings(bundle)
 	card.SuggestedNextHabit, card.SuggestedSkill = reviewHabitAndSkill(main.Type)
 	return card, nil
+}
+
+func buildCleanReviewProof(summary evidenceBundleSummary) []string {
+	out := []string{
+		fmt.Sprintf("files_changed: %d", summary.FilesChanged),
+		fmt.Sprintf("commands_run: %d", summary.CommandsRun),
+		fmt.Sprintf("tests_run: %d", summary.TestsRun),
+	}
+	if summary.LastFileChangeAt != "" {
+		out = append(out, fmt.Sprintf("final_file_edit_at: %s", summary.LastFileChangeAt))
+	}
+	if summary.LastTestCommandAt != "" {
+		out = append(out, fmt.Sprintf("last_test_command_at: %s", summary.LastTestCommandAt))
+	}
+	if summary.LastSuccessfulVerifyAt != "" {
+		out = append(out, fmt.Sprintf("last_successful_verification_at: %s", summary.LastSuccessfulVerifyAt))
+	}
+	if summary.LastFileChangeAt != "" && summary.LastSuccessfulVerifyAt != "" {
+		fileAt, fileErr := time.Parse(time.RFC3339, summary.LastFileChangeAt)
+		verifyAt, verifyErr := time.Parse(time.RFC3339, summary.LastSuccessfulVerifyAt)
+		if fileErr == nil && verifyErr == nil {
+			out = append(out, fmt.Sprintf("verification_after_final_edit: %t", verifyAt.After(fileAt) || verifyAt.Equal(fileAt)))
+		}
+	}
+	return out
 }
 
 func reviewEvidenceStrings(bundle evidenceBundle) []string {
