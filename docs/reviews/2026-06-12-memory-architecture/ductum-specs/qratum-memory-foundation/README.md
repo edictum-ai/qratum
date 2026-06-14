@@ -40,3 +40,35 @@ Do not touch `edictum` or `edictum-harness`.
 These mutate the user's real home directory and live history. A dispatched
 agent builds and tests the commands; it must not run them against the real
 `~/.claude` or `~/.qratum`.
+
+## Decision Trace
+
+- Accepted 2026-06-14: `../../PROPOSAL.md`, `qratum/specs/current/qratum-vault-first.md`.
+  ADR 0010 records it (produced by P1).
+
+## Behavior Contract
+
+- P1 is docs-only; P2 is runtime and FAILS if built while the milestone is
+  still `P0-SPEC-AND-CONTRACTS`.
+- The vault never sends raw transcripts off the machine; a hook that parses,
+  networks, calls an LLM, or emits raw FAILS. Evidence: `make verify` + the P2
+  end-to-end vault proof.
+- No `qratum-vault-first.md` "Dead"-list item is implemented.
+
+## Verification
+
+- P1: `make build && make test` + dead-term grep. P2: `make verify` + `make demo`
+  + end-to-end vault proof. See each task's Verification.
+
+## Drift Handling
+
+- If the accepted spec changed since 2026-06-14 and no longer maps, stop and
+  report; re-measure stale counts.
+
+## Slop Review
+
+- [ ] No "Dead"-list item resurrected (LessonBackend, search, normalizer,
+  curation queue).
+- [ ] Hook does only stdin → event → file-copy (no parse/network/LLM).
+- [ ] No command mutates the real `~/.claude` or `~/.qratum` in tests/CI.
+- [ ] No new third-party Go dependency without a supply-chain decision.

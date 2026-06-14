@@ -91,7 +91,25 @@ Dead terms to drive the grep check: `LessonBackend`, `sqlite-vec`,
   re-measured.
 - Build and tests are unaffected (docs-only).
 
-## Verification commands
+## Decision Trace
+
+- Accepted 2026-06-14: `qratum-vault-first.md` "Spec Hygiene" is the exact edit
+  list; `../../PROPOSAL.md` is the spine.
+
+## Behavior Contract
+
+- Docs-only: any Go/schema/fixture/Makefile change FAILS the task.
+- All seven edits land in place. FAILURE MODE: a dead term left in SPEC.md,
+  operational-model-redesign.md, or ADR 0010. Evidence: the dead-term grep
+  (Verification) returns zero hits.
+- Milestone marker stays `P0-SPEC-AND-CONTRACTS`. Evidence: SPEC.md.
+
+## Drift Handling
+
+- If `operational-model-redesign.md` changed since 2026-06-14 and the seven
+  edits no longer map cleanly, stop and report. Stop conditions below are hard.
+
+## Verification
 
 ```sh
 # Build/tests still pass (docs-only, but prove nothing broke):
@@ -112,7 +130,16 @@ Note: `qratum-vault-first.md`, `memory-curation-pipeline.md`, and everything
 under `docs/reviews/` intentionally keep the dead terms in their Dead/history
 sections — do not grep or "fix" those.
 
-## Review prompt
+## Slop Review
+
+- [ ] No Go/schema/fixture/Makefile file changed.
+- [ ] Dead-term grep over SPEC.md + operational-model-redesign.md + ADR 0010
+  returns zero hits.
+- [ ] Milestone marker unchanged (still `P0-SPEC-AND-CONTRACTS`).
+- [ ] `qratum-vault-first.md`, the superseded pipeline spec, and `docs/reviews/`
+  still retain their Dead/history terms (not "fixed").
+
+Reviewer guidance:
 
 > Review this docs-only change against `qratum/specs/current/qratum-vault-first.md`
 > section "Spec Hygiene". Confirm all seven edits were applied in place (not as

@@ -1,0 +1,1291 @@
+/* ============================================================
+   LEDGER LIGHT — Neobrutalism on warm paper.
+   Scoped to .ledger-light-root. Hard borders in ink, hard
+   offset shadows in ink (accent yellow shadows retained where
+   they read as accents), Space Grotesk heavy display, sticker
+   chips, manifest table, vault widgets. The Terminal widget and
+   the stats band are intentionally kept dark as neobrutalist
+   accents on the light page.
+   Motion = librarian calm (long fades, quiet stagger).
+   ============================================================ */
+
+.ledger-light-root {
+  /* warm paper surfaces */
+  --dl-canvas: #f4f1e8;
+  --dl-surface: #fffdf9;
+  --dl-surface-2: #faf6ec;
+  --dl-ink: #0b0b0b;
+  --dl-ink-soft: #5d564e;
+  --dl-muted: #5d564e;
+  --dl-faint: rgba(11, 11, 11, 0.12);
+
+  /* accent + secondary (tasteful) */
+  --dl-yellow: #f5d90a;
+  --dl-yellow-ink: #0b0b0b;
+  --dl-cyan: #2563eb;
+  --dl-clay: #d6453d;
+  --dl-green: #3fdd8a;
+  --dl-amber: #f5b73d;
+
+  --dl-border: 2px;
+  --dl-border-lg: 2.5px;
+  --dl-stroke: var(--dl-ink);
+  --dl-stroke-soft: var(--dl-ink);
+  /* hard offset shadow in ink — the brutalist signature on paper */
+  --dl-shadow: 6px 6px 0 var(--dl-ink);
+  --dl-shadow-sm: 4px 4px 0 var(--dl-ink);
+  --dl-shadow-lg: 8px 8px 0 var(--dl-ink);
+  --dl-shadow-ink: 6px 6px 0 rgba(11, 11, 11, 0.14);
+
+  background: var(--dl-canvas);
+  color: var(--dl-ink);
+  font-family: "Inter", system-ui, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ledger-light-root * {
+  box-sizing: border-box;
+}
+
+/* faint INK grid backdrop — subtle, not neon */
+.ledger-light-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(11, 11, 11, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 11, 11, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  z-index: 0;
+}
+
+/* ---- Typography ---- */
+.ledger-light-root .dl-display {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+.ledger-light-root .dl-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.ledger-light-root .dl-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ---- Layout ---- */
+.ledger-light-root .dl-wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.ledger-light-root .dl-section {
+  padding: clamp(4rem, 8vw, 7rem) 0;
+  position: relative;
+  z-index: 1;
+}
+
+.ledger-light-root .dl-section + .dl-section {
+  border-top: var(--dl-border) solid var(--dl-faint);
+}
+
+/* ---- Cards: hard border + hard accent offset shadow ---- */
+.ledger-light-root .dl-card {
+  background: var(--dl-surface);
+  border: var(--dl-border-lg) solid var(--dl-stroke);
+  box-shadow: var(--dl-shadow);
+}
+
+.ledger-light-root .dl-card-soft {
+  background: var(--dl-surface);
+  border: var(--dl-border-lg) solid var(--dl-faint);
+}
+
+/* ---- Buttons (brutalist) ---- */
+.ledger-light-root .dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 22px;
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: var(--dl-shadow-sm);
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.12s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.12s ease;
+}
+
+.ledger-light-root .dl-btn:focus-visible {
+  outline: 3px solid var(--dl-cyan);
+  outline-offset: 3px;
+}
+
+.ledger-light-root .dl-btn-primary {
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+}
+
+.ledger-light-root .dl-btn-primary:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--dl-yellow);
+}
+
+.ledger-light-root .dl-btn-primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--dl-yellow);
+}
+
+.ledger-light-root .dl-btn-ghost {
+  background: var(--dl-surface);
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-btn-ghost:hover {
+  background: var(--dl-ink);
+  color: var(--dl-canvas);
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--dl-yellow);
+}
+
+/* ---- Nav ---- */
+.ledger-light-root .dl-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(244, 241, 232, 0.86);
+  backdrop-filter: blur(10px);
+  border-bottom: var(--dl-border) solid var(--dl-faint);
+}
+
+.ledger-light-root .dl-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 66px;
+}
+
+.ledger-light-root .dl-wordmark {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+  color: var(--dl-yellow-ink);
+  background: var(--dl-yellow);
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  padding: 4px 12px;
+  box-shadow: var(--dl-shadow-sm);
+  display: inline-block;
+}
+
+.ledger-light-root .dl-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+
+.ledger-light-root .dl-nav-link {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--dl-ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 6px 0;
+  position: relative;
+  transition: color 0.14s ease;
+}
+
+.ledger-light-root .dl-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 0;
+  background: var(--dl-yellow);
+  transition: width 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ledger-light-root .dl-nav-link:hover {
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-nav-link:hover::after {
+  width: 100%;
+}
+
+.ledger-light-root .dl-nav-link:focus-visible {
+  outline: 2px solid var(--dl-cyan);
+  outline-offset: 3px;
+}
+
+.ledger-light-root .dl-nav-cta {
+  background: transparent;
+  border: var(--dl-border) solid var(--dl-ink);
+  color: var(--dl-ink);
+  padding: 8px 14px;
+  font-size: 0.72rem;
+}
+.ledger-light-root .dl-nav-cta::after {
+  display: none;
+}
+.ledger-light-root .dl-nav-cta:hover {
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+  border-color: var(--dl-ink);
+}
+
+/* ---- Eyebrow + section heading ---- */
+.ledger-light-root .dl-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: var(--dl-ink);
+  border: var(--dl-border) solid var(--dl-ink);
+  padding: 5px 11px;
+  margin-bottom: 18px;
+}
+
+.ledger-light-root .dl-eyebrow .dl-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--dl-ink);
+  display: inline-block;
+}
+
+.ledger-light-root .dl-section-title {
+  font-size: clamp(2rem, 4.6vw, 3.3rem);
+  margin: 0 0 14px;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-section-intro {
+  font-size: 1.05rem;
+  color: var(--dl-ink-soft);
+  max-width: 62ch;
+  margin-bottom: 40px;
+  line-height: 1.55;
+}
+
+.ledger-light-root .dl-mark-yellow {
+  background: var(--dl-yellow);
+  border: var(--dl-border) solid var(--dl-ink);
+  color: var(--dl-yellow-ink);
+  padding: 0 10px;
+  display: inline-block;
+  box-shadow: var(--dl-shadow-sm);
+}
+
+.ledger-light-root .dl-mark-cyan {
+  color: var(--dl-cyan);
+}
+
+/* ---- Hero ---- */
+.ledger-light-root .dl-hero {
+  position: relative;
+  padding: clamp(3.5rem, 7vw, 5.5rem) 0 clamp(3rem, 5vw, 4rem);
+  z-index: 1;
+}
+
+.ledger-light-root .dl-hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 44px;
+  align-items: start;
+}
+
+.ledger-light-root .dl-hero h1 {
+  font-size: clamp(2.6rem, 6.6vw, 5rem);
+  margin: 18px 0 22px;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-hero-lead {
+  font-family: "JetBrains Mono", monospace;
+  font-size: clamp(0.95rem, 1.4vw, 1.08rem);
+  line-height: 1.6;
+  color: var(--dl-ink);
+  max-width: 52ch;
+  margin-bottom: 22px;
+  min-height: 3.4em;
+}
+
+.ledger-light-root .dl-hero-prompt {
+  color: var(--dl-cyan);
+}
+
+.ledger-light-root .dl-hero-hook {
+  max-width: 50ch;
+  color: var(--dl-ink-soft);
+  line-height: 1.6;
+  font-size: 0.98rem;
+  margin: 0 0 28px;
+}
+
+.ledger-light-root .dl-hero-hook .dl-warn {
+  color: var(--dl-clay);
+  font-weight: 700;
+}
+
+.ledger-light-root .dl-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+/* digest chip row under hero CTAs */
+.ledger-light-root .dl-digest-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 26px;
+}
+
+/* ---- Sticker chips (data classes) ---- */
+.ledger-light-root .dl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: var(--dl-border) solid var(--dl-stroke);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: var(--dl-surface);
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-chip-digest {
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-chip-raw { background: var(--dl-clay); color: #fffdf9; border-color: var(--dl-clay); }
+.ledger-light-root .dl-chip-redacted { background: var(--dl-yellow); color: var(--dl-yellow-ink); border-color: var(--dl-yellow); }
+.ledger-light-root .dl-chip-review { background: var(--dl-cyan); color: #fffdf9; border-color: var(--dl-cyan); }
+.ledger-light-root .dl-chip-metrics { background: var(--dl-surface-2); color: var(--dl-ink); }
+.ledger-light-root .dl-chip-lesson { background: var(--dl-green); color: #04140c; border-color: var(--dl-green); }
+.ledger-light-root .dl-chip-corpus { background: var(--dl-ink); color: var(--dl-canvas); border-color: var(--dl-ink); }
+
+/* status pill */
+.ledger-light-root .dl-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.ledger-light-root .dl-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  display: block;
+}
+.ledger-light-root .dl-status-ok { color: var(--dl-ink); }
+.ledger-light-root .dl-status-ok::before { background: var(--dl-green); }
+.ledger-light-root .dl-status-blocked { color: var(--dl-ink); }
+.ledger-light-root .dl-status-blocked::before { background: var(--dl-clay); }
+.ledger-light-root .dl-status-pending { color: var(--dl-ink); }
+.ledger-light-root .dl-status-pending::before { background: var(--dl-amber); }
+
+/* ---- Terminal widget (intentionally DARK on the light page) ---- */
+.ledger-light-root .dl-terminal {
+  background: #04060a;
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow-lg);
+  overflow: hidden;
+}
+
+.ledger-light-root .dl-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: #0b0f14;
+  border-bottom: var(--dl-border) solid rgba(230, 255, 240, 0.12);
+}
+
+.ledger-light-root .dl-term-dot {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid rgba(230, 255, 240, 0.35);
+  display: block;
+}
+
+.ledger-light-root .dl-terminal-label {
+  margin-left: 8px;
+  font-size: 11.5px;
+  color: #8a9aa0;
+  letter-spacing: 0.04em;
+}
+
+.ledger-light-root .dl-terminal-host {
+  font-size: 10.5px;
+  color: #3fdd8a;
+  opacity: 0.8;
+}
+
+.ledger-light-root .dl-terminal-body {
+  padding: 20px 18px;
+  font-size: 0.86rem;
+  line-height: 1.75;
+}
+
+.ledger-light-root .dl-caret {
+  display: inline-block;
+  width: 8px;
+  height: 1.05em;
+  background: var(--dl-yellow);
+  vertical-align: text-bottom;
+  animation: dl-blink 1.05s steps(1) infinite;
+}
+
+@keyframes dl-blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+
+/* ---- Manifest / receipt table motif ---- */
+.ledger-light-root .dl-manifest {
+  background: var(--dl-surface);
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow);
+}
+
+.ledger-light-root .dl-manifest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+  border-bottom: var(--dl-border-lg) solid var(--dl-ink);
+}
+
+.ledger-light-root .dl-manifest-head .dl-label {
+  color: var(--dl-yellow-ink);
+}
+
+.ledger-light-root .dl-manifest-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.ledger-light-root .dl-manifest-dots span {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--dl-yellow-ink);
+  display: block;
+}
+
+.ledger-light-root .dl-manifest-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.ledger-light-root .dl-manifest-table thead th {
+  text-align: left;
+  padding: 9px 12px;
+  background: var(--dl-surface-2);
+  border-bottom: var(--dl-border) solid var(--dl-faint);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.64rem;
+  color: var(--dl-muted);
+}
+
+.ledger-light-root .dl-manifest-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--dl-faint);
+  vertical-align: middle;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-manifest-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ledger-light-root .dl-manifest-table .digest {
+  color: var(--dl-ink);
+  white-space: nowrap;
+}
+
+/* ---- Marquee ticker (reduced-motion safe) ---- */
+.ledger-light-root .dl-marquee {
+  background: var(--dl-surface-2);
+  border-top: var(--dl-border) solid var(--dl-faint);
+  border-bottom: var(--dl-border) solid var(--dl-faint);
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+
+.ledger-light-root .dl-marquee-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  animation: dl-marquee 42s linear infinite;
+  padding: 11px 0;
+  will-change: transform;
+}
+
+.ledger-light-root .dl-marquee-item {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--dl-ink-soft);
+}
+
+.ledger-light-root .dl-marquee-item .dl-marquee-tag {
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+  border: 1.5px solid var(--dl-yellow-ink);
+  padding: 1px 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+}
+
+.ledger-light-root .dl-marquee-sep {
+  color: var(--dl-ink);
+  padding: 0 6px;
+}
+
+@keyframes dl-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ---- Problem ---- */
+.ledger-light-root .dl-problem {
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 40px;
+  align-items: stretch;
+}
+
+.ledger-light-root .dl-problem-card {
+  background: var(--dl-clay);
+  color: #fffdf9;
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow);
+  padding: 36px 30px;
+}
+
+.ledger-light-root .dl-problem-points {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ledger-light-root .dl-problem-point {
+  background: var(--dl-surface);
+  border: var(--dl-border-lg) solid var(--dl-faint);
+  padding: 18px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.ledger-light-root .dl-problem-num {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+  border: var(--dl-border) solid var(--dl-ink);
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ---- Pillars ---- */
+.ledger-light-root .dl-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.ledger-light-root .dl-pillar {
+  background: var(--dl-surface);
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ledger-light-root .dl-pillar:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: var(--dl-shadow-lg);
+}
+
+.ledger-light-root .dl-pillar-head {
+  padding: 14px 18px;
+  border-bottom: var(--dl-border-lg) solid var(--dl-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ledger-light-root .dl-pillar-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.35rem;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-pillar-icon-box {
+  width: 38px;
+  height: 38px;
+  border: var(--dl-border) solid var(--dl-ink);
+  background: var(--dl-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dl-ink);
+  flex-shrink: 0;
+}
+
+.ledger-light-root .dl-pillar-body {
+  padding: 18px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ledger-light-root .dl-pillar-summary {
+  color: var(--dl-ink-soft);
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+.ledger-light-root .dl-pillar-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ledger-light-root .dl-pillar-points li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--dl-ink-soft);
+}
+
+.ledger-light-root .dl-pillar-check {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-pillar-code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+  background: var(--dl-surface-2);
+  border: var(--dl-border) solid var(--dl-faint);
+  padding: 1px 5px;
+  color: var(--dl-cyan);
+}
+
+/* ---- How it works (loop) ---- */
+.ledger-light-root .dl-loop {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow);
+}
+
+.ledger-light-root .dl-loop-step {
+  padding: 22px 18px;
+  border-right: var(--dl-border-lg) solid var(--dl-ink);
+  background: var(--dl-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 198px;
+}
+
+.ledger-light-root .dl-loop-step:last-child {
+  border-right: none;
+}
+
+.ledger-light-root .dl-loop-num {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.76rem;
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+  padding: 3px 8px;
+  align-self: flex-start;
+}
+
+.ledger-light-root .dl-loop-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-loop-detail {
+  font-size: 0.84rem;
+  color: var(--dl-ink-soft);
+  line-height: 1.45;
+}
+
+.ledger-light-root .dl-loop-step[data-tone="yellow"] {
+  background: var(--dl-yellow);
+}
+.ledger-light-root .dl-loop-step[data-tone="yellow"] .dl-loop-num {
+  background: var(--dl-ink);
+  color: var(--dl-yellow);
+}
+.ledger-light-root .dl-loop-step[data-tone="yellow"] .dl-loop-name,
+.ledger-light-root .dl-loop-step[data-tone="yellow"] .dl-loop-detail {
+  color: var(--dl-yellow-ink);
+}
+.ledger-light-root .dl-loop-step[data-tone="cyan"] {
+  background: var(--dl-cyan);
+}
+.ledger-light-root .dl-loop-step[data-tone="cyan"] .dl-loop-num {
+  background: #fffdf9;
+  color: var(--dl-ink);
+}
+.ledger-light-root .dl-loop-step[data-tone="cyan"] .dl-loop-name,
+.ledger-light-root .dl-loop-step[data-tone="cyan"] .dl-loop-detail {
+  color: #fffdf9;
+}
+
+/* loop digest connector */
+.ledger-light-root .dl-loop-digest {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  color: var(--dl-ink);
+  margin-top: auto;
+}
+
+/* ---- Trust ---- */
+.ledger-light-root .dl-trust {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
+}
+
+.ledger-light-root .dl-trust-item {
+  background: var(--dl-surface);
+  border: var(--dl-border-lg) solid var(--dl-faint);
+  box-shadow: var(--dl-shadow-ink);
+  padding: 24px 22px;
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.ledger-light-root .dl-trust-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: var(--dl-border) solid var(--dl-ink);
+  background: var(--dl-surface-2);
+  color: var(--dl-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ledger-light-root .dl-trust-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-trust-body {
+  font-size: 0.93rem;
+  color: var(--dl-ink-soft);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ---- Stats band (count-ups) — intentionally DARK accent band on paper ---- */
+.ledger-light-root .dl-stats {
+  background: #0b0f14;
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.ledger-light-root .dl-stat {
+  padding: 34px 26px;
+  border-right: var(--dl-border) solid rgba(244, 241, 232, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ledger-light-root .dl-stat:last-child {
+  border-right: none;
+}
+
+.ledger-light-root .dl-stat-value {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.8rem, 6.5vw, 4.6rem);
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  color: var(--dl-yellow);
+}
+
+.ledger-light-root .dl-stat-value[data-tone="cyan"] {
+  color: var(--dl-cyan);
+}
+.ledger-light-root .dl-stat-value[data-tone="green"] {
+  color: var(--dl-green);
+}
+
+.ledger-light-root .dl-stat-label {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c3d2c9;
+  line-height: 1.3;
+}
+
+/* ---- Roadmap ---- */
+.ledger-light-root .dl-roadmap {
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow);
+  overflow: hidden;
+}
+
+.ledger-light-root .dl-roadmap-row {
+  display: grid;
+  grid-template-columns: 0.7fr 0.85fr 2.45fr;
+  align-items: stretch;
+  border-bottom: var(--dl-border) solid var(--dl-faint);
+}
+
+.ledger-light-root .dl-roadmap-row:last-child {
+  border-bottom: none;
+}
+
+.ledger-light-root .dl-roadmap-cell {
+  padding: 18px 20px;
+  border-right: var(--dl-border) solid var(--dl-faint);
+  display: flex;
+  align-items: center;
+}
+
+.ledger-light-root .dl-roadmap-cell:last-child {
+  border-right: none;
+}
+
+.ledger-light-root .dl-roadmap-phase {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-roadmap-detail {
+  font-size: 0.93rem;
+  color: var(--dl-ink-soft);
+  line-height: 1.45;
+}
+
+.ledger-light-root .dl-roadmap-row[data-dim="true"] {
+  opacity: 0.66;
+}
+
+/* status badges */
+.ledger-light-root .dl-rm-done { background: var(--dl-green); color: #04140c; }
+.ledger-light-root .dl-rm-now { background: var(--dl-yellow); color: var(--dl-yellow-ink); }
+.ledger-light-root .dl-rm-next { background: var(--dl-cyan); color: #fffdf9; }
+.ledger-light-root .dl-rm-later { background: var(--dl-surface-2); color: var(--dl-muted); }
+
+.ledger-light-root .dl-rm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: var(--dl-border) solid var(--dl-ink);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ---- Install ---- */
+.ledger-light-root .dl-install-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.ledger-light-root .dl-install-aside {
+  background: var(--dl-surface);
+  border: var(--dl-border-lg) solid var(--dl-ink);
+  box-shadow: var(--dl-shadow);
+  padding: 28px 26px;
+}
+
+.ledger-light-root .dl-install-aside h3 {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+  line-height: 1;
+  color: var(--dl-ink);
+}
+
+.ledger-light-root .dl-install-aside p {
+  font-size: 0.96rem;
+  line-height: 1.55;
+  margin: 0 0 22px;
+  color: var(--dl-ink-soft);
+}
+
+/* copy button */
+.ledger-light-root .dl-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--dl-yellow);
+  background: transparent;
+  border: var(--dl-border) solid var(--dl-yellow);
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.ledger-light-root .dl-copy-btn:hover {
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+}
+.ledger-light-root .dl-copy-btn:focus-visible {
+  outline: 2px solid var(--dl-cyan);
+  outline-offset: 2px;
+}
+
+/* install-terminal code spans render on the dark terminal surface */
+.ledger-light-root .dl-terminal-body .dl-cm-comment {
+  color: #8a9aa0;
+}
+.ledger-light-root .dl-terminal-body .dl-cm-cmd {
+  color: #34d1ff;
+}
+.ledger-light-root .dl-terminal-body .dl-cm-arg {
+  color: #f5b73d;
+}
+
+/* ---- Footer (light, on the paper canvas) ---- */
+.ledger-light-root .dl-footer {
+  background: var(--dl-surface-2);
+  border-top: var(--dl-border-lg) solid var(--dl-ink);
+  position: relative;
+  z-index: 1;
+}
+
+.ledger-light-root .dl-footer .dl-wrap {
+  padding-top: 52px;
+  padding-bottom: 36px;
+}
+
+.ledger-light-root .dl-footer-honest {
+  border: var(--dl-border) solid var(--dl-faint);
+  padding: 22px 24px;
+  margin-bottom: 34px;
+}
+
+.ledger-light-root .dl-footer-honest ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ledger-light-root .dl-footer-honest li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--dl-ink-soft);
+}
+
+.ledger-light-root .dl-footer-honest li::before {
+  content: "!";
+  flex-shrink: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  background: var(--dl-amber);
+  color: #1a1300;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--dl-ink);
+  font-size: 0.82rem;
+}
+
+.ledger-light-root .dl-footer-cols {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 36px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--dl-faint);
+}
+
+.ledger-light-root .dl-footer-brand .dl-wordmark {
+  background: var(--dl-yellow);
+  color: var(--dl-yellow-ink);
+}
+
+.ledger-light-root .dl-footer-tagline {
+  font-size: 0.9rem;
+  color: var(--dl-muted);
+  margin: 14px 0 0;
+  max-width: 34ch;
+  line-height: 1.5;
+}
+
+.ledger-light-root .dl-footer-col-title {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dl-ink);
+  margin: 0 0 16px;
+}
+
+.ledger-light-root .dl-footer-ecosystem {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ledger-light-root .dl-footer-ecosystem li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ledger-light-root .dl-footer-eco-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 0.96rem;
+  color: var(--dl-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ledger-light-root .dl-footer-eco-name[data-dim] {
+  color: var(--dl-muted);
+}
+
+.ledger-light-root .dl-footer-eco-tag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dl-muted);
+  border: 1px solid var(--dl-faint);
+  padding: 1px 5px;
+}
+
+.ledger-light-root .dl-footer-eco-role {
+  font-size: 0.8rem;
+  color: var(--dl-muted);
+  line-height: 1.4;
+}
+
+.ledger-light-root .dl-footer-eco-name.is-link {
+  text-decoration: none;
+  color: var(--dl-ink);
+}
+.ledger-light-root .dl-footer-eco-name.is-link:hover {
+  color: var(--dl-cyan);
+}
+
+.ledger-light-root .dl-identity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ledger-light-root .dl-identity-chip {
+  padding: 4px 9px;
+  border: var(--dl-border) solid var(--dl-faint);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.66rem;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  color: var(--dl-ink-soft);
+}
+
+.ledger-light-root .dl-footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ledger-light-root .dl-footer-copy {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.76rem;
+  color: var(--dl-muted);
+}
+
+.ledger-light-root .dl-footer-fineprint {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--dl-muted);
+  opacity: 0.7;
+  text-align: right;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .ledger-light-root .dl-hero-grid { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-pillars { grid-template-columns: repeat(2, 1fr); }
+  .ledger-light-root .dl-loop { grid-template-columns: repeat(5, 1fr); }
+  .ledger-light-root .dl-footer-cols { grid-template-columns: 1fr 1fr; }
+  .ledger-light-root .dl-footer-brand { grid-column: 1 / -1; }
+}
+
+@media (max-width: 768px) {
+  .ledger-light-root .dl-section { padding: 56px 0; }
+  .ledger-light-root .dl-nav-links { gap: 14px; }
+  .ledger-light-root .dl-nav-link:not(.dl-nav-cta) { display: none; }
+  .ledger-light-root .dl-problem { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-pillars { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-loop { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-loop-step {
+    border-right: none;
+    border-bottom: var(--dl-border-lg) solid var(--dl-ink);
+    min-height: auto;
+  }
+  .ledger-light-root .dl-loop-step:last-child { border-bottom: none; }
+  .ledger-light-root .dl-trust { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-stats { grid-template-columns: repeat(2, 1fr); }
+  .ledger-light-root .dl-stat:nth-child(2) { border-right: none; }
+  .ledger-light-root .dl-stat:nth-child(-n + 2) { border-bottom: var(--dl-border) solid var(--dl-faint); }
+  .ledger-light-root .dl-roadmap-row { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-roadmap-cell {
+    border-right: none;
+    border-bottom: 1px solid var(--dl-faint);
+  }
+  .ledger-light-root .dl-roadmap-cell:last-child { border-bottom: none; }
+  .ledger-light-root .dl-install-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .ledger-light-root .dl-wrap { padding: 0 18px; }
+  .ledger-light-root .dl-stats { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-stat { border-right: none; border-bottom: var(--dl-border) solid var(--dl-faint); }
+  .ledger-light-root .dl-stat:last-child { border-bottom: none; }
+  .ledger-light-root .dl-footer-cols { grid-template-columns: 1fr; }
+  .ledger-light-root .dl-footer-bottom { flex-direction: column; align-items: flex-start; }
+  .ledger-light-root .dl-footer-fineprint { text-align: left; }
+  .ledger-light-root .dl-cta-row .dl-btn { width: 100%; justify-content: center; }
+}
+
+/* ---- reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .ledger-light-root .dl-marquee-track {
+    animation: none;
+  }
+  .ledger-light-root .dl-caret {
+    animation: none;
+    opacity: 1;
+  }
+  .ledger-light-root .dl-btn,
+  .ledger-light-root .dl-pillar,
+  .ledger-light-root .dl-nav-link::after {
+    transition: none;
+  }
+}

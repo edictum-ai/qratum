@@ -120,7 +120,27 @@ refinery expansion, lessons, or any "Dead" item.
 - No raw content in logs or events (paths and digests only).
 - `make verify` and `make demo` are green.
 
-## Verification commands
+## Decision Trace
+
+- Accepted 2026-06-14: `qratum-vault-first.md` (sections "The Vault",
+  "Operational ownership"); spine pillar 1 (stop losing transcripts).
+- Runtime build requires an explicit milestone unlock past P0 (Arnold).
+
+## Behavior Contract
+
+- Vault-minimum only; raw stays local; hook stays fast. FAILURE MODES that fail
+  the task: a hook that parses/networks/LLMs, a new third-party Go dependency,
+  a "Dead"-list item, or any command that mutates the real `~/.claude` /
+  `~/.qratum` in tests. Evidence: `make verify`, `make demo`, and the
+  delete-source-survives proof (Verification).
+
+## Drift Handling
+
+- If existing capture/daemon code diverges from the spec in a way the spec
+  does not anticipate, stop and report. Update fixtures/golden only when an
+  output contract intentionally changes, and say so.
+
+## Verification
 
 ```sh
 # Full local CI mirror (build, vet, lint, test, race, demo, dogfood, security):
@@ -147,7 +167,15 @@ Before dispatch, confirm which fixture provides a real transcript file the hook
 can copy (candidate:
 `fixtures/dogfood/real-shaped-transcript.jsonl` used by `make dogfood-demo`).
 
-## Review prompt
+## Slop Review
+
+- [ ] Hook stays fast (stdin → event → file-copy; no parse/network/LLM).
+- [ ] No new third-party Go dependency (vault is stdlib-only).
+- [ ] No "Dead"-list resurrection (search, normalizer, lessons, curation queue).
+- [ ] Tests never touch the real `~/.claude` or `~/.qratum` (`QRATUM_HOME` set).
+- [ ] `make verify` and `make demo` pass without weakening a check.
+
+Reviewer guidance:
 
 > Review this vault implementation against `qratum/specs/current/qratum-vault-first.md`.
 > Confirm: the hook still obeys the fast-hook rule (no parse/network/LLM, only
