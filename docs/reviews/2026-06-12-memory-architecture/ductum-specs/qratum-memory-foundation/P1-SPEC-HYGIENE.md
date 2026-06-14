@@ -98,11 +98,11 @@ Dead terms to drive the grep check: `LessonBackend`, `sqlite-vec`,
 
 ## Behavior Contract
 
-- Docs-only: any Go/schema/fixture/Makefile change FAILS the task.
-- All seven edits land in place. FAILURE MODE: a dead term left in SPEC.md,
-  operational-model-redesign.md, or ADR 0010. Evidence: the dead-term grep
-  (Verification) returns zero hits.
-- Milestone marker stays `P0-SPEC-AND-CONTRACTS`. Evidence: SPEC.md.
+- [ ] FAILS the task: any Go/schema/fixture/Makefile change (docs-only).
+- [ ] FAILS if a dead term remains in SPEC.md, operational-model-redesign.md,
+  or ADR 0010; evidence: the dead-term grep returns zero hits.
+- [ ] Evidence: SPEC.md shows the milestone marker still
+  `P0-SPEC-AND-CONTRACTS`.
 
 ## Drift Handling
 
@@ -132,9 +132,9 @@ sections — do not grep or "fix" those.
 
 ## Slop Review
 
-- [ ] No Go/schema/fixture/Makefile file changed.
-- [ ] Dead-term grep over SPEC.md + operational-model-redesign.md + ADR 0010
-  returns zero hits.
+- [ ] Behavior contract holds: no Go/schema/fixture/Makefile file changed.
+- [ ] Explicit evidence: dead-term grep over SPEC.md +
+  operational-model-redesign.md + ADR 0010 returns zero hits.
 - [ ] Milestone marker unchanged (still `P0-SPEC-AND-CONTRACTS`).
 - [ ] `qratum-vault-first.md`, the superseded pipeline spec, and `docs/reviews/`
   still retain their Dead/history terms (not "fixed").

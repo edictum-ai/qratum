@@ -128,11 +128,14 @@ refinery expansion, lessons, or any "Dead" item.
 
 ## Behavior Contract
 
-- Vault-minimum only; raw stays local; hook stays fast. FAILURE MODES that fail
-  the task: a hook that parses/networks/LLMs, a new third-party Go dependency,
-  a "Dead"-list item, or any command that mutates the real `~/.claude` /
-  `~/.qratum` in tests. Evidence: `make verify`, `make demo`, and the
-  delete-source-survives proof (Verification).
+- [ ] FAILS review: any normalizer/search/lessons/curation addition
+  (vault-minimum only).
+- [ ] FAILS if the hook parses/networks/calls an LLM at runtime; evidence:
+  golden tests on the fast-hook path.
+- [ ] FAILS without a supply-chain decision: any new third-party Go dependency;
+  evidence: `make verify`.
+- [ ] FAILS on real-home mutation in tests/CI; evidence: `QRATUM_HOME` + the
+  delete-source-survives proof.
 
 ## Drift Handling
 
@@ -169,8 +172,10 @@ can copy (candidate:
 
 ## Slop Review
 
-- [ ] Hook stays fast (stdin → event → file-copy; no parse/network/LLM).
-- [ ] No new third-party Go dependency (vault is stdlib-only).
+- [ ] Behavioral tests prove the hook stays fast (stdin → event → file-copy;
+  no parse/network/LLM).
+- [ ] Loud failure on missing or invalid inputs (missing transcript_path, copy
+  failure): recorded and surfaced, never swallowed.
 - [ ] No "Dead"-list resurrection (search, normalizer, lessons, curation queue).
 - [ ] Tests never touch the real `~/.claude` or `~/.qratum` (`QRATUM_HOME` set).
 - [ ] `make verify` and `make demo` pass without weakening a check.

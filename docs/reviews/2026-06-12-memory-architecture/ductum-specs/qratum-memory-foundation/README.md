@@ -48,12 +48,12 @@ agent builds and tests the commands; it must not run them against the real
 
 ## Behavior Contract
 
-- P1 is docs-only; P2 is runtime and FAILS if built while the milestone is
-  still `P0-SPEC-AND-CONTRACTS`.
-- The vault never sends raw transcripts off the machine; a hook that parses,
-  networks, calls an LLM, or emits raw FAILS. Evidence: `make verify` + the P2
-  end-to-end vault proof.
-- No `qratum-vault-first.md` "Dead"-list item is implemented.
+- [ ] FAILS the task: any Go/schema/fixture/Makefile change (P1 is docs-only).
+- [ ] FAILS if P2 runtime is built while the milestone is still
+  `P0-SPEC-AND-CONTRACTS`.
+- [ ] REFUSES, at runtime, to parse/network/LLM or emit raw in the hook;
+  evidence: `make verify` + the P2 end-to-end vault proof.
+- [ ] FAILS review: resurrecting any `qratum-vault-first.md` "Dead"-list item.
 
 ## Verification
 
@@ -67,8 +67,11 @@ agent builds and tests the commands; it must not run them against the real
 
 ## Slop Review
 
-- [ ] No "Dead"-list item resurrected (LessonBackend, search, normalizer,
-  curation queue).
-- [ ] Hook does only stdin → event → file-copy (no parse/network/LLM).
-- [ ] No command mutates the real `~/.claude` or `~/.qratum` in tests/CI.
-- [ ] No new third-party Go dependency without a supply-chain decision.
+- [ ] Behavior contract holds: no "Dead"-list item resurrected (LessonBackend,
+  search, normalizer, curation queue).
+- [ ] Loud failure on missing or invalid inputs (missing transcript_path, copy
+  failure): recorded and surfaced, never swallowed; behavioral tests cover it.
+- [ ] Hook does only stdin → event → file-copy (no parse/network/LLM); explicit
+  evidence in golden tests.
+- [ ] No real-home mutation in tests/CI and no new third-party Go dependency
+  without supply-chain evidence.
