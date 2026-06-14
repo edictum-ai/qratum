@@ -1,78 +1,87 @@
-# Qratum Milestone A SPEC
+# Qratum SPEC
 
-## Goal
+## Source Of Truth
 
-Build the first local vertical slice:
-
-Claude Code hook fixture -> CaptureEvent -> filesystem spool -> daemon run-once
--> read transcript_path -> parse Claude Code transcript fixture -> emit
-QratumSession -> deterministic redaction -> emit EvidenceBundle -> emit
-ReviewCard -> emit UI DTOs -> render HTML report -> export ADP strict JSONL.
-
-## Non-goals
-
-Do not implement:
-
-- enterprise server
-- marketplace
-- Codex adapter
-- OpenCode adapter
-- Copilot adapter
-- MCP
-- GitHub comments
-- GitHub App
-- GitLab
-- LLM scoring
-- LLM redaction
-- web UI
-- HTTP server
-- database
-- bbolt
-- SQLite
-- Postgres
-- encrypted vault
-- Edictum integration
-
-## Runtime
-
-Go single binary: `qrt`.
-
-No Python runtime. No database. Filesystem JSON only.
-
-## Required Commands
-
-- `qrt --version`
-- `qrt status`
-- `qrt hook claude-code`
-- `qrt daemon run-once`
-- `qrt sessions list`
-- `qrt normalize <transcript>`
-- `qrt redact <session>`
-- `qrt evidence <redacted-session>`
-- `qrt review <evidence>`
-- `qrt report <session>`
-- `qrt export <session> --profile adp-strict`
-- `qrt ui sessions --json`
-- `qrt ui session <session_id> --json`
-- `qrt ui review <session_id> --json`
-
-## Acceptance
-
-```sh
-cat fixtures/claude-code/hook-session-end.json | qrt hook claude-code
-qrt daemon run-once
-make test
-make demo
-```
-
-Expected artifacts:
+The canonical product and architecture spec is:
 
 ```txt
-.qratum/events/*.json
-.qratum/sessions/*.normalized.json
-.qratum/redacted/*.redacted.json
-.qratum/evidence/*.evidence.json
-.qratum/reviews/*.review.json
-.qratum/reports/*.html
-.qratum/exports/*.adp.jsonl
+specs/current/operational-model-redesign.md
 ```
+
+Proposed revisions of the operational model live alongside it:
+
+```txt
+specs/current/qratum-vault-first.md         (proposal: vault-first revision;
+                                            supersedes the memory curation
+                                            pipeline draft; see
+                                            docs/reviews/2026-06-12-memory-architecture/)
+specs/current/memory-curation-pipeline.md   (SUPERSEDED 2026-06-12; historical)
+```
+
+Milestone A is complete and historical. Its implementation, commands, fixtures,
+and generated artifacts may remain as compatibility/debug behavior, but
+Milestone A is no longer the product model.
+
+Historical Milestone A notes live under:
+
+```txt
+specs/current/milestone-a/
+```
+
+## Current Milestone
+
+Current milestone:
+
+```txt
+P0-SPEC-AND-CONTRACTS
+```
+
+P0 closes the redesign before runtime implementation.
+
+## P0 Goal
+
+Turn the operational model into executable contracts:
+
+- schema registry under `schemas/`
+- core object JSON Schemas
+- config schema
+- fixture examples for core objects
+- schema validation tests
+- migration notes from Milestone A to the operational model
+- updated source-of-truth documentation
+
+## P0 Non-Goals
+
+Do not implement P1+ runtime behavior yet:
+
+- workspace creation behavior
+- setup wizard behavior
+- raw archive implementation
+- import wizard implementation
+- session revision worker
+- local app
+- SQLite projection
+- AI providers
+- lesson/insight generation
+- corpus export changes
+- publisher behavior
+- daemon behavior changes beyond compatibility fixes
+
+## Standing Constraints
+
+- Go single binary.
+- No Python runtime in Qratum.
+- Local-first raw transcript safety.
+- Do not send raw transcripts to external services.
+- Do not render raw transcripts into shareable reports.
+- Source hooks must stay fast and only do durable capture work.
+- Fixture/golden tests remain the contract where practical.
+- Supply-chain rules in `docs/supply-chain.md` still apply.
+
+## Compatibility
+
+Milestone A commands can remain as hidden or debug compatibility aliases while
+the new public model is designed and implemented.
+
+Current compatibility behavior should keep working unless an accepted P0/P1+
+contract intentionally replaces it.
