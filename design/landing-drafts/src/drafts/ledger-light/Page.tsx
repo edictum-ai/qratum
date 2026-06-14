@@ -676,12 +676,12 @@ export default function DarkLedgerPage() {
               <h3 className="dl-footer-col-title">Ecosystem</h3>
               <ul className="dl-footer-ecosystem">
                 {qratum.ecosystem.map((e) => {
-                  const internal = e.name === "Ductum" || e.name === "personal-memory";
+                  const comingSoon = e.name === "Ductum";
                   return (
                     <li key={e.name}>
-                      <span className="dl-footer-eco-name" data-dim={internal || undefined}>
+                      <span className="dl-footer-eco-name">
                         {e.name}
-                        {internal && <span className="dl-footer-eco-tag">internal</span>}
+                        {comingSoon && <span className="dl-footer-eco-tag">coming soon</span>}
                       </span>
                       <span className="dl-footer-eco-role">{e.role}</span>
                     </li>
@@ -718,9 +718,6 @@ export default function DarkLedgerPage() {
           <div className="dl-footer-bottom">
             <span className="dl-footer-copy">
               © {new Date().getFullYear()} {qratum.name} · local-first, single binary
-            </span>
-            <span className="dl-footer-fineprint">
-              Design draft · Dark Ledger (Neobrutalism on OLED) — not part of qratum runtime or CI
             </span>
           </div>
         </div>

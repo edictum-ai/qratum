@@ -116,8 +116,7 @@ export const qratum = {
   ecosystem: [
     { name: "Qratum", role: "the librarian: vault + refinery for AI session data" },
     { name: "Edictum", role: "runtime process enforcement for AI agents" },
-    { name: "Ductum", role: "internal agent factory / orchestration" },
-    { name: "personal-memory", role: "the living cross-agent knowledge store" },
+    { name: "Ductum", role: "the AI Software Factory" },
   ],
 };
 
