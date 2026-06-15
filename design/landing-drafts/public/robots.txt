@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# AI/LLM-friendly project info (https://llmstxt.org):
+#   /llms.txt        — concise
+#   /llms-full.txt   — expanded
+
+Sitemap: https://qratum.dev/sitemap.xml

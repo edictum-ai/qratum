@@ -1,0 +1,74 @@
+# Qratum — full
+
+> Qratum is a local-first library, vault, and review pipeline for AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and searches every session — without ever uploading your raw transcripts. Single Go binary (`qrt`). No cloud, no accounts, no telemetry.
+
+Website: https://qratum.dev
+Repository: https://github.com/edictum-ai/qratum
+License: MIT
+
+## What it is
+Qratum is the local librarian for AI session data — the system of record for where session data came from: raw history, provenance, and deterministic derivations. The first user is the developer running it on their own machine.
+
+## Why it exists
+AI coding tools delete sessions. Claude Code purges transcripts after ~30 days; months of debugging, decisions, and trajectories vanish, and nothing records provenance. Qratum fixes both: it preserves, and it remembers where the data came from.
+
+## The three pillars
+
+### The Vault
+Content-addressed capture and archive. A transcript the tool deletes tomorrow is recoverable.
+- Copy-on-capture: every session end writes a blob plus a ref.
+- Dedup by sha256 digest — backfill is a no-op the second time.
+- Backups that prove themselves: `qrt vault backup --verify`.
+- Survives abandonment gracefully — passive value from day one.
+
+### The Refinery
+On-demand pipeline: normalize → deterministic redaction → evidence extraction → review → report → corpus export. Runs only when you ask.
+- Deterministic redaction as the first safety boundary.
+- Evidence signals: edits-after-verify, no final test, retry loops, file thrashing.
+- No daemon, no queue, no automatic review.
+- ADP and native corpus JSONL export, eligibility-checked.
+
+### Provenance
+The system of record for where session data came from.
+- Every object carries schema_version, producer, and transform version.
+- Data-class lineage: raw → redacted → review → corpus → published.
+- Content-addressed blobs are immutable; refs are the pointers.
+- Tombstones, never silent deletion.
+
+## Trust & safety (local-first by architecture)
+- Raw transcripts stay on your machine unless explicitly approved. No cloud by default.
+- No boundary may silently upgrade to a more sensitive data class. Raw → external or published always requires explicit consent.
+- Deterministic redaction is the first downgrade boundary; redaction uncertainty blocks export.
+- No raw transcript routes in the app shell. No raw content in logs, spans, or metrics — paths and digests only.
+
+## Status (honest)
+Pre-1.0, spec phase (P0). Milestone A (one local vertical slice) is proven: Claude Code hook capture, filesystem JSON spool, daemon run-once, normalized session output, deterministic redaction, evidence extraction, review cards, UI DTOs, static HTML reports, ADP strict JSONL export. That slice remains as compatibility/debug behavior while the new operational model is specified. The vault-first proposal is under review. Deterministic redaction is best-effort alpha. Nothing beyond Milestone A is promised as shipped.
+
+## Roadmap direction (not all shipped)
+- P0 (now): spec & contracts.
+- P1 (next): the vault — global capture, content-addressed raw archive, `vault doctor`, `backup --verify`.
+- P2: import & revisions.
+- P3: review + local app.
+- P4: lessons & insights.
+- P5: corpus & publish.
+
+## Quick start
+```
+make build
+cat fixtures/claude-code/hook-session-end.json | ./bin/qrt hook claude-code
+./bin/qrt daemon run-once
+./bin/qrt sessions list
+```
+
+## Ecosystem
+- Qratum — the librarian: vault + refinery for AI session data.
+- Edictum — runtime process enforcement for AI agents.
+- Ductum — coming soon: the AI Software Factory.
+
+## Links
+- Website: https://qratum.dev
+- llms.txt: https://qratum.dev/llms.txt
+- Repository: https://github.com/edictum-ai/qratum
+- Spec: https://github.com/edictum-ai/qratum/blob/main/SPEC.md
+- Operational model: https://github.com/edictum-ai/qratum/blob/main/specs/current/operational-model-redesign.md
+- Vault-first proposal: https://github.com/edictum-ai/qratum/blob/main/specs/current/qratum-vault-first.md
