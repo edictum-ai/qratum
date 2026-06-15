@@ -1,0 +1,13 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Qratum">
+  <rect x="3" y="3" width="122" height="122" fill="#f4f1e8" stroke="#0b0b0b" stroke-width="6"></rect>
+  <g transform="translate(14,14) scale(1.0)">
+    <g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter">
+      <path d="M 36 18 L 30 78"></path>
+      <path d="M 58 18 L 52 78"></path>
+      <path d="M 20 40 L 70 40"></path>
+      <path d="M 18 60 L 68 60"></path>
+    </g>
+    <circle cx="84" cy="72" r="7" fill="#f5d90a"></circle>
+  </g>
+</svg>

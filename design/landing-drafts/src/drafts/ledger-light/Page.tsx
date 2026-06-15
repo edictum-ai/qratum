@@ -20,6 +20,7 @@ import {
   TrashIcon,
   CopyIcon,
 } from "./icons";
+import { QratumMark, EdictumMark, DuctumMark } from "./QratumMark";
 
 /* ----------------------------------------------------------------
    Dark Ledger — Neobrutalism on OLED dark.
@@ -183,6 +184,7 @@ export default function DarkLedgerPage() {
       <nav className="dl-nav" aria-label="Primary">
         <div className="dl-wrap dl-nav-inner">
           <a className="dl-wordmark" href="#top" aria-label="qratum home">
+            <QratumMark size={22} dot="#0b0b0b" />
             {qratum.wordmark}
           </a>
           <div className="dl-nav-links">
@@ -237,7 +239,9 @@ export default function DarkLedgerPage() {
                 </a>
               </motion.div>
               <motion.div className="dl-digest-row" variants={reveal}>
-                <span className="dl-chip dl-chip-digest">{digest("qrt-binary")}</span>
+                <span className="dl-chip dl-chip-digest">
+                  <QratumMark size={13} /> {digest("qrt-binary")}
+                </span>
                 <span className="dl-chip">go · content-addressed</span>
                 <span className="dl-chip">no telemetry</span>
               </motion.div>
@@ -680,6 +684,9 @@ export default function DarkLedgerPage() {
                   return (
                     <li key={e.name}>
                       <span className="dl-footer-eco-name">
+                        {e.name === "Qratum" && <QratumMark size={16} tone="mono" />}
+                        {e.name === "Edictum" && <EdictumMark size={16} />}
+                        {e.name === "Ductum" && <DuctumMark size={16} />}
                         {e.name}
                         {comingSoon && <span className="dl-footer-eco-tag">coming soon</span>}
                       </span>
