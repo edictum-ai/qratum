@@ -64,7 +64,14 @@ require_demo_artifact() {
 }
 
 verify_demo_artifacts() {
-	require_demo_artifact "event" ".qratum/events" "*.json"
+	if [ -z "${QRATUM_HOME:-}" ]; then
+		echo "demo error: QRATUM_HOME is not set" >&2
+		exit 1
+	fi
+
+	require_demo_artifact "vault event" "$QRATUM_HOME/events" "*.json"
+	require_demo_artifact "vault raw ref" "$QRATUM_HOME/raw/refs" "*.json"
+	require_demo_artifact "vault raw blob" "$QRATUM_HOME/raw/blobs/sha256" "*"
 	require_demo_artifact "normalized session" ".qratum/sessions" "*.normalized.json"
 	require_demo_artifact "redacted session" ".qratum/redacted" "*.redacted.json"
 	require_demo_artifact "evidence" ".qratum/evidence" "*.evidence.json"
@@ -79,7 +86,10 @@ if [ "$mode" = "verify" ]; then
 fi
 
 echo "Running Milestone A demo with fixture input..."
-rm -rf .qratum
+rm -rf .qratum .qratum-home.*
+QRATUM_HOME="$(mktemp -d "$PWD/.qratum-home.XXXXXX")"
+export QRATUM_HOME
+echo "QRATUM_HOME=$QRATUM_HOME"
 
 cat fixtures/claude-code/hook-session-end.json | "$bin" hook claude-code
 "$bin" daemon run-once
@@ -106,4 +116,5 @@ verify_demo_artifacts
 echo "Verified UI DTOs for session $session_id"
 
 echo "Generated artifacts:"
+find "$QRATUM_HOME" -type f | sort
 find .qratum -type f | sort

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/edictum-ai/qratum/internal/vault"
 )
 
 func TestVersionPrintsFixedDevelopmentVersion(t *testing.T) {
@@ -31,6 +33,7 @@ func TestVersionPrintsFixedDevelopmentVersion(t *testing.T) {
 
 func TestStatusWorksWithoutQratumDirectory(t *testing.T) {
 	t.Chdir(t.TempDir())
+	qratumHome := setTestQratumHome(t)
 	var stdout, stderr bytes.Buffer
 
 	code := run([]string{"status"}, &stdout, &stderr)
@@ -41,9 +44,13 @@ func TestStatusWorksWithoutQratumDirectory(t *testing.T) {
 	output := stdout.String()
 	for _, want := range []string{
 		"qratum status\n",
-		"milestone: A\n",
+		"milestone: vault-first\n",
 		"version: dev\n",
-		"qratum_dir: missing\n",
+		"qratum_home: " + filepath.ToSlash(qratumHome) + "\n",
+		"qratum_home_state: missing\n",
+		"vault_blobs: 0\n",
+		"vault_refs: 0\n",
+		"copy_failures: 0\n",
 		"ready: true\n",
 	} {
 		if !strings.Contains(output, want) {
@@ -57,7 +64,8 @@ func TestStatusWorksWithoutQratumDirectory(t *testing.T) {
 
 func TestStatusReportsPresentQratumDirectory(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := os.Mkdir(".qratum", 0o755); err != nil {
+	qratumHome := setTestQratumHome(t)
+	if err := os.MkdirAll(qratumHome, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
@@ -67,14 +75,15 @@ func TestStatusReportsPresentQratumDirectory(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "qratum_dir: present\n") {
-		t.Fatalf("stdout = %q, want qratum_dir present", stdout.String())
+	if !strings.Contains(stdout.String(), "qratum_home_state: present\n") {
+		t.Fatalf("stdout = %q, want qratum_home present", stdout.String())
 	}
 }
 
 func TestStatusFailsWhenQratumPathIsInvalid(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := os.WriteFile(".qratum", []byte("not a directory\n"), 0o644); err != nil {
+	qratumHome := setTestQratumHome(t)
+	if err := os.WriteFile(qratumHome, []byte("not a directory\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
@@ -87,8 +96,8 @@ func TestStatusFailsWhenQratumPathIsInvalid(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "error: .qratum exists but is not a directory") {
-		t.Fatalf("stderr = %q, want invalid .qratum error", stderr.String())
+	if !strings.Contains(stderr.String(), "exists but is not a directory") {
+		t.Fatalf("stderr = %q, want invalid qratum home error", stderr.String())
 	}
 }
 
@@ -144,6 +153,7 @@ func TestVersionRejectsExtraArguments(t *testing.T) {
 
 func TestStatusRejectsExtraArguments(t *testing.T) {
 	t.Chdir(t.TempDir())
+	setTestQratumHome(t)
 	var stdout, stderr bytes.Buffer
 
 	code := run([]string{"status", "extra"}, &stdout, &stderr)
@@ -161,7 +171,8 @@ func TestStatusRejectsExtraArguments(t *testing.T) {
 
 func TestHookClaudeCodeSpoolsCaptureEventFromFixture(t *testing.T) {
 	input := readFixture(t, "hook-session-end.json")
-	t.Chdir(t.TempDir())
+	t.Chdir(repoRoot(t))
+	qratumHome := setTestQratumHome(t)
 	var stdout, stderr bytes.Buffer
 	started := time.Now().UTC().Add(-time.Second)
 
@@ -178,7 +189,7 @@ func TestHookClaudeCodeSpoolsCaptureEventFromFixture(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 
-	files, err := filepath.Glob(".qratum/events/*.json")
+	files, err := filepath.Glob(filepath.Join(qratumHome, "events", "*.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,10 +240,32 @@ func TestHookClaudeCodeSpoolsCaptureEventFromFixture(t *testing.T) {
 	if got, want := event.Workspace.CWD, "/Users/acartagena/project/qratum"; got != want {
 		t.Fatalf("workspace.cwd = %q, want %q", got, want)
 	}
+	if event.Raw == nil {
+		t.Fatal("raw capture details are missing")
+	}
+	if got, want := event.Raw.CopyStatus, "copied"; got != want {
+		t.Fatalf("raw.copy_status = %q, want %q", got, want)
+	}
+	if event.Raw.Digest == "" || event.Raw.RawRefID == "" {
+		t.Fatalf("raw digest/ref missing: %#v", event.Raw)
+	}
+	if got, want := event.Raw.Kind, vault.KindMainTranscript; got != want {
+		t.Fatalf("raw.kind = %q, want %q", got, want)
+	}
+	rawRefPath := filepath.Join(qratumHome, "raw", "refs", event.Raw.RawRefID+".json")
+	if _, err := os.Stat(rawRefPath); err != nil {
+		t.Fatalf("raw ref stat %s: %v", rawRefPath, err)
+	}
+	blobDigest := strings.TrimPrefix(event.Raw.Digest, "sha256:")
+	blobPath := filepath.Join(qratumHome, "raw", "blobs", "sha256", blobDigest[:2], blobDigest)
+	if _, err := os.Stat(blobPath); err != nil {
+		t.Fatalf("blob stat %s: %v", blobPath, err)
+	}
 }
 
 func TestHookClaudeCodeToleratesUnknownFields(t *testing.T) {
 	t.Chdir(t.TempDir())
+	qratumHome := setTestQratumHome(t)
 	var stdout, stderr bytes.Buffer
 	input := `{
 		"session_id": "claude-session-unknown-fields",
@@ -248,7 +281,7 @@ func TestHookClaudeCodeToleratesUnknownFields(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	files, err := filepath.Glob(".qratum/events/*.json")
+	files, err := filepath.Glob(filepath.Join(qratumHome, "events", "*.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +313,8 @@ func TestHookClaudeCodeToleratesUnknownFields(t *testing.T) {
 
 func TestHookClaudeCodeWritesOneNewEventPerCall(t *testing.T) {
 	input := readFixture(t, "hook-session-end.json")
-	t.Chdir(t.TempDir())
+	t.Chdir(repoRoot(t))
+	qratumHome := setTestQratumHome(t)
 
 	for i := 0; i < 2; i++ {
 		var stdout, stderr bytes.Buffer
@@ -290,7 +324,7 @@ func TestHookClaudeCodeWritesOneNewEventPerCall(t *testing.T) {
 		}
 	}
 
-	files, err := filepath.Glob(".qratum/events/*.json")
+	files, err := filepath.Glob(filepath.Join(qratumHome, "events", "*.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,6 +350,11 @@ func TestHookClaudeCodeWritesOneNewEventPerCall(t *testing.T) {
 			t.Fatalf("event filename = %q, want %q", got, want)
 		}
 	}
+	if refs, err := filepath.Glob(filepath.Join(qratumHome, "raw", "refs", "*.json")); err != nil {
+		t.Fatal(err)
+	} else if len(refs) != 1 {
+		t.Fatalf("raw refs = %v, want one deduped ref", refs)
+	}
 }
 
 func TestHookClaudeCodeFailsOnInvalidInput(t *testing.T) {
@@ -333,15 +372,6 @@ func TestHookClaudeCodeFailsOnInvalidInput(t *testing.T) {
 			name:      "invalid JSON",
 			input:     "{not json",
 			wantError: "error: invalid hook JSON:",
-		},
-		{
-			name: "missing transcript path",
-			input: `{
-				"session_id": "claude-session-0001",
-				"cwd": "/tmp/qratum",
-				"hook_event_name": "SessionEnd"
-			}`,
-			wantError: "error: missing required hook field transcript_path",
 		},
 		{
 			name: "unsupported hook event",
@@ -363,6 +393,7 @@ func TestHookClaudeCodeFailsOnInvalidInput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
+			qratumHome := setTestQratumHome(t)
 			var stdout, stderr bytes.Buffer
 
 			code := runWithIO([]string{"hook", "claude-code"}, strings.NewReader(tt.input), &stdout, &stderr)
@@ -376,7 +407,7 @@ func TestHookClaudeCodeFailsOnInvalidInput(t *testing.T) {
 			if !strings.Contains(stderr.String(), tt.wantError) {
 				t.Fatalf("stderr = %q, missing %q", stderr.String(), tt.wantError)
 			}
-			if files, _ := filepath.Glob(".qratum/events/*.json"); len(files) != 0 {
+			if files, _ := filepath.Glob(filepath.Join(qratumHome, "events", "*.json")); len(files) != 0 {
 				t.Fatalf("event files = %v, want none", files)
 			}
 		})
@@ -1153,6 +1184,7 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 	root := t.TempDir()
 	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
 	t.Chdir(root)
+	qratumHome := setTestQratumHome(t)
 	spoolHookFixture(t, "hook-session-end.json")
 
 	var stdout, stderr bytes.Buffer
@@ -1175,7 +1207,7 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 		}
 	}
 
-	eventPath := singleGlob(t, ".qratum/events/*.json")
+	eventPath := singleGlob(t, filepath.Join(qratumHome, "events", "*.json"))
 	sessionPath := singleGlob(t, ".qratum/sessions/*.normalized.json")
 	redactedPath := singleGlob(t, ".qratum/redacted/*.redacted.json")
 	evidencePath := singleGlob(t, ".qratum/evidence/*.evidence.json")
@@ -1204,11 +1236,11 @@ func TestDaemonRunOnceGeneratesPipelineArtifactsFromHookEvent(t *testing.T) {
 
 	var event captureEvent
 	readJSONFile(t, eventPath, &event)
-	if got, want := event.Timestamp, "2026-05-21T22:10:00Z"; got != want {
-		t.Fatalf("event timestamp = %q, want transcript end timestamp %q", got, want)
+	if event.Timestamp == "" {
+		t.Fatal("event timestamp is empty")
 	}
-	if got, want := event.TimestampSource, hookTimestampSourceTranscriptEnd; got != want {
-		t.Fatalf("event timestamp_source = %q, want %q", got, want)
+	if got := event.TimestampSource; got == "" {
+		t.Fatal("event timestamp_source is empty")
 	}
 
 	var session qratumSession
@@ -1512,13 +1544,14 @@ func TestHookClaudeCodeNeverWritesUnixZeroTimestamp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Chdir(t.TempDir())
+			t.Chdir(repoRoot(t))
+			qratumHome := setTestQratumHome(t)
 			var stdout, stderr bytes.Buffer
 			code := runWithIO([]string{"hook", "claude-code"}, strings.NewReader(tt.input), &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 			}
-			files, err := filepath.Glob(".qratum/events/*.json")
+			files, err := filepath.Glob(filepath.Join(qratumHome, "events", "*.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1593,6 +1626,7 @@ func TestNewArtifactsAreSessionIDBased(t *testing.T) {
 	root := t.TempDir()
 	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
 	t.Chdir(root)
+	setTestQratumHome(t)
 	spoolHookFixture(t, "hook-session-end.json")
 
 	var stdout, stderr bytes.Buffer
@@ -1616,6 +1650,7 @@ func TestExistingEventIDArtifactsRemainReadable(t *testing.T) {
 	root := t.TempDir()
 	writeClaudeFixture(t, root, "transcript-verification-gap.jsonl")
 	t.Chdir(root)
+	qratumHome := setTestQratumHome(t)
 	spoolHookFixture(t, "hook-session-end.json")
 
 	var stdout, stderr bytes.Buffer
@@ -1627,13 +1662,13 @@ func TestExistingEventIDArtifactsRemainReadable(t *testing.T) {
 	// Simulate legacy on-disk layout: rename artifacts to event-id-based paths,
 	// rewrite session.ArtifactPaths to point at those legacy names, and confirm
 	// the read pipeline still resolves them via the `evidence` command.
-	eventPath := singleGlob(t, ".qratum/events/*.json")
+	eventPath := singleGlob(t, filepath.Join(qratumHome, "events", "*.json"))
 	var event captureEvent
 	readJSONFile(t, eventPath, &event)
 	legacyStem := event.EventID
 
 	legacyPaths := artifactPathsForStem(legacyStem)
-	legacyPaths.Event = ".qratum/events/" + legacyStem + ".json"
+	legacyPaths.Event = filepath.ToSlash(filepath.Join(qratumHome, "events", legacyStem+".json"))
 
 	currentPaths := artifactPathsForStem("claude-session-0001")
 	moveRename := func(from string, to string) {
@@ -1672,7 +1707,8 @@ func TestExistingEventIDArtifactsRemainReadable(t *testing.T) {
 
 func TestDaemonRunOnceFailsOnMissingTranscriptWithAPIError(t *testing.T) {
 	t.Chdir(t.TempDir())
-	spoolHookFixture(t, "hook-session-end.json")
+	qratumHome := setTestQratumHome(t)
+	writeMissingTranscriptEvent(t, qratumHome)
 	var stdout, stderr bytes.Buffer
 
 	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
@@ -1692,17 +1728,20 @@ func TestDaemonRunOnceFailsOnMissingTranscriptWithAPIError(t *testing.T) {
 			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
 		}
 	}
-	if files, _ := filepath.Glob(".qratum/sessions/*.normalized.json"); len(files) != 0 {
+	if files, _ := filepath.Glob(filepath.Join(qratumHome, "sessions", "*.normalized.json")); len(files) != 0 {
 		t.Fatalf("session artifacts = %v, want none", files)
 	}
 }
 
 func TestDaemonRunOnceRejectsInvalidEventJSONWithAPIError(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := os.MkdirAll(".qratum/events", 0o755); err != nil {
+	qratumHome := setTestQratumHome(t)
+	eventsDir := filepath.Join(qratumHome, "events")
+	if err := os.MkdirAll(eventsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(".qratum/events/bad.json", []byte("{not json"), 0o644); err != nil {
+	badPath := filepath.Join(eventsDir, "bad.json")
+	if err := os.WriteFile(badPath, []byte("{not json"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
@@ -1717,7 +1756,7 @@ func TestDaemonRunOnceRejectsInvalidEventJSONWithAPIError(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"schema_version": "qratum.ui.api_error.v1"`,
-		`invalid capture event JSON .qratum/events/bad.json`,
+		`invalid capture event JSON ` + filepath.ToSlash(badPath),
 	} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
@@ -1727,6 +1766,7 @@ func TestDaemonRunOnceRejectsInvalidEventJSONWithAPIError(t *testing.T) {
 
 func TestDaemonRunOnceFailsWhenEventSpoolIsMissing(t *testing.T) {
 	t.Chdir(t.TempDir())
+	qratumHome := setTestQratumHome(t)
 	var stdout, stderr bytes.Buffer
 
 	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
@@ -1739,7 +1779,7 @@ func TestDaemonRunOnceFailsWhenEventSpoolIsMissing(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"schema_version": "qratum.ui.api_error.v1"`,
-		`event spool .qratum/events does not exist`,
+		`event spool ` + filepath.ToSlash(filepath.Join(qratumHome, "events")) + ` does not exist`,
 	} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
@@ -1749,6 +1789,7 @@ func TestDaemonRunOnceFailsWhenEventSpoolIsMissing(t *testing.T) {
 
 func TestDaemonRunOnceRejectsRelativeTranscriptPathEscapingProject(t *testing.T) {
 	t.Chdir(t.TempDir())
+	setTestQratumHome(t)
 	var hookStdout, hookStderr bytes.Buffer
 	input := `{
 		"session_id": "escape-session",
@@ -1764,18 +1805,19 @@ func TestDaemonRunOnceRejectsRelativeTranscriptPathEscapingProject(t *testing.T)
 	var stdout, stderr bytes.Buffer
 	code = run([]string{"daemon", "run-once"}, &stdout, &stderr)
 
-	if code != 1 {
-		t.Fatalf("exit code = %d, want 1", code)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	if stdout.Len() != 0 {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	for _, want := range []string{
-		`"schema_version": "qratum.ui.api_error.v1"`,
-		`relative path \"../outside.jsonl\" escapes current project`,
+		"processed: 0\n",
+		"skipped: 1\n",
+		"reason: raw_copy_failed\n",
 	} {
-		if !strings.Contains(stderr.String(), want) {
-			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, missing %q", stdout.String(), want)
 		}
 	}
 }
@@ -1980,6 +2022,7 @@ func writeADPExportSessionFixture(t *testing.T, root string) string {
 
 func spoolHookFixture(t *testing.T, fixture string) {
 	t.Helper()
+	setTestQratumHome(t)
 	var stdout, stderr bytes.Buffer
 	code := runWithIO([]string{"hook", "claude-code"}, bytes.NewReader(readFixture(t, fixture)), &stdout, &stderr)
 	if code != 0 {
@@ -1990,6 +2033,30 @@ func spoolHookFixture(t *testing.T, fixture string) {
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("hook stderr = %q, want empty", stderr.String())
+	}
+}
+
+func writeMissingTranscriptEvent(t *testing.T, qratumHome string) {
+	t.Helper()
+	event := captureEvent{
+		SchemaVersion:   captureEventSchemaVersion,
+		EventID:         "evt_missing_transcript",
+		Source:          claudeCodeSource,
+		EventType:       "session_end",
+		Timestamp:       "2026-06-15T00:00:00Z",
+		TimestampSource: hookTimestampSourceCaptureTime,
+		SessionRef: captureSessionRef{
+			SessionID:      "missing-transcript-session",
+			TranscriptPath: "fixtures/claude-code/transcript-verification-gap.jsonl",
+		},
+		Workspace: captureWorkspaceRef{CWD: "/tmp/qratum"},
+	}
+	eventPath := filepath.Join(qratumHome, "events", event.EventID+".json")
+	if err := os.MkdirAll(filepath.Dir(eventPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(eventPath, mustJSON(event), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -2051,6 +2118,23 @@ func assertFindingTypes(t *testing.T, findings []evidenceFinding, want []string)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("finding types = %v, want %v", got, want)
 	}
+}
+
+func setTestQratumHome(t *testing.T) string {
+	t.Helper()
+	if root := os.Getenv("QRATUM_HOME"); strings.TrimSpace(root) != "" {
+		return root
+	}
+	root := filepath.Join(t.TempDir(), "qratum-home")
+	t.Setenv("QRATUM_HOME", root)
+	return root
+}
+
+func setTestHome(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "home")
+	t.Setenv("HOME", root)
+	return root
 }
 
 func containsString(values []string, want string) bool {

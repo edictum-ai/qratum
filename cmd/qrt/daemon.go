@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const (
@@ -32,6 +34,10 @@ type daemonSkippedEvent struct {
 }
 
 const skipReasonAlreadyProcessed = "already_processed"
+const (
+	skipReasonRawMissing    = "raw_missing"
+	skipReasonRawCopyFailed = "raw_copy_failed"
+)
 
 type daemonArtifactPaths struct {
 	Event    string `json:"event,omitempty"`
@@ -105,7 +111,12 @@ func runDaemonOnce() (daemonRunSummary, error) {
 		return daemonRunSummary{}, fmt.Errorf("resolve current project absolute path: %w", err)
 	}
 
-	eventPaths, err := listEventFiles(filepath.Join(projectRoot, ".qratum", "events"), projectRoot)
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return daemonRunSummary{}, err
+	}
+
+	eventPaths, err := listEventFiles(qratumHome.EventsDir(), projectRoot)
 	if err != nil {
 		return daemonRunSummary{}, err
 	}
@@ -134,6 +145,17 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			return summary, fmt.Errorf("partial artifacts for event %s: missing %s; existing %s", event.EventID, strings.Join(missing, ", "), strings.Join(existing, ", "))
 		}
 
+		if event.Raw != nil && event.Raw.RawMissing {
+			summary.Skipped++
+			summary.Skips = append(summary.Skips, daemonSkippedEvent{EventID: event.EventID, Reason: skipReasonRawMissing})
+			continue
+		}
+		if event.Raw != nil && event.Raw.CopyStatus == "failed" {
+			summary.Skipped++
+			summary.Skips = append(summary.Skips, daemonSkippedEvent{EventID: event.EventID, Reason: skipReasonRawCopyFailed})
+			continue
+		}
+
 		transcriptPath, err := resolveTranscriptPath(projectRoot, event.SessionRef.TranscriptPath)
 		if err != nil {
 			return summary, fmt.Errorf("event %s has invalid transcript_path: %w", event.EventID, err)
@@ -156,7 +178,7 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			return summary, fmt.Errorf("event %s normalize transcript %s: %w", event.EventID, displayPath(projectRoot, transcriptPath), err)
 		}
 		if applySourceEventTimestampFallback(&event, session) {
-			eventPath := filepath.Join(projectRoot, filepath.FromSlash(artifacts.Event))
+			eventPath := artifactAbsolutePath(projectRoot, artifacts.Event)
 			if err := writeFileAtomic(eventPath, mustJSON(event), 0o644); err != nil {
 				return summary, fmt.Errorf("update capture event %s: %w", displayPath(projectRoot, eventPath), err)
 			}
@@ -257,7 +279,7 @@ func validateCaptureEventFile(event *captureEvent, path string) error {
 	if event.SessionRef.SessionID == "" {
 		return fmt.Errorf("missing session_ref.session_id")
 	}
-	if event.SessionRef.TranscriptPath == "" {
+	if event.SessionRef.TranscriptPath == "" && (event.Raw == nil || !event.Raw.RawMissing) {
 		return fmt.Errorf("missing session_ref.transcript_path")
 	}
 	if event.Workspace.CWD == "" {
@@ -289,30 +311,40 @@ func artifactPathsForEvent(event captureEvent) (daemonArtifactPaths, error) {
 		return daemonArtifactPaths{}, err
 	}
 	paths := artifactPathsForStem(stem)
-	paths.Event = slashPath(filepath.Join(".qratum", "events", event.EventID+".json"))
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return daemonArtifactPaths{}, err
+	}
+	paths.Event = filepath.ToSlash(filepath.Join(qratumHome.EventsDir(), event.EventID+".json"))
 	return paths, nil
 }
 
 func applySourceEventTimestampFallback(event *captureEvent, session qratumSession) bool {
-	if event.TimestampSource == hookTimestampSourceCaptureTime || event.Timestamp == deprecatedUnixZeroHookTimestamp {
-		if strings.TrimSpace(session.EndedAt) != "" {
-			event.Timestamp = session.EndedAt
-			event.TimestampSource = hookTimestampSourceTranscriptEnd
-			return true
-		}
+	if event.EventType == "session_end" && strings.TrimSpace(session.EndedAt) != "" && event.Timestamp != session.EndedAt {
+		event.Timestamp = session.EndedAt
+		event.TimestampSource = hookTimestampSourceTranscriptEnd
+		return true
 	}
 	return false
 }
 
 func artifactFilesForPaths(projectRoot string, paths daemonArtifactPaths) []daemonArtifactFile {
 	return []daemonArtifactFile{
-		{rel: paths.Session, abs: filepath.Join(projectRoot, filepath.FromSlash(paths.Session))},
-		{rel: paths.Redacted, abs: filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted))},
-		{rel: paths.Evidence, abs: filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence))},
-		{rel: paths.Review, abs: filepath.Join(projectRoot, filepath.FromSlash(paths.Review))},
-		{rel: paths.Report, abs: filepath.Join(projectRoot, filepath.FromSlash(paths.Report))},
-		{rel: paths.Export, abs: filepath.Join(projectRoot, filepath.FromSlash(paths.Export))},
+		{rel: paths.Session, abs: artifactAbsolutePath(projectRoot, paths.Session)},
+		{rel: paths.Redacted, abs: artifactAbsolutePath(projectRoot, paths.Redacted)},
+		{rel: paths.Evidence, abs: artifactAbsolutePath(projectRoot, paths.Evidence)},
+		{rel: paths.Review, abs: artifactAbsolutePath(projectRoot, paths.Review)},
+		{rel: paths.Report, abs: artifactAbsolutePath(projectRoot, paths.Report)},
+		{rel: paths.Export, abs: artifactAbsolutePath(projectRoot, paths.Export)},
 	}
+}
+
+func artifactAbsolutePath(projectRoot string, path string) string {
+	resolved := filepath.FromSlash(path)
+	if filepath.IsAbs(resolved) {
+		return filepath.Clean(resolved)
+	}
+	return filepath.Join(projectRoot, resolved)
 }
 
 func inspectArtifactCompletion(files []daemonArtifactFile) (completed bool, empty bool, missing []string, existing []string, err error) {

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const (
@@ -328,9 +330,37 @@ func validateArtifactPathsScoped(projectRoot string, paths daemonArtifactPaths) 
 		if strings.TrimSpace(item.path) == "" {
 			continue
 		}
+		if item.label == "event" {
+			if err := validateEventArtifactPath(projectRoot, item.path); err != nil {
+				return err
+			}
+			continue
+		}
 		if _, err := resolveProjectOutputPath(projectRoot, item.path, item.label); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateEventArtifactPath(projectRoot string, inputPath string) error {
+	if _, err := resolveProjectOutputPath(projectRoot, inputPath, "event"); err == nil {
+		return nil
+	}
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return err
+	}
+	if !filepath.IsAbs(inputPath) {
+		return fmt.Errorf("event output path %q escapes current project", inputPath)
+	}
+	resolved := filepath.Clean(inputPath)
+	rel, err := filepath.Rel(qratumHome.Root, resolved)
+	if err != nil {
+		return fmt.Errorf("resolve event output path: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+		return fmt.Errorf("event output path %q escapes qratum home", inputPath)
 	}
 	return nil
 }

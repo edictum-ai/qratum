@@ -11,6 +11,7 @@
     "timestamp": { "type": "string" },
     "timestamp_source": { "enum": ["hook_payload", "capture_time", "transcript_end"] },
     "session_ref": { "type": "object" },
-    "workspace": { "type": "object" }
+    "workspace": { "type": "object" },
+    "raw": { "type": "object" }
   }
 }

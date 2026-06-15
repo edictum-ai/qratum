@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/edictum-ai/qratum/internal/vault"
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const version = "dev"
@@ -43,6 +47,8 @@ func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Write
 		return status(stdout, stderr)
 	case "hook":
 		return hook(args[1:], stdin, stdout, stderr)
+	case "vault":
+		return vaultCommand(args[1:], stdout, stderr)
 	case "daemon":
 		return daemon(args[1:], stdout, stderr)
 	case "dogfood":
@@ -71,16 +77,31 @@ func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Write
 }
 
 func status(stdout io.Writer, stderr io.Writer) int {
-	state, err := qratumDirState(".qratum")
+	paths, err := workspace.Resolve()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	state, err := qratumDirState(paths.Root)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	summary, err := vault.New(paths).Summary()
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
 	}
 
 	fmt.Fprintln(stdout, "qratum status")
-	fmt.Fprintln(stdout, "milestone: A")
+	fmt.Fprintln(stdout, "milestone: vault-first")
 	fmt.Fprintf(stdout, "version: %s\n", version)
-	fmt.Fprintf(stdout, "qratum_dir: %s\n", state)
+	fmt.Fprintf(stdout, "qratum_home: %s\n", filepath.ToSlash(paths.Root))
+	fmt.Fprintf(stdout, "qratum_home_state: %s\n", state)
+	fmt.Fprintf(stdout, "vault_blobs: %d\n", summary.BlobCount)
+	fmt.Fprintf(stdout, "vault_refs: %d\n", summary.RefCount)
+	fmt.Fprintf(stdout, "last_backfill_at: %s\n", dashIfEmpty(summary.LastState.LastBackfillAt))
+	fmt.Fprintf(stdout, "copy_failures: %d\n", summary.LastState.CopyFailureCount)
 	fmt.Fprintln(stdout, "ready: true")
 	return 0
 }
@@ -100,5 +121,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | daemon run-once | dogfood import <transcript_path> | dogfood latest | dogfood list | dogfood show <session_id> | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | hook install | hook status | vault doctor | vault backfill | vault archive <path> [--kind K] | vault backup [--verify] <dest> | daemon run-once | dogfood import <transcript_path> | dogfood latest | dogfood list | dogfood show <session_id> | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
 }
