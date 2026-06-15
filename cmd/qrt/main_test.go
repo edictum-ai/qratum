@@ -1708,7 +1708,7 @@ func TestExistingEventIDArtifactsRemainReadable(t *testing.T) {
 func TestDaemonRunOnceFailsOnMissingTranscriptWithAPIError(t *testing.T) {
 	t.Chdir(t.TempDir())
 	setTestQratumHome(t)
-	spoolHookFixture(t, "hook-session-end.json")
+	spoolHookFixtureAllowingStderr(t, "hook-session-end.json", "warning: capture recorded but transcript copy failed")
 	var stdout, stderr bytes.Buffer
 
 	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
@@ -2033,6 +2033,22 @@ func spoolHookFixture(t *testing.T, fixture string) {
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("hook stderr = %q, want empty", stderr.String())
+	}
+}
+
+func spoolHookFixtureAllowingStderr(t *testing.T, fixture string, wantStderr string) {
+	t.Helper()
+	setTestQratumHome(t)
+	var stdout, stderr bytes.Buffer
+	code := runWithIO([]string{"hook", "claude-code"}, bytes.NewReader(readFixture(t, fixture)), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("hook exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("hook stdout = %q, want empty", stdout.String())
+	}
+	if stderr.Len() != 0 && !strings.Contains(stderr.String(), wantStderr) {
+		t.Fatalf("hook stderr = %q, want empty or %q", stderr.String(), wantStderr)
 	}
 }
 
