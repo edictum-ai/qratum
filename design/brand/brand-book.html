@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Qratum — Brand Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#f4f1e8; --surface:#fffdf9; --surface-2:#faf6ec;
+    --ink:#0b0b0b; --ink-soft:#5d564e; --faint:rgba(11,11,11,0.12);
+    --yellow:#f5d90a; --cyan:#2563eb; --clay:#d6453d; --green:#3fdd8a; --amber:#f5b73d;
+    --shadow:6px 6px 0 var(--ink); --shadow-sm:4px 4px 0 var(--ink); --shadow-lg:8px 8px 0 var(--ink);
+    --disp:'Space Grotesk',system-ui,sans-serif; --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#3a362e;-webkit-font-smoothing:antialiased;}
+  body{font-family:var(--sans);color:var(--ink);}
+  .disp{font-family:var(--disp);font-weight:700;letter-spacing:-0.035em;line-height:0.92;text-transform:uppercase;}
+  .mono{font-family:var(--mono);}
+  .label{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-soft);}
+
+  /* page spread */
+  .page{width:1280px;margin:26px auto;background:var(--canvas);color:var(--ink);position:relative;overflow:hidden;
+        border:2.5px solid var(--ink);box-shadow:10px 12px 0 rgba(0,0,0,0.45);}
+  .page::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(rgba(11,11,11,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(11,11,11,0.04) 1px,transparent 1px);background-size:44px 44px;}
+  .page>*{position:relative;z-index:1;}
+  .page-ink{background:var(--ink);color:var(--canvas);}
+  .page-yellow{background:var(--yellow);}
+  .pad{padding:72px 76px;min-height:760px;}
+  .pad-tall{min-height:860px;}
+
+  .chrome{position:absolute;left:0;right:0;padding:22px 30px;display:flex;justify-content:space-between;
+          font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft);}
+  .chrome.top{top:0;} .chrome.bot{bottom:0;}
+  .page-ink .chrome{color:rgba(244,241,232,0.5);}
+  .page-yellow .chrome{color:rgba(11,11,11,0.55);}
+
+  h1.disp{font-size:104px;margin:0;} h2.disp{font-size:52px;margin:0 0 16px;}
+  h3.disp{font-size:26px;margin:0 0 8px;}
+  p{font-size:15px;line-height:1.6;color:var(--ink-soft);max-width:64ch;margin:0 0 12px;}
+  .page-ink p{color:rgba(244,241,232,0.72);}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;border:2px solid var(--ink);padding:5px 11px;margin-bottom:20px;
+           font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;}
+  .eyebrow .d{width:7px;height:7px;background:var(--ink);}
+  .page-ink .eyebrow{border-color:var(--canvas);color:var(--canvas);} .page-ink .eyebrow .d{background:var(--yellow);}
+  .ymark{background:var(--yellow);border:2px solid var(--ink);padding:0 8px;box-shadow:var(--shadow-sm);display:inline-block;}
+
+  /* mark lockups */
+  .wm{font-family:var(--disp);font-weight:700;letter-spacing:-0.04em;text-transform:uppercase;display:inline-flex;align-items:center;gap:12px;}
+  .wm-box{background:var(--yellow);border:2.5px solid var(--ink);padding:6px 16px;box-shadow:var(--shadow-sm);}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border:2px solid var(--ink);font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;background:var(--surface);}
+  .chip-raw{background:var(--clay);color:#fffdf9;border-color:var(--clay);}
+  .chip-redacted{background:var(--yellow);border-color:var(--yellow);}
+  .chip-review{background:var(--cyan);color:#fffdf9;border-color:var(--cyan);}
+  .chip-corpus{background:var(--ink);color:var(--canvas);border-color:var(--ink);}
+  .chip-lesson{background:var(--green);color:#04140c;border-color:var(--green);}
+  .chip-digest{font-family:var(--mono);font-weight:700;font-size:11px;color:var(--ink);}
+
+  .rule{height:2px;background:var(--faint);margin:26px 0;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:48px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+
+  .card{background:var(--surface);border:2.5px solid var(--ink);box-shadow:var(--shadow);}
+  .card-soft{background:var(--surface);border:2.5px solid var(--faint);}
+
+  /* swatch */
+  .sw{border:2.5px solid var(--ink);box-shadow:var(--shadow-sm);min-height:150px;display:flex;flex-direction:column;justify-content:flex-end;padding:14px;}
+  .sw .nm{font-family:var(--disp);font-weight:700;text-transform:uppercase;font-size:16px;letter-spacing:-0.01em;}
+  .sw .hx{font-family:var(--mono);font-size:11px;margin-top:3px;}
+
+  /* manifest table */
+  .manifest{background:var(--surface);border:2.5px solid var(--ink);box-shadow:var(--shadow);}
+  .manifest-head{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--yellow);border-bottom:2.5px solid var(--ink);}
+  .manifest-head .label{color:var(--ink);}
+  .mdots{display:flex;gap:6px;} .mdots span{width:10px;height:10px;border:1.5px solid var(--ink);display:block;}
+  table.mf{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;}
+  table.mf th{text-align:left;padding:9px 12px;background:var(--surface-2);border-bottom:2px solid var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;font-size:10px;color:var(--ink-soft);}
+  table.mf td{padding:9px 12px;border-bottom:1px solid var(--faint);}
+  table.mf tr:last-child td{border-bottom:none;}
+
+  /* terminal */
+  .term{background:#04060a;border:2.5px solid var(--ink);box-shadow:var(--shadow-lg);overflow:hidden;}
+  .term-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#0b0f14;border-bottom:2px solid rgba(230,255,240,0.12);}
+  .term-dot{width:11px;height:11px;border:1.5px solid rgba(230,255,240,0.35);display:block;}
+  .term-body{padding:18px;font-family:var(--mono);font-size:12.5px;line-height:1.8;color:#cdd6cf;}
+  .t-cmd{color:#34d1ff;} .t-arg{color:#f5b73d;} .t-com{color:#8a9aa0;} .t-ok{color:#3fdd8a;} .t-warn{color:#d6453d;}
+
+  /* construction guides */
+  .gridbg{position:relative;background:var(--surface);border:2.5px solid var(--ink);box-shadow:var(--shadow);aspect-ratio:1;display:flex;align-items:center;justify-content:center;}
+  .gridbg::before{content:'';position:absolute;inset:0;background-image:linear-gradient(var(--faint) 1px,transparent 1px),linear-gradient(90deg,var(--faint) 1px,transparent 1px);background-size:40px 40px;}
+
+  .specrow{display:grid;grid-template-columns:28px 1fr;gap:8px 16px;font-size:14px;}
+  .specrow b{font-family:var(--mono);color:var(--ink);}
+  .specrow span{color:var(--ink-soft);}
+  code{font-family:var(--mono);background:var(--surface-2);border:1.5px solid var(--faint);padding:1px 5px;font-size:13px;color:var(--cyan);}
+
+  .typerow{display:grid;grid-template-columns:170px 1fr 200px;gap:28px;padding:20px 0;border-top:2px solid var(--faint);align-items:baseline;}
+  .typerow:last-child{border-bottom:2px solid var(--faint);}
+  .typerow .meta{font-family:var(--mono);font-size:11px;color:var(--ink-soft);text-align:right;line-height:1.6;}
+
+  .ddbox{border:2.5px solid var(--faint);background:var(--surface);min-height:120px;display:flex;align-items:center;justify-content:center;}
+  .voicerow{display:grid;grid-template-columns:160px 1fr 1fr;gap:28px;padding:16px 0;border-top:2px solid var(--faint);}
+  .voicerow:last-child{border-bottom:2px solid var(--faint);}
+  .voicerow .we{font-weight:600;} .voicerow .we::before{content:'✓ ';color:#1f9d57;font-weight:700;}
+  .voicerow .no{color:var(--ink-soft);text-decoration:line-through;} .voicerow .no::before{content:'✗ ';color:var(--clay);text-decoration:none;font-weight:700;}
+
+  /* messaging ladder */
+  .ladder{display:grid;grid-template-columns:210px 1fr;border-top:2px solid var(--faint);}
+  .ladder .l-role{padding:24px 22px 24px 0;border-bottom:2px solid var(--faint);}
+  .ladder .l-line{padding:24px 0 24px 30px;border-left:2px solid var(--faint);border-bottom:2px solid var(--faint);}
+
+  /* nav strip */
+  .nav-strip{position:fixed;right:24px;top:50%;transform:translateY(-50%);background:var(--ink);color:var(--canvas);
+    border:2.5px solid var(--ink);box-shadow:6px 6px 0 var(--yellow);font-family:var(--mono);font-size:11px;z-index:10;max-height:84vh;overflow:hidden;}
+  .nav-strip summary{list-style:none;cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;}
+  .nav-strip summary::-webkit-details-marker{display:none;}
+  .nav-strip .d{width:7px;height:7px;background:var(--yellow);}
+  .nav-strip[open] summary{border-bottom:2px solid rgba(244,241,232,0.18);}
+  .nav-list{padding:8px;display:flex;flex-direction:column;gap:1px;max-height:72vh;overflow-y:auto;}
+  .nav-list a{color:rgba(244,241,232,0.7);text-decoration:none;padding:5px 9px;white-space:nowrap;}
+  .nav-list a:hover{background:rgba(244,241,232,0.1);color:var(--yellow);}
+  .nav-list .n{color:var(--yellow);margin-right:8px;}
+  @media print{.nav-strip{display:none;}}
+</style>
+</head>
+<body>
+
+<details class="nav-strip">
+  <summary><span class="d"></span>contents</summary>
+  <div class="nav-list">
+    <a href="#cover"><span class="n">00</span>cover</a>
+    <a href="#manifesto"><span class="n">01</span>manifesto</a>
+    <a href="#mark"><span class="n">02</span>the mark</a>
+    <a href="#construction"><span class="n">03</span>construction</a>
+    <a href="#wordmark"><span class="n">04</span>wordmark</a>
+    <a href="#color"><span class="n">05</span>color</a>
+    <a href="#type"><span class="n">06</span>typography</a>
+    <a href="#components"><span class="n">07</span>components</a>
+    <a href="#voice"><span class="n">08</span>voice</a>
+    <a href="#messaging"><span class="n">09</span>messaging</a>
+    <a href="#applications"><span class="n">10</span>applications</a>
+    <a href="#ecosystem"><span class="n">11</span>ecosystem</a>
+  </div>
+</details>
+
+<!-- 00 COVER -->
+<section class="page page-yellow" id="cover">
+  <div class="chrome top"><span>Qratum · Brand Book</span><span>v1.0 · 2026</span></div>
+  <div class="pad pad-tall" style="display:flex;flex-direction:column;justify-content:center;gap:38px;">
+    <div class="eyebrow" style="align-self:flex-start;border-color:var(--ink);"><span class="d"></span>The session vault</div>
+    <div>
+      <svg viewBox="0 0 100 100" width="150" height="150" style="margin-bottom:18px"><g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="8" fill="#0b0b0b"/></svg>
+      <h1 class="disp" style="font-size:128px;">Qratum</h1>
+    </div>
+    <p style="font-size:19px;color:#0b0b0b;max-width:40ch;font-weight:500;">The brand book for Qratum — the local-first vault that captures, redacts, and proves the provenance of every AI session. Inside: the mark, the ledger system, and how to use both.</p>
+    <div style="display:flex;gap:20px;font-family:var(--mono);font-size:12px;color:rgba(11,11,11,0.6);font-weight:700;">
+      <span>qratum.dev</span><span>sha256-addressed</span><span>MIT · open source</span>
+    </div>
+  </div>
+  <div class="chrome bot"><span>00 · Cover</span><span>Local-first · MIT</span></div>
+</section>
+
+<!-- 01 MANIFESTO -->
+<section class="page" id="manifesto">
+  <div class="chrome top"><span>01 · Manifesto</span><span>Why we exist</span></div>
+  <div class="pad pad-tall grid2" style="align-items:center;">
+    <div>
+      <div class="eyebrow"><span class="d"></span>A short, true thing</div>
+      <h2 class="disp" style="font-size:58px;">Keep every session.<br/>Prove its <span class="ymark">provenance.</span></h2>
+      <div class="rule"></div>
+      <p style="font-size:16px;">Your agents generate the most valuable data you own — and most of it evaporates the moment the run ends. What survives is unverifiable: a transcript with no proof it wasn't edited. Qratum is the librarian. It captures every session, redacts what's sensitive, and content-addresses the rest by sha256 — so the bytes are exactly the bytes, forever.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card" style="padding:26px;aspect-ratio:1;display:flex;flex-direction:column;justify-content:space-between;">
+        <div class="label">Belief 01</div><div class="disp" style="font-size:24px;">The hash is the truth.</div>
+      </div>
+      <div class="card" style="padding:26px;aspect-ratio:1;display:flex;flex-direction:column;justify-content:space-between;background:var(--ink);color:var(--canvas);">
+        <div class="label" style="color:var(--yellow);">Belief 02</div><div class="disp" style="font-size:24px;color:var(--canvas);">Local first, always.</div>
+      </div>
+      <div class="card" style="padding:26px;aspect-ratio:1;display:flex;flex-direction:column;justify-content:space-between;background:var(--yellow);">
+        <div class="label">Belief 03</div><div class="disp" style="font-size:24px;">Redact before you keep.</div>
+      </div>
+      <div class="card" style="padding:26px;aspect-ratio:1;display:flex;flex-direction:column;justify-content:space-between;">
+        <div class="label">Belief 04</div><div class="disp" style="font-size:24px;">A record you can't verify isn't one.</div>
+      </div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>01 / 12</span></div>
+</section>
+
+<!-- 02 THE MARK -->
+<section class="page" id="mark">
+  <div class="chrome top"><span>02 · The mark</span><span>Logomark</span></div>
+  <div class="pad grid2">
+    <div>
+      <div class="eyebrow"><span class="d"></span>Identity / Mark</div>
+      <h2 class="disp">One mark.<br/>Three readings.</h2>
+      <p>A hash and a dot — <code>#·</code>. Everything in Qratum is content-addressed by sha256, so the hash literally <em>is</em> the product. It shares the family's construction grammar with Edictum and Ductum, but draws what Qratum uniquely does: it <em>addresses</em>.</p>
+      <div class="rule"></div>
+      <div style="display:grid;gap:16px;">
+        <div><h3 class="disp" style="font-size:18px;">Hash</h3><p style="margin:0;">Four strokes of a <code>#</code> — the digest. Content-addressed storage made visible: the same bytes always resolve to the same mark.</p></div>
+        <div><h3 class="disp" style="font-size:18px;">Dot</h3><p style="margin:0;">The unit of work — one session, sealed and kept. The same dot Edictum and Qratum share; the family's atom, here rendered in yellow.</p></div>
+        <div><h3 class="disp" style="font-size:18px;">Digest lockup</h3><p style="margin:0;">Pair the glyph with a truncated <code>sha256:</code> so it reads as a content digest, never a social hashtag.</p></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <div class="card" style="background:var(--surface);aspect-ratio:1.3;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 100 100" width="240" height="240"><g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+      </div>
+      <div class="card" style="background:var(--ink);padding:18px 20px;display:flex;align-items:center;gap:12px;">
+        <svg viewBox="0 0 100 100" width="34" height="34"><g fill="none" stroke="#f4f1e8" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+        <span class="mono" style="color:var(--canvas);font-size:13px;"><span style="color:#8a9aa0;">sha256:</span> 3f8a1c9e…</span>
+      </div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>02 / 12</span></div>
+</section>
+
+<!-- 03 CONSTRUCTION -->
+<section class="page" id="construction">
+  <div class="chrome top"><span>03 · Construction</span><span>Geometry</span></div>
+  <div class="pad grid2" style="align-items:center;">
+    <div class="gridbg">
+      <svg viewBox="0 0 100 100" width="380" height="380" style="position:relative;">
+        <line x1="36" y1="0" x2="30" y2="100" stroke="rgba(37,99,235,0.4)" stroke-width="0.4" stroke-dasharray="2 1.5"/>
+        <line x1="58" y1="0" x2="52" y2="100" stroke="rgba(37,99,235,0.4)" stroke-width="0.4" stroke-dasharray="2 1.5"/>
+        <line x1="0" y1="40" x2="100" y2="40" stroke="rgba(37,99,235,0.4)" stroke-width="0.4" stroke-dasharray="2 1.5"/>
+        <line x1="0" y1="60" x2="100" y2="60" stroke="rgba(37,99,235,0.4)" stroke-width="0.4" stroke-dasharray="2 1.5"/>
+        <circle cx="84" cy="72" r="7" fill="none" stroke="rgba(37,99,235,0.5)" stroke-width="0.5" stroke-dasharray="2 1.5"/>
+        <g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g>
+        <circle cx="84" cy="72" r="7" fill="#f5d90a"/>
+        <g font-family="JetBrains Mono" font-size="2.4" fill="#2563eb" font-weight="700">
+          <text x="60" y="14">verticals</text><text x="2" y="38">bar·1</text><text x="2" y="58">bar·2</text><text x="86" y="64">dot</text>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <div class="eyebrow"><span class="d"></span>Build spec</div>
+      <h2 class="disp" style="font-size:40px;">100-unit grid.<br/>Four strokes, one dot.</h2>
+      <div class="rule"></div>
+      <div class="specrow">
+        <b>01</b><span><b>Verticals.</b> Two near-vertical strokes from y=18 to y=78, slanted 6 units left (top→bottom) to give the hash its lean. Stroke <b>9 units</b>, square caps.</span>
+        <b>02</b><span><b>Bars.</b> Two horizontal strokes at y=40 and y=60, offset left by 2 units on the lower bar. They overhang the verticals by ~14 units each side.</span>
+        <b>03</b><span><b>Dot.</b> One solid disc, radius <b>7 units</b>, at <code>(84, 72)</code>, lower-right. Rendered in Ledger Yellow — the only color in the mark.</span>
+      </div>
+      <div class="rule"></div>
+      <div class="grid2" style="gap:14px;">
+        <div><div class="label">Min · screen</div><div class="mono" style="margin-top:4px;">16 px</div></div>
+        <div><div class="label">Min · print</div><div class="mono" style="margin-top:4px;">6 mm</div></div>
+        <div><div class="label">Mark dot</div><div class="mono" style="margin-top:4px;">#F5D90A</div></div>
+        <div><div class="label">Strokes</div><div class="mono" style="margin-top:4px;">#0B0B0B</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>03 / 12</span></div>
+</section>
+
+<!-- 04 WORDMARK -->
+<section class="page" id="wordmark">
+  <div class="chrome top"><span>04 · Wordmark</span><span>Lockup</span></div>
+  <div class="pad">
+    <div class="eyebrow"><span class="d"></span>Wordmark / Lockups</div>
+    <h2 class="disp">QRATUM, in the box.</h2>
+    <p style="margin-bottom:36px;">The wordmark is <b>Space Grotesk Bold</b>, uppercase, <code>letter-spacing: −0.04em</code>, set in a yellow box with a 2.5px ink border and a hard offset shadow. The box is the brand's signature — it reads as a sticker, a stamp, a sealed label.</p>
+
+    <div style="display:flex;flex-direction:column;gap:30px;">
+      <div style="display:flex;align-items:center;gap:30px;padding:24px 0;border-top:2px solid var(--faint);">
+        <span class="wm wm-box" style="font-size:40px;">
+          <svg viewBox="0 0 100 100" width="34" height="34"><g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#0b0b0b"/></svg>
+          qratum
+        </span>
+        <span class="mono" style="margin-left:auto;font-size:11px;color:var(--ink-soft);text-align:right;font-weight:700;">PRIMARY · ink mark in yellow box<br/>nav, headers, packaging</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:30px;padding:24px 0;border-top:2px solid var(--faint);background:var(--ink);margin:0 -76px;padding-left:76px;padding-right:76px;">
+        <span class="wm" style="font-size:40px;color:var(--canvas);">
+          <svg viewBox="0 0 100 100" width="34" height="34"><g fill="none" stroke="#f4f1e8" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+          qratum
+        </span>
+        <span class="mono" style="margin-left:auto;font-size:11px;color:rgba(244,241,232,0.6);text-align:right;font-weight:700;">REVERSED · paper mark, yellow dot, on ink<br/>terminal, dark UI, stickers</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:18px;padding:24px 0;border-top:2px solid var(--faint);border-bottom:2px solid var(--faint);">
+        <span class="chip chip-digest" style="border-color:var(--ink);padding:6px 10px;">
+          <svg viewBox="0 0 100 100" width="16" height="16"><g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+          <span style="color:var(--ink-soft);">sha256:</span> 3f8a1c…
+        </span>
+        <span class="mono" style="margin-left:auto;font-size:11px;color:var(--ink-soft);text-align:right;font-weight:700;">DIGEST LOCKUP · the disambiguator<br/>use wherever &ldquo;#&rdquo; could read as hashtag</span>
+      </div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>04 / 12</span></div>
+</section>
+
+<!-- 05 COLOR -->
+<section class="page" id="color">
+  <div class="chrome top"><span>05 · Color</span><span>Palette</span></div>
+  <div class="pad">
+    <div class="eyebrow"><span class="d"></span>Color system</div>
+    <h2 class="disp">Paper, ink, and one yellow.</h2>
+    <p style="margin-bottom:30px;">Warm paper, hard black ink, one electric yellow. Neobrutalism means the surface does the talking — borders and shadows, not gradients. A small set of data-class colors codes the refinery; they live inside the product, never in marketing layout.</p>
+
+    <div class="grid4">
+      <div class="sw" style="background:var(--canvas);"><div class="nm">Canvas</div><div class="hx">#F4F1E8</div></div>
+      <div class="sw" style="background:var(--ink);color:var(--canvas);"><div class="nm" style="color:var(--canvas);">Ink</div><div class="hx">#0B0B0B</div></div>
+      <div class="sw" style="background:var(--yellow);"><div class="nm">Ledger Yellow</div><div class="hx">#F5D90A</div></div>
+      <div class="sw" style="background:var(--surface);"><div class="nm">Surface</div><div class="hx">#FFFDF9</div></div>
+    </div>
+
+    <div class="rule" style="margin:30px 0 22px;"></div>
+    <div class="label" style="margin-bottom:14px;">Data classes · inside the product only</div>
+    <div class="grid4">
+      <div class="sw" style="background:var(--clay);color:#fff;min-height:108px;"><div class="nm" style="color:#fff;">Raw</div><div class="hx">#D6453D · captured</div></div>
+      <div class="sw" style="background:var(--yellow);min-height:108px;"><div class="nm">Redacted</div><div class="hx">#F5D90A · cleaned</div></div>
+      <div class="sw" style="background:var(--cyan);color:#fff;min-height:108px;"><div class="nm" style="color:#fff;">Review</div><div class="hx">#2563EB · in review</div></div>
+      <div class="sw" style="background:var(--ink);color:var(--canvas);min-height:108px;"><div class="nm" style="color:var(--canvas);">Corpus</div><div class="hx">#0B0B0B · sealed</div></div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>05 / 12</span></div>
+</section>
+
+<!-- 06 TYPOGRAPHY -->
+<section class="page" id="type">
+  <div class="chrome top"><span>06 · Typography</span><span>Type system</span></div>
+  <div class="pad">
+    <div class="eyebrow"><span class="d"></span>Typography</div>
+    <h2 class="disp" style="margin-bottom:26px;">Three faces. One job each.</h2>
+    <div class="grid3" style="margin-bottom:30px;">
+      <div><div class="label">Display</div><div class="disp" style="font-size:72px;margin:8px 0;">Aa</div><h3 class="disp" style="font-size:22px;">Space Grotesk</h3><p style="font-size:13px;">Bold, uppercase, −0.035em. Every headline, wordmark, and stat. The loud, stamped voice of the brand.</p></div>
+      <div><div class="label">Body &amp; UI</div><div style="font-family:var(--sans);font-weight:600;font-size:72px;margin:8px 0;">Aa</div><h3 class="disp" style="font-size:22px;">Inter</h3><p style="font-size:13px;">Body copy, UI, navigation. Quiet and legible — the counterweight to the display face.</p></div>
+      <div><div class="label">Code &amp; data</div><div class="mono" style="font-size:64px;margin:8px 0;">Aa</div><h3 class="disp" style="font-size:22px;">JetBrains Mono</h3><p style="font-size:13px;">Digests, labels, manifests, the terminal. Anything machine-shaped — and all labels are uppercase, tracked 0.14em.</p></div>
+    </div>
+    <div class="typerow"><div class="label">Display</div><div class="disp" style="font-size:40px;">KEEP EVERY SESSION</div><div class="meta">Space Grotesk / 700<br/>uppercase · −0.035em</div></div>
+    <div class="typerow"><div class="label">Body</div><div style="font-size:16px;color:var(--ink-soft);">Qratum captures, redacts, and content-addresses every AI session locally.</div><div class="meta">Inter / 400<br/>15–17 px · 1.6</div></div>
+    <div class="typerow"><div class="label">Mono / label</div><div class="mono" style="font-size:13px;">sha256:3f8a1c9e  raw → redacted → corpus</div><div class="meta">JetBrains Mono / 700<br/>labels uppercase · 0.14–0.18em</div></div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>06 / 12</span></div>
+</section>
+
+<!-- 07 COMPONENTS -->
+<section class="page" id="components">
+  <div class="chrome top"><span>07 · Components</span><span>The motifs</span></div>
+  <div class="pad">
+    <div class="eyebrow"><span class="d"></span>Component language</div>
+    <h2 class="disp" style="margin-bottom:8px;">Stickers, manifests, terminals.</h2>
+    <p style="margin-bottom:28px;">Three recurring motifs carry the product: data-class <b>sticker chips</b>, the <b>manifest table</b> (a receipt for your sessions), and the <b>terminal</b> — kept dark as a deliberate accent on paper.</p>
+    <div class="grid2" style="align-items:start;gap:30px;">
+      <div>
+        <div class="label" style="margin-bottom:12px;">Sticker chips · data classes</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px;">
+          <span class="chip chip-raw">raw</span><span class="chip chip-redacted">redacted</span><span class="chip chip-review">review</span><span class="chip chip-lesson">lesson</span><span class="chip chip-corpus">corpus</span>
+        </div>
+        <div class="label" style="margin-bottom:12px;">Buttons</div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span class="wm-box" style="font-family:var(--disp);font-weight:700;text-transform:uppercase;font-size:14px;padding:11px 18px;">Get Qratum</span>
+          <span style="font-family:var(--disp);font-weight:700;text-transform:uppercase;font-size:14px;padding:11px 18px;border:2.5px solid var(--ink);background:var(--surface);box-shadow:var(--shadow-sm);">Docs</span>
+        </div>
+      </div>
+      <div>
+        <div class="manifest">
+          <div class="manifest-head"><span class="label">session.manifest</span><div class="mdots"><span></span><span></span><span></span></div></div>
+          <table class="mf">
+            <thead><tr><th>digest</th><th>class</th><th>status</th></tr></thead>
+            <tbody>
+              <tr><td>3f8a1c…</td><td><span class="chip chip-redacted">redacted</span></td><td>ready</td></tr>
+              <tr><td>9b2e44…</td><td><span class="chip chip-raw">raw</span></td><td>queued</td></tr>
+              <tr><td>c7d013…</td><td><span class="chip chip-corpus">corpus</span></td><td>sealed</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="term" style="margin-top:26px;">
+      <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="mono" style="margin-left:8px;font-size:11px;color:#8a9aa0;">qrt · vault</span></div>
+      <div class="term-body">
+        <div><span class="t-com">$</span> <span class="t-cmd">qrt</span> <span class="t-arg">sessions add</span> ./run.jsonl</div>
+        <div class="t-ok">✓ captured · redacted 4 spans · sha256:3f8a1c9e</div>
+        <div><span class="t-com">$</span> <span class="t-cmd">qrt</span> <span class="t-arg">vault verify</span></div>
+        <div class="t-ok">✓ 128 sessions · 0 tampered · corpus intact</div>
+      </div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>07 / 12</span></div>
+</section>
+
+<!-- 08 VOICE -->
+<section class="page" id="voice">
+  <div class="chrome top"><span>08 · Voice</span><span>How we write</span></div>
+  <div class="pad">
+    <div class="eyebrow"><span class="d"></span>Verbal identity</div>
+    <h2 class="disp" style="margin-bottom:8px;">Plain, exact, local.</h2>
+    <p style="margin-bottom:28px;">Qratum talks like a librarian who happens to be an engineer: precise, unhurried, never hyped. We say what it does and where the data lives. We never borrow security-vendor fear.</p>
+    <div class="voicerow"><div class="label">Headline</div><div class="we">Keep every session. Prove its provenance.</div><div class="no">Unlock the power of your AI data.</div></div>
+    <div class="voicerow"><div class="label">Feature</div><div class="we">Redacts secrets before anything is written to disk.</div><div class="no">Military-grade privacy protection.</div></div>
+    <div class="voicerow"><div class="label">Status</div><div class="we">128 sessions · 0 tampered · corpus intact.</div><div class="no">You're all set! Everything looks great 🎉</div></div>
+    <div class="voicerow"><div class="label">Error</div><div class="we">Digest mismatch on 9b2e44 — refusing to seal.</div><div class="no">Oops! Something went wrong.</div></div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>08 / 12</span></div>
+</section>
+
+<!-- 09 MESSAGING -->
+<section class="page" id="messaging">
+  <div class="chrome top"><span>09 · Messaging hierarchy</span><span>Locked copy</span></div>
+  <div class="pad pad-tall">
+    <div class="eyebrow"><span class="d"></span>Verbal identity</div>
+    <h2 class="disp" style="margin-bottom:8px;">One brand. Five lines.</h2>
+    <p style="margin-bottom:34px;">Each line has a lane. The brand line introduces; the category line situates; the hook names the mechanism; the proof line earns trust; the wedge converts. Don't make one line do every job.</p>
+    <div class="ladder">
+      <div class="l-role"><div class="label" style="margin-bottom:5px;">01 · Brand</div><div class="mono" style="font-size:11px;color:var(--ink-soft);line-height:1.5;">Cover, hero, packaging. Once per surface.</div></div>
+      <div class="l-line"><div class="disp" style="font-size:34px;">Keep every session. Prove its provenance.</div></div>
+      <div class="l-role"><div class="label" style="margin-bottom:5px;">02 · Category</div><div class="mono" style="font-size:11px;color:var(--ink-soft);line-height:1.5;">Meta, OG, &ldquo;what is Qratum?&rdquo;</div></div>
+      <div class="l-line"><div style="font-family:var(--sans);font-size:23px;font-weight:600;">A local-first vault for AI session data.</div></div>
+      <div class="l-role"><div class="label" style="margin-bottom:5px;">03 · Hook</div><div class="mono" style="font-size:11px;color:var(--ink-soft);line-height:1.5;">Hero subhead, demo opener.</div></div>
+      <div class="l-line"><div class="disp" style="font-size:28px;">Capture, redact, content-address.</div></div>
+      <div class="l-role"><div class="label" style="margin-bottom:5px;">04 · Proof</div><div class="mono" style="font-size:11px;color:var(--ink-soft);line-height:1.5;">Security page, below the fold.</div></div>
+      <div class="l-line"><div style="font-family:var(--sans);font-size:20px;font-weight:500;">Nothing leaves your machine. Nothing is kept unredacted. Nothing can be tampered with unseen.</div></div>
+      <div class="l-role" style="border-bottom:none;"><div class="label" style="margin-bottom:5px;">05 · Wedge</div><div class="mono" style="font-size:11px;color:var(--ink-soft);line-height:1.5;">Sales, talks, README.</div></div>
+      <div class="l-line" style="border-bottom:none;"><div class="disp" style="font-size:26px;">Your agents forget. Qratum remembers — provably.</div><div class="mono" style="font-size:11px;color:var(--ink-soft);margin-top:10px;">Free &amp; MIT-licensed · local-first · self-hosted · github.com/edictum-ai/qratum</div></div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>09 / 12</span></div>
+</section>
+
+<!-- 10 APPLICATIONS -->
+<section class="page" id="applications">
+  <div class="chrome top"><span>10 · Applications</span><span>System in use</span></div>
+  <div class="pad">
+    <div class="eyebrow"><span class="d"></span>Applications</div>
+    <h2 class="disp" style="margin-bottom:26px;">The system in use.</h2>
+    <div class="grid3" style="gap:18px;">
+      <div class="card" style="padding:20px;">
+        <div class="label" style="margin-bottom:14px;">Favicon · 32 / 16</div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span style="background:var(--canvas);border:2.5px solid var(--ink);box-shadow:var(--shadow-sm);width:46px;height:46px;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 100 100" width="30" height="30"><g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg></span>
+          <span style="background:var(--canvas);border:2px solid var(--ink);width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 100 100" width="16" height="16"><g fill="none" stroke="#0b0b0b" stroke-width="10" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="8" fill="#f5d90a"/></svg></span>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;">
+        <div class="label" style="margin-bottom:14px;">Nav wordmark</div>
+        <span class="wm wm-box" style="font-size:22px;"><svg viewBox="0 0 100 100" width="20" height="20"><g fill="none" stroke="#0b0b0b" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#0b0b0b"/></svg>qratum</span>
+      </div>
+      <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+        <div class="label">Sticker</div>
+        <div style="background:var(--ink);border:2.5px solid var(--ink);box-shadow:3px 3px 0 var(--yellow);padding:14px;display:flex;align-items:center;gap:10px;">
+          <svg viewBox="0 0 100 100" width="26" height="26"><g fill="none" stroke="#f4f1e8" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+          <span class="mono" style="color:var(--canvas);font-size:11px;font-weight:700;">LOCAL FIRST</span>
+        </div>
+      </div>
+    </div>
+    <div class="term" style="margin-top:18px;">
+      <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="mono" style="margin-left:8px;font-size:11px;color:#8a9aa0;">qratum.dev — local vault · 127.0.0.1:9218</span></div>
+      <div class="term-body" style="display:flex;align-items:center;gap:14px;">
+        <svg viewBox="0 0 100 100" width="20" height="20"><g fill="none" stroke="#f4f1e8" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+        <span style="color:var(--canvas);font-family:var(--disp);font-weight:700;text-transform:uppercase;letter-spacing:-0.02em;">qratum</span>
+        <span class="mono" style="margin-left:auto;color:#8a9aa0;font-size:11px;">vault · sessions · reports</span>
+      </div>
+    </div>
+  </div>
+  <div class="chrome bot"><span>qratum.dev</span><span>10 / 12</span></div>
+</section>
+
+<!-- 11 ECOSYSTEM -->
+<section class="page page-ink" id="ecosystem">
+  <div class="chrome top"><span>11 · Ecosystem</span><span>The family</span></div>
+  <div class="pad pad-tall" style="display:flex;flex-direction:column;justify-content:space-between;">
+    <div>
+      <div class="eyebrow"><span class="d"></span>One ecosystem · three layers</div>
+      <h2 class="disp" style="font-size:56px;color:var(--canvas);">Same grammar.<br/>Three glyphs.</h2>
+      <p style="max-width:54ch;">Qratum is the deliberately divergent sibling — same construction grammar and shared dot, but its own neobrutalist surface. The seal that proves the family is the shared mark grammar and this footer.</p>
+    </div>
+    <div class="grid3" style="gap:16px;">
+      <div style="border:2.5px solid rgba(244,241,232,0.3);padding:22px;">
+        <svg viewBox="0 0 100 100" width="30" height="30" style="margin-bottom:14px;"><g fill="none" stroke="#e85d2a" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 30 18 L 14 18 L 14 82 L 30 82"/><path d="M 70 18 L 86 18 L 86 82 L 70 82"/></g><circle cx="50" cy="50" r="9" fill="#e85d2a"/></svg>
+        <div class="disp" style="font-size:22px;color:var(--canvas);">Edictum</div>
+        <p style="font-size:12.5px;margin-top:6px;">Sets the rules. Runtime governance for agents.</p>
+        <div class="mono" style="font-size:10px;color:rgba(244,241,232,0.45);margin-top:8px;">edictum.ai</div>
+      </div>
+      <div style="border:2.5px solid rgba(244,241,232,0.3);padding:22px;">
+        <svg viewBox="0 0 100 100" width="30" height="30" style="margin-bottom:14px;"><g fill="none" stroke="#5b8bf5" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 16 50 L 40 50"/><path d="M 40 50 L 64 26"/><path d="M 40 50 L 64 74"/></g><circle cx="70" cy="22" r="7" fill="#5b8bf5"/><circle cx="70" cy="78" r="7" fill="#5b8bf5"/><circle cx="14" cy="50" r="7" fill="#5b8bf5"/></svg>
+        <div class="disp" style="font-size:22px;color:var(--canvas);">Ductum</div>
+        <p style="font-size:12.5px;margin-top:6px;">Conducts the work. The agent factory.</p>
+        <div class="mono" style="font-size:10px;color:rgba(244,241,232,0.45);margin-top:8px;">ductum.dev</div>
+      </div>
+      <div style="border:2.5px solid var(--yellow);padding:22px;">
+        <svg viewBox="0 0 100 100" width="30" height="30" style="margin-bottom:14px;"><g fill="none" stroke="#f4f1e8" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+        <div class="disp" style="font-size:22px;color:var(--canvas);">Qratum</div>
+        <p style="font-size:12.5px;margin-top:6px;">Proves the trust. The session vault.</p>
+        <div class="mono" style="font-size:10px;color:var(--yellow);margin-top:8px;">you are here</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;border-top:2px solid rgba(244,241,232,0.18);padding-top:24px;">
+      <svg viewBox="0 0 100 100" width="26" height="26"><g fill="none" stroke="#f4f1e8" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"><path d="M 36 18 L 30 78"/><path d="M 58 18 L 52 78"/><path d="M 20 40 L 70 40"/><path d="M 18 60 L 68 60"/></g><circle cx="84" cy="72" r="7" fill="#f5d90a"/></svg>
+      <span class="disp" style="font-size:18px;color:var(--canvas);">Keep every session.</span>
+      <span class="mono" style="margin-left:auto;font-size:11px;color:rgba(244,241,232,0.5);">MIT · © 2026 Qratum · 12 / 12</span>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
