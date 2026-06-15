@@ -1,5 +1,16 @@
 # Qratum Milestone A
 
+Status: historical. Milestone A proved the first local vertical slice and may
+remain as compatibility/debug behavior. It is no longer the current product
+model.
+
+Current source of truth:
+
+```txt
+SPEC.md
+specs/current/operational-model-redesign.md
+```
+
 Build Qratum's first local vertical slice only.
 
 ## Agent Routing

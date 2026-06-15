@@ -1,78 +1,102 @@
 # Qratum agent instructions
 
-## Source of truth
+## Source Of Truth
 
-Follow SPEC.md first. SPEC.md defines the executable scope for the current
+Follow `SPEC.md` first.
+
+`SPEC.md` points to the canonical operational model:
+
+```txt
+specs/current/operational-model-redesign.md
+```
+
+Files under `specs/current/milestone-a/` are historical Milestone A notes. They
+explain the completed vertical slice and compatibility behavior, but they do
+not define the current product model.
+
+Files under `docs/architecture/` are forward-design references only. They are
+not permission to implement future features.
+
+Files under `docs/decisions/` are accepted architectural decisions. Schemas
+under `schemas/` are contracts. Fixtures under `fixtures/` are part of the test
+contract.
+
+## Current Milestone
+
+Current milestone:
+
+```txt
+P0-SPEC-AND-CONTRACTS
+```
+
+P0 work is contract and source-of-truth work only:
+
+- schema registry
+- JSON Schemas for core objects
+- config schema
+- fixture examples
+- schema validation tests
+- migration notes from Milestone A
+- documentation/source-of-truth cleanup
+
+Do not implement P1+ runtime behavior unless the user explicitly changes the
 milestone.
 
-Files under docs/architecture/ are forward-design references only. They are not
-permission to implement future features.
-
-Files under docs/decisions/ are accepted architectural decisions. Schemas under
-schemas/ are contracts. Fixtures under fixtures/ are part of the test contract.
-
-## Current milestone
-
-Milestone A only.
-
-Build the first local vertical slice:
-
-Claude Code hook fixture -> CaptureEvent -> filesystem spool -> daemon run-once
--> QratumSession -> deterministic redaction -> EvidenceBundle -> ReviewCard ->
-UI DTOs -> HTML report -> ADP strict export.
-
-## Non-goals
+## P0 Non-Goals
 
 Do not implement:
 
-- enterprise server
-- marketplace
-- Codex adapter
-- OpenCode adapter
-- Copilot adapter
-- MCP server
-- GitHub App
-- GitHub comments
-- GitLab
-- LLM scoring
-- LLM redaction
-- web UI
-- HTTP server
-- bbolt
-- SQLite
-- Postgres
-- encrypted vault
-- Edictum integration
+- setup wizard behavior
+- central workspace creation behavior
+- raw archive implementation
+- import wizard implementation
+- session revision worker
+- local app
+- SQLite projection behavior
+- AI providers
+- lesson or insight generation
+- corpus export changes
+- publisher behavior
+- daemon behavior changes beyond compatibility fixes
+- new source adapters beyond accepted schema fixtures
 
 ## Runtime
 
-Use Go. No Python runtime. No database for Milestone A. Use filesystem JSON
-storage.
+Use Go. No Python runtime in Qratum.
 
-## Hook rule
+The long-term runtime is still a Go single binary named `qrt`.
 
-`qrt hook claude-code` must be fast. It only reads JSON from stdin, writes a
-CaptureEvent, and exits.
+## Compatibility Rules
 
-No LLM calls. No full transcript parsing. No report generation. No network
-calls.
+Milestone A commands and artifacts may remain as compatibility/debug behavior
+while the new operational model is implemented.
 
-## Data rule
+If touching existing Milestone A runtime paths:
 
-Use transcript_path from the hook payload. Do not hardcode Claude local
-transcript paths.
+- `qrt hook claude-code` must stay fast.
+- The hook only reads JSON from stdin, writes a capture event, and exits.
+- No LLM calls from hooks.
+- No full transcript parsing from hooks.
+- No report generation from hooks.
+- No network calls from hooks.
 
-Do not send raw transcript to any external service. Do not render raw transcript
-into HTML.
+## Data Rule
 
-## UI contract rule
+Use `transcript_path` from source payloads where available. Do not hardcode
+Claude local transcript paths as the primary capture mechanism.
 
-The UI consumes UI DTOs, not raw internal models.
+Do not send raw transcripts to external services.
 
-Backend must not require the UI to parse:
+Do not render raw transcripts into shareable reports.
+
+## UI Contract Rule
+
+Product surfaces consume DTOs, not raw internal models.
+
+Backend code must not require UI code to parse:
 
 - Claude transcript JSONL
-- raw QratumSession internals
+- raw session internals
 - ADP JSONL
 - redaction internals
 - provenance internals
@@ -83,10 +107,14 @@ Every behavior must be fixture-driven where practical.
 
 Update fixtures and golden files when output contracts intentionally change.
 
-`make test` must run all tests. `make demo` must run the first vertical slice.
-`make verify` mirrors the CI pipeline and includes supply-chain checks.
+For code changes, `make test` must run all tests. `make demo` should keep the
+existing vertical slice working unless the accepted milestone intentionally
+replaces that behavior. `make verify` mirrors the CI pipeline and includes
+supply-chain checks.
 
-## Supply-chain rule
+For documentation-only changes, tests are not required.
+
+## Supply-Chain Rule
 
 Follow `docs/supply-chain.md`.
 
@@ -97,22 +125,31 @@ Follow `docs/supply-chain.md`.
   Qratum runtime pipeline.
 - Keep Go modules readonly in verification commands.
 
-## Ductum factory rules
+## Ductum Factory Rules
 
 When a task is dispatched to you via the Ductum factory:
 
-- You are running inside an isolated git worktree. Make your changes on the current feature branch.
-- **Do not run `git push`.** The factory's post-completion pipeline handles verify, review, and merge after you call `ductum_complete`.
-- After you call `ductum_complete(result=...)`, stop making tool calls. Your session will end and the factory will take over.
-- The workflow has three stages: `understand` (read context), `implement` (write code), `ship` (factory-owned). Work only in `implement` for code changes.
-- Required verify command is in `.edictum/workflow-profile.yaml`. It will be run automatically; if it fails, a fix-loop task will be dispatched with the failure output.
+- You are running inside an isolated git worktree. Make your changes on the
+  current feature branch.
+- Do not run `git push`. The factory's post-completion pipeline handles verify,
+  review, and merge after you call `ductum_complete`.
+- After you call `ductum_complete(result=...)`, stop making tool calls. Your
+  session will end and the factory will take over.
+- The workflow has three stages: `understand` (read context), `implement`
+  (write code), `ship` (factory-owned). Work only in `implement` for code
+  changes.
+- Required verify command is in `.edictum/workflow-profile.yaml`. It will be
+  run automatically; if it fails, a fix-loop task will be dispatched with the
+  failure output.
 
-## Definition of done
+## Definition Of Done
 
 A task is done only when:
 
-1. code builds
-2. tests pass
-3. fixture/golden outputs are updated
-4. `make demo` still works if affected
-5. no non-goal feature was implemented
+1. The requested source-of-truth or contract change is complete.
+2. Code builds if code was changed.
+3. Tests pass if code or executable contracts were changed.
+4. Fixture/golden outputs are updated when output contracts intentionally
+   change.
+5. Existing demo behavior still works if affected.
+6. No non-goal feature was implemented.
