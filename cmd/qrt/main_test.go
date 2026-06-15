@@ -1707,8 +1707,8 @@ func TestExistingEventIDArtifactsRemainReadable(t *testing.T) {
 
 func TestDaemonRunOnceFailsOnMissingTranscriptWithAPIError(t *testing.T) {
 	t.Chdir(t.TempDir())
-	setTestQratumHome(t)
-	spoolHookFixtureAllowingStderr(t, "hook-session-end.json", "warning: capture recorded but transcript copy failed")
+	qratumHome := setTestQratumHome(t)
+	writeMissingTranscriptEvent(t, qratumHome)
 	var stdout, stderr bytes.Buffer
 
 	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
@@ -1728,7 +1728,7 @@ func TestDaemonRunOnceFailsOnMissingTranscriptWithAPIError(t *testing.T) {
 			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
 		}
 	}
-	if files, _ := filepath.Glob(".qratum/sessions/*.normalized.json"); len(files) != 0 {
+	if files, _ := filepath.Glob(filepath.Join(qratumHome, "sessions", "*.normalized.json")); len(files) != 0 {
 		t.Fatalf("session artifacts = %v, want none", files)
 	}
 }
@@ -2036,19 +2036,27 @@ func spoolHookFixture(t *testing.T, fixture string) {
 	}
 }
 
-func spoolHookFixtureAllowingStderr(t *testing.T, fixture string, wantStderr string) {
+func writeMissingTranscriptEvent(t *testing.T, qratumHome string) {
 	t.Helper()
-	setTestQratumHome(t)
-	var stdout, stderr bytes.Buffer
-	code := runWithIO([]string{"hook", "claude-code"}, bytes.NewReader(readFixture(t, fixture)), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("hook exit code = %d, want 0; stderr = %q", code, stderr.String())
+	event := captureEvent{
+		SchemaVersion:   captureEventSchemaVersion,
+		EventID:         "evt_missing_transcript",
+		Source:          claudeCodeSource,
+		EventType:       "session_end",
+		Timestamp:       "2026-06-15T00:00:00Z",
+		TimestampSource: hookTimestampSourceCaptureTime,
+		SessionRef: captureSessionRef{
+			SessionID:      "missing-transcript-session",
+			TranscriptPath: "fixtures/claude-code/transcript-verification-gap.jsonl",
+		},
+		Workspace: captureWorkspaceRef{CWD: "/tmp/qratum"},
 	}
-	if stdout.Len() != 0 {
-		t.Fatalf("hook stdout = %q, want empty", stdout.String())
+	eventPath := filepath.Join(qratumHome, "events", event.EventID+".json")
+	if err := os.MkdirAll(filepath.Dir(eventPath), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if stderr.Len() != 0 && !strings.Contains(stderr.String(), wantStderr) {
-		t.Fatalf("hook stderr = %q, want empty or %q", stderr.String(), wantStderr)
+	if err := os.WriteFile(eventPath, mustJSON(event), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
