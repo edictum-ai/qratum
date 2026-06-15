@@ -21,6 +21,7 @@ func TestMakeDemoProducesFullMilestoneSlice(t *testing.T) {
 
 	for _, want := range []string{
 		"Running Milestone A demo with fixture input...",
+		"QRATUM_HOME=",
 		"qratum daemon run-once",
 		"processed: 1",
 		"claude-session-0001\t.qratum/sessions/",
@@ -32,11 +33,24 @@ func TestMakeDemoProducesFullMilestoneSlice(t *testing.T) {
 		}
 	}
 
+	var qratumHome string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "QRATUM_HOME=") {
+			qratumHome = strings.TrimPrefix(line, "QRATUM_HOME=")
+			break
+		}
+	}
+	if qratumHome == "" {
+		t.Fatalf("make demo output missing QRATUM_HOME line:\n%s", out)
+	}
+
 	for _, expected := range []struct {
 		label   string
 		pattern string
 	}{
-		{label: "event", pattern: ".qratum/events/*.json"},
+		{label: "vault event", pattern: filepath.Join(qratumHome, "events", "*.json")},
+		{label: "vault raw ref", pattern: filepath.Join(qratumHome, "raw", "refs", "*.json")},
+		{label: "vault raw blob", pattern: filepath.Join(qratumHome, "raw", "blobs", "sha256", "*", "*")},
 		{label: "normalized session", pattern: ".qratum/sessions/*.normalized.json"},
 		{label: "redacted session", pattern: ".qratum/redacted/*.redacted.json"},
 		{label: "evidence", pattern: ".qratum/evidence/*.evidence.json"},
@@ -44,12 +58,16 @@ func TestMakeDemoProducesFullMilestoneSlice(t *testing.T) {
 		{label: "HTML report", pattern: ".qratum/reports/*.html"},
 		{label: "ADP strict export", pattern: ".qratum/exports/*.adp.jsonl"},
 	} {
-		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(expected.pattern)))
+		pattern := expected.pattern
+		if !filepath.IsAbs(pattern) {
+			pattern = filepath.Join(root, filepath.FromSlash(pattern))
+		}
+		matches, err := filepath.Glob(pattern)
 		if err != nil {
-			t.Fatalf("glob %s: %v", expected.pattern, err)
+			t.Fatalf("glob %s: %v", pattern, err)
 		}
 		if len(matches) != 1 {
-			t.Fatalf("%s artifacts for %s = %v, want exactly one", expected.label, expected.pattern, matches)
+			t.Fatalf("%s artifacts for %s = %v, want exactly one", expected.label, pattern, matches)
 		}
 		info, err := os.Stat(matches[0])
 		if err != nil {
@@ -58,20 +76,38 @@ func TestMakeDemoProducesFullMilestoneSlice(t *testing.T) {
 		if info.Size() == 0 {
 			t.Fatalf("%s artifact %s is empty", expected.label, matches[0])
 		}
-		rel, err := filepath.Rel(root, matches[0])
-		if err != nil {
-			t.Fatalf("rel %s: %v", matches[0], err)
+		wantPath := filepath.ToSlash(matches[0])
+		if rel, err := filepath.Rel(root, matches[0]); err == nil && !strings.HasPrefix(rel, "..") {
+			wantPath = filepath.ToSlash(rel)
 		}
-		if !strings.Contains(out, filepath.ToSlash(rel)) {
-			t.Fatalf("make demo output did not print %s artifact path %s:\n%s", expected.label, filepath.ToSlash(rel), out)
+		if !strings.Contains(out, wantPath) {
+			t.Fatalf("make demo output did not print %s artifact path %s:\n%s", expected.label, wantPath, out)
 		}
 	}
 }
 
 func TestDemoArtifactVerifierRejectsMissingArtifacts(t *testing.T) {
 	root := t.TempDir()
+	qratumHome := filepath.Join(root, "qratum-home")
+	if err := os.MkdirAll(filepath.Join(qratumHome, "events"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(qratumHome, "raw", "refs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(qratumHome, "raw", "blobs", "sha256", "aa"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(qratumHome, "events", "demo.json"), []byte("demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(qratumHome, "raw", "refs", "demo.json"), []byte("demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(qratumHome, "raw", "blobs", "sha256", "aa", "aablob"), []byte("demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	for _, path := range []string{
-		".qratum/events/demo.json",
 		".qratum/sessions/demo.normalized.json",
 		".qratum/redacted/demo.redacted.json",
 		".qratum/reviews/demo.review.json",
@@ -92,6 +128,7 @@ func TestDemoArtifactVerifierRejectsMissingArtifacts(t *testing.T) {
 
 	cmd := exec.Command("sh", filepath.Join(repoRoot(t), "scripts", "demo.sh"), "--verify-only")
 	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "QRATUM_HOME="+qratumHome)
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatalf("demo verifier succeeded, want missing evidence failure\n%s", output)

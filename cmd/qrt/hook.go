@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/edictum-ai/qratum/internal/vault"
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const (
@@ -39,11 +42,22 @@ type captureEvent struct {
 	TimestampSource string              `json:"timestamp_source,omitempty"`
 	SessionRef      captureSessionRef   `json:"session_ref"`
 	Workspace       captureWorkspaceRef `json:"workspace"`
+	Raw             *captureEventRaw    `json:"raw,omitempty"`
+}
+
+type captureEventRaw struct {
+	RawMissing bool   `json:"raw_missing,omitempty"`
+	CopyStatus string `json:"copy_status,omitempty"`
+	RawRefID   string `json:"raw_ref_id,omitempty"`
+	Digest     string `json:"digest,omitempty"`
+	Kind       string `json:"kind,omitempty"`
+	SizeBytes  int64  `json:"size_bytes,omitempty"`
+	CopyError  string `json:"copy_error,omitempty"`
 }
 
 type captureSessionRef struct {
 	SessionID      string `json:"session_id"`
-	TranscriptPath string `json:"transcript_path"`
+	TranscriptPath string `json:"transcript_path,omitempty"`
 }
 
 type captureWorkspaceRef struct {
@@ -58,38 +72,167 @@ func hook(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) in
 		fmt.Fprintln(stderr, "error: missing hook adapter")
 		return 2
 	}
-	if args[0] != claudeCodeSource {
+
+	switch args[0] {
+	case claudeCodeSource:
+		if len(args) != 1 {
+			fmt.Fprintln(stderr, "error: hook claude-code does not accept arguments")
+			printUsage(stderr)
+			return 2
+		}
+		paths, err := workspace.Resolve()
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		event, err := spoolClaudeCodeHook(stdin, vault.New(paths))
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		if warning := hookWarning(event); warning != "" {
+			fmt.Fprintf(stderr, "warning: %s\n", warning)
+		}
+		return 0
+	case "install":
+		return hookInstall(args[1:], stdin, stdout, stderr)
+	case "status":
+		return hookStatus(args[1:], stdout, stderr)
+	default:
 		fmt.Fprintf(stderr, "error: unsupported hook adapter %q\n", args[0])
 		printUsage(stderr)
 		return 2
 	}
-	if len(args) != 1 {
-		fmt.Fprintln(stderr, "error: hook claude-code does not accept arguments")
-		printUsage(stderr)
-		return 2
-	}
-
-	if err := spoolClaudeCodeHook(stdin, ".qratum/events"); err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
-	}
-
-	return 0
 }
 
-func spoolClaudeCodeHook(stdin io.Reader, eventsDir string) error {
+func spoolClaudeCodeHook(stdin io.Reader, store vault.Store) (captureEvent, error) {
 	payload, err := readClaudeCodeHookPayload(stdin)
 	if err != nil {
-		return err
+		return captureEvent{}, err
 	}
 
 	eventType, err := claudeCodeEventType(payload.HookEventName)
 	if err != nil {
-		return err
+		return captureEvent{}, err
 	}
 
 	event := newCaptureEvent(payload, eventType)
-	return writeCaptureEvent(eventsDir, event)
+	if eventType == "session_end" {
+		event.Raw = captureEventRawForPayload(payload, store, event.Timestamp)
+	}
+	if err := writeCaptureEvent(store.Paths.EventsDir(), event); err != nil {
+		return captureEvent{}, err
+	}
+	if err := store.UpdateState(func(state *vault.State) {
+		state.LastCaptureAt = event.Timestamp
+		if event.Raw != nil {
+			if event.Raw.RawMissing {
+				state.RawMissingCount++
+			}
+			if event.Raw.CopyStatus == "failed" {
+				state.CopyFailureCount++
+			}
+		}
+	}); err != nil {
+		return captureEvent{}, err
+	}
+	return event, nil
+}
+
+func hookWarning(event captureEvent) string {
+	if event.Raw == nil {
+		return ""
+	}
+	switch {
+	case event.Raw.RawMissing:
+		return "capture recorded without transcript_path; preservation degraded"
+	case event.Raw.CopyStatus == "failed":
+		return fmt.Sprintf("capture recorded but transcript copy failed: %s", event.Raw.CopyError)
+	default:
+		return ""
+	}
+}
+
+func captureEventRawForPayload(payload claudeCodeHookPayload, store vault.Store, observedAt string) *captureEventRaw {
+	if strings.TrimSpace(payload.TranscriptPath) == "" {
+		return &captureEventRaw{
+			RawMissing: true,
+			CopyStatus: "missing",
+		}
+	}
+
+	archivePath, err := resolveHookTranscriptPath(payload)
+	if err != nil {
+		return &captureEventRaw{
+			CopyStatus: "failed",
+			CopyError:  err.Error(),
+			Kind:       rawKindForTranscriptPath(payload.TranscriptPath),
+		}
+	}
+	result, err := store.ArchiveFile(vault.ArchiveRequest{
+		Source:          vault.SourceClaudeCode,
+		SourceSessionID: payload.SessionID,
+		Kind:            rawKindForTranscriptPath(archivePath),
+		OriginalPath:    archivePath,
+		ObservedAt:      observedAt,
+	})
+	if err != nil {
+		return &captureEventRaw{
+			CopyStatus: "failed",
+			CopyError:  err.Error(),
+			Kind:       rawKindForTranscriptPath(archivePath),
+		}
+	}
+	status := "copied"
+	if !result.BlobCreated {
+		status = "deduped"
+	}
+	return &captureEventRaw{
+		CopyStatus: status,
+		RawRefID:   result.RawRef.RawRefID,
+		Digest:     result.RawRef.Digest,
+		Kind:       result.RawRef.Kind,
+		SizeBytes:  result.RawRef.SizeBytes,
+	}
+}
+
+func resolveHookTranscriptPath(payload claudeCodeHookPayload) (string, error) {
+	path := strings.TrimSpace(payload.TranscriptPath)
+	if path == "" {
+		return "", fmt.Errorf("missing transcript_path")
+	}
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
+	}
+
+	candidates := make([]string, 0, 2)
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, wd)
+	}
+	if cwd := strings.TrimSpace(payload.CWD); cwd != "" {
+		candidates = append(candidates, cwd)
+	}
+	var fallback string
+	for _, base := range candidates {
+		resolved := filepath.Clean(filepath.Join(base, path))
+		if fallback == "" {
+			fallback = resolved
+		}
+		if info, err := os.Stat(resolved); err == nil && !info.IsDir() {
+			return resolved, nil
+		}
+	}
+	if fallback == "" {
+		fallback = filepath.Clean(path)
+	}
+	return fallback, nil
+}
+
+func rawKindForTranscriptPath(path string) string {
+	if strings.Contains(filepath.ToSlash(path), "/subagents/") {
+		return vault.KindSubagentTranscript
+	}
+	return vault.KindMainTranscript
 }
 
 func readClaudeCodeHookPayload(stdin io.Reader) (claudeCodeHookPayload, error) {
@@ -117,9 +260,6 @@ func readClaudeCodeHookPayload(stdin io.Reader) (claudeCodeHookPayload, error) {
 
 	if payload.SessionID == "" {
 		return claudeCodeHookPayload{}, fmt.Errorf("missing required hook field session_id")
-	}
-	if payload.TranscriptPath == "" {
-		return claudeCodeHookPayload{}, fmt.Errorf("missing required hook field transcript_path")
 	}
 	if payload.CWD == "" {
 		return claudeCodeHookPayload{}, fmt.Errorf("missing required hook field cwd")
@@ -194,7 +334,7 @@ func deterministicEventID(event captureEvent) string {
 
 func writeCaptureEvent(eventsDir string, event captureEvent) error {
 	if err := os.MkdirAll(eventsDir, 0o755); err != nil {
-		return fmt.Errorf("create event spool %s: %w", eventsDir, err)
+		return fmt.Errorf("create event spool %s: %w", filepath.ToSlash(eventsDir), err)
 	}
 
 	eventID, path, err := nextCaptureEventPath(eventsDir, event.EventID)
@@ -233,7 +373,7 @@ func writeCaptureEvent(eventsDir string, event captureEvent) error {
 		return fmt.Errorf("close capture event: %w", err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		return fmt.Errorf("commit capture event %s: %w", path, err)
+		return fmt.Errorf("commit capture event %s: %w", filepath.ToSlash(path), err)
 	}
 	removeTmp = false
 
@@ -252,7 +392,7 @@ func nextCaptureEventPath(eventsDir string, baseEventID string) (string, string,
 			return eventID, path, nil
 		}
 		if err != nil {
-			return "", "", fmt.Errorf("inspect capture event path %s: %w", path, err)
+			return "", "", fmt.Errorf("inspect capture event path %s: %w", filepath.ToSlash(path), err)
 		}
 	}
 }
