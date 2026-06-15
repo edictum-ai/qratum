@@ -665,7 +665,10 @@ export default function DarkLedgerPage() {
 
           <div className="dl-footer-cols">
             <div className="dl-footer-brand">
-              <span className="dl-wordmark">{qratum.wordmark}</span>
+              <span className="dl-wordmark">
+                <QratumMark size={22} dot="#0b0b0b" />
+                {qratum.wordmark}
+              </span>
               <p className="dl-footer-tagline">{qratum.tagline}</p>
               <div className="dl-identity" style={{ marginTop: 18 }}>
                 {qratum.identity.map((id) => (
