@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "qrt hook claude-code",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

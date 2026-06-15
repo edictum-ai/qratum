@@ -1,6 +1,10 @@
 GO ?= go
 BIN := bin/qrt
-GOBIN := $(shell $(GO) env GOPATH)/bin
+export GOPATH ?= $(CURDIR)/.gopath
+export GOCACHE ?= $(CURDIR)/.gocache
+export TMPDIR ?= /tmp
+export GOLANGCI_LINT_CACHE ?= $(CURDIR)/.golangci-lint-cache
+GOBIN := $(GOPATH)/bin
 GOLANGCI_LINT_VERSION := v2.12.2
 GOVULNCHECK_VERSION := v1.3.0
 
@@ -39,9 +43,11 @@ demo: build
 	sh scripts/demo.sh ./$(BIN)
 
 dogfood-demo: build
-	rm -rf .qratum
-	./$(BIN) dogfood import fixtures/dogfood/real-shaped-transcript.jsonl
+	rm -rf .qratum .qratum-home.*
+	@QRATUM_HOME="$$(mktemp -d "$$PWD/.qratum-home.XXXXXX")"; \
+	export QRATUM_HOME; \
+	./$(BIN) dogfood import fixtures/dogfood/real-shaped-transcript.jsonl; \
 	./$(BIN) dogfood latest
 
 clean:
-	rm -rf bin .qratum
+	rm -rf bin .qratum .qratum-home.* .gopath .gocache .golangci-lint-cache
