@@ -2,20 +2,22 @@
 
 ## Source Of Truth
 
-The canonical product and architecture spec is:
+The current source-of-truth spec set is:
 
 ```txt
-specs/current/operational-model-redesign.md
+specs/current/operational-model-redesign.md  (base operational model; keep it
+                                             aligned with the accepted
+                                             vault-first edits)
+specs/current/qratum-vault-first.md          (accepted 2026-06-14 vault-first
+                                             revision and sequencing contract)
+specs/current/memory-curation-pipeline.md    (SUPERSEDED 2026-06-12;
+                                             historical only)
 ```
 
-Proposed revisions of the operational model live alongside it:
+The accepted review spine and dispatch context live under:
 
 ```txt
-specs/current/qratum-vault-first.md         (proposal: vault-first revision;
-                                            supersedes the memory curation
-                                            pipeline draft; see
-                                            docs/reviews/2026-06-12-memory-architecture/)
-specs/current/memory-curation-pipeline.md   (SUPERSEDED 2026-06-12; historical)
+docs/reviews/2026-06-12-memory-architecture/
 ```
 
 Milestone A is complete and historical. Its implementation, commands, fixtures,
@@ -36,11 +38,13 @@ Current milestone:
 P0-SPEC-AND-CONTRACTS
 ```
 
-P0 closes the redesign before runtime implementation.
+P0 closes the redesign before runtime implementation. The next runtime unlock,
+if Arnold approves it, is the vault-first P1 sequence described in
+`specs/current/qratum-vault-first.md`.
 
 ## P0 Goal
 
-Turn the operational model into executable contracts:
+Turn the accepted operational direction into executable contracts:
 
 - schema registry under `schemas/`
 - core object JSON Schemas
@@ -49,22 +53,20 @@ Turn the operational model into executable contracts:
 - schema validation tests
 - migration notes from Milestone A to the operational model
 - updated source-of-truth documentation
+- ADRs that record accepted product decisions
 
 ## P0 Non-Goals
 
-Do not implement P1+ runtime behavior yet:
+Do not implement runtime behavior yet. P0 is still docs/contracts only:
 
 - workspace creation behavior
 - setup wizard behavior
-- raw archive implementation
 - import wizard implementation
 - session revision worker
 - local app
-- SQLite projection
 - AI providers
 - lesson/insight generation
 - corpus export changes
-- publisher behavior
 - daemon behavior changes beyond compatibility fixes
 
 ## Standing Constraints
