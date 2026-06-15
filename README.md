@@ -1,17 +1,35 @@
-# Qratum
+<p align="center">
+  <img src="design/brand/qratum-logo.svg" width="96" height="96" alt="Qratum">
+</p>
 
-> The local librarian for your AI coding sessions.
+<h1 align="center">Qratum</h1>
+
+<p align="center"><em>The local librarian for your AI coding sessions.</em></p>
+
+<p align="center">
+  <a href="https://qratum.dev">qratum.dev</a> ·
+  <a href="#quick-start">Install</a> ·
+  <a href="SPEC.md">Spec</a> ·
+  <a href="LICENSE">MIT</a>
+</p>
+
+---
 
 **Qratum** is a local-first library, vault, and review pipeline for AI coding
 sessions. It captures, preserves, normalizes, redacts, reviews, and searches
 every session — **without ever uploading your raw transcripts.** Single Go
 binary (`qrt`). No cloud, no accounts, no telemetry.
 
-🌐 Live site: **<https://qratum.dev>**
-
 Qratum is the system of record for **where session data came from**: raw
 history, provenance, and deterministic derivations. The first user is the
 developer running it on their own machine.
+
+## Highlights
+
+- **Local-first** — raw transcripts never leave your machine unless you explicitly approve. No cloud, no accounts, no telemetry.
+- **Single Go binary** — `qrt`, cross-platform. One file.
+- **Trust boundaries** — no silent data-class upgrades; deterministic redaction gates export; no raw routes.
+- **Content-addressed** — every blob is sha256-addressed and immutable; tombstones, never silent deletion.
 
 ## Why
 
@@ -97,6 +115,15 @@ The public landing page lives in [`design/landing-drafts/`](design/landing-draft
 deploys to <https://qratum.dev> via Vercel, independently of the `qrt` Go
 runtime. See its [`README`](design/landing-drafts/README.md) for the deploy
 setup.
+
+## Brand
+
+The Qratum identity — the `#·` content-addressed mark (hash + dot), palette,
+typography, and voice — lives in [`design/brand/`](design/brand/):
+
+- [`brand-book.html`](design/brand/brand-book.html) — the full brand book.
+- [`qratum-mark.svg`](design/brand/qratum-mark.svg) / [`qratum-mark-mono.svg`](design/brand/qratum-mark-mono.svg) — the mark (color / mono).
+- [`qratum-logo.svg`](design/brand/qratum-logo.svg) — the bordered logo tile.
 
 ## Ecosystem
 
