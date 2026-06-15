@@ -193,7 +193,9 @@
   border: var(--dl-border-lg) solid var(--dl-ink);
   padding: 4px 12px;
   box-shadow: var(--dl-shadow-sm);
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ledger-light-root .dl-nav-links {
@@ -385,6 +387,9 @@
 
 .ledger-light-root .dl-chip-digest {
   color: var(--dl-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .ledger-light-root .dl-chip-raw { background: var(--dl-clay); color: #fffdf9; border-color: var(--dl-clay); }
