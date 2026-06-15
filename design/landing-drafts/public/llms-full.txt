@@ -4,7 +4,7 @@
 
 Website: https://qratum.dev
 Repository: https://github.com/edictum-ai/qratum
-License: AGPL-3.0-only
+License: MIT
 
 ## What it is
 Qratum is the local librarian for AI session data — the system of record for where session data came from: raw history, provenance, and deterministic derivations. The first user is the developer running it on their own machine.

@@ -106,4 +106,4 @@ setup.
 
 ## License
 
-[AGPL-3.0-only](LICENSE) — GNU Affero General Public License v3.0 only.
+[MIT](LICENSE).
