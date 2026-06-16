@@ -325,13 +325,14 @@ recorded, tombstone-based erasure verb (FIX-16).
   TOCTOU fix (FIX-6) or their tests here — those are owned by P1.
 - [ ] FAILS if refining or exporting a non-`claude-code` session is **not**
   rejected (D13), or if the source-scope check is loosened.
-- [ ] FAILS review: any automatic deletion / retention / time- or size-based
+- [ ] Runtime must reject automatic deletion / retention / time- or size-based
   eviction. The only removal path is the explicit tombstoned erasure verb; `gc`
   reclaims only orphans and refuses referenced blobs.
-- [ ] FAILS if the D2 byte-equality check re-hashes the committed blob instead of
-  reading the original source with a separate reader (tautological proof).
-- [ ] FAILS if `gc` can delete a referenced blob, or if any path other than the
-  erasure verb removes a blob.
+- [ ] Verification must fail if the D2 byte-equality check re-hashes the committed
+  blob instead of reading the original source with a separate reader
+  (tautological proof).
+- [ ] Runtime `qrt vault gc` must refuse referenced blobs and fail if any path
+  other than the erasure verb removes a blob.
 - [ ] FAILS if backup of a raw-bearing vault to a non-local dest proceeds without
   the consent audit event and the `--allow-raw-egress` ack.
 - [ ] FAILS if backup/verify loads whole blobs into memory (RSS grows with blob
@@ -399,6 +400,10 @@ harness wire-up — do not block on the skeleton.
 
 ## Slop Review
 
+- [ ] Did every Behavior Contract item get a behavioral test or explicit
+  evidence path, including runtime failure evidence for invalid vault inputs?
+- [ ] Are missing or invalid inputs loud failures with operator-visible output,
+  never swallowed by lifecycle commands or reported as healthy provenance?
 - [ ] D2 byte-equality reads the original source with a **separate reader**, not
   a re-hash of the committed blob (the tautology the gap review flagged).
 - [ ] Atomicity test injects a real write failure and proves **no partial blob

@@ -298,18 +298,19 @@ report the divergence rather than silently editing the list.
 
 - [ ] FAILS the task: the harness re-implements or alters any P2–P5 dimension's
   pass/fail logic instead of collecting its result.
-- [ ] FAILS review: the scorecard averages dimensions, prints a score-out-of-100,
-  or abbreviates `TRUSTED-WITH-NAMED-GAPS` to `TRUSTED`.
+- [ ] Runtime scorecard output must reject averages, score-out-of-100 summaries,
+  and any abbreviation of `TRUSTED-WITH-NAMED-GAPS` to `TRUSTED`.
 - [ ] FAILS: a KNOWN-RED entry without a note + owner + deadline, or a KNOWN-RED set
   that is allowed to grow, or a planned-RED gate wired as BLOCKING-RED (which would
   merge-lock the repo).
-- [ ] FAILS: the honest-residual block is missing any required residual, is
-  paraphrased loosely, or is not printed verbatim.
+- [ ] CLI output must fail if the honest-residual block is missing any required
+  residual, is paraphrased loosely, or is not printed verbatim.
 - [ ] FAILS: the no-leak checker is not run over the scorecard's own bytes, or the
   scorecard schema is not wired into D9.
 - [ ] FAILS without a supply-chain decision: any new third-party Go dependency;
   evidence: `make verify` / `make supply-chain`.
-- [ ] FAILS: weakening any existing `make verify` / CI check to get green.
+- [ ] Verification must fail if any existing `make verify` / CI check is weakened
+  to get green.
 - [ ] FAILS on real-home mutation in tests/CI; evidence: `QRATUM_HOME` + temp dir.
 - [ ] FAILS: picking the `qrt` no-args behavior without surfacing the options to
   the maintainer.

@@ -319,6 +319,10 @@ implementation and make the goldens and the commands above match it.
 
 ## Slop Review
 
+- [ ] Did every Behavior Contract item get a behavioral test or explicit
+  evidence path, especially the scheduler command and doctor warning behavior?
+- [ ] Are missing or invalid inputs loud failures with operator-visible output,
+  never swallowed by doctor or schedule install/uninstall paths?
 - [ ] The timer is a one-shot OS schedule, not a resident daemon; it runs exactly
   `qrt vault backfill` (parsed from the generated plist/unit), never `refine`.
 - [ ] install-schedule has a real dry-run/print mode whose bytes equal the

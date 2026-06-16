@@ -362,6 +362,10 @@ there and say so, not assume the post-FIX-4 layout.
 
 ## Slop Review
 
+- [ ] Did every Behavior Contract item get a behavioral test or explicit
+  evidence path, and does the evidence fail loudly on an unredacted fixture?
+- [ ] Are missing or invalid inputs loud failures with operator-visible output,
+  never silently skipped by the canary planter or no-leak checker?
 - [ ] The canary provably evades all 8 redaction classes by construction
   (lowercase-alpha, `<32`, no separator); the canary-alone self-test passes.
 - [ ] The harness self-test proves the gate can fail (known-positive → RED) and

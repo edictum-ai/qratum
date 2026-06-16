@@ -382,6 +382,10 @@ regen path is wired, not hand-edited.
 
 ## Slop Review
 
+- [ ] Did every Behavior Contract item get a behavioral test or explicit
+  evidence path, and does the evidence go RED when the fix is reverted?
+- [ ] Are missing or invalid inputs loud failures with operator-visible output,
+  never swallowed or hidden behind a green `make verify`?
 - [ ] FIX-1: a test proves **no residual secret token** survives `=>`/`==>`
   assignments — not just that the arrow itself is gone.
 - [ ] FIX-2: shareable artifacts (report/DTO/ADP) **drop** the six fields; the

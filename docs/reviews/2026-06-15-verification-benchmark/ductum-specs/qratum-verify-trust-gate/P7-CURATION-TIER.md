@@ -261,6 +261,11 @@ earlier prompt in this package) before relying on it.
 
 ## Slop Review
 
+- [ ] Did every Behavior Contract item get a behavioral test or explicit
+  evidence path, and are gated cross-repo behaviors marked as gated instead of
+  scored green?
+- [ ] Are missing or invalid receipt inputs loud failures with operator-visible
+  output, never swallowed by schema validation or archive import paths?
 - [ ] The producer / gateway is NOT built in qratum (consumer side only).
 - [ ] No invented counterparty vocabulary; out-of-vocabulary
   outcome/errorClass/contentClass/namespace is hard-rejected (dead-bridge guard).
