@@ -207,8 +207,8 @@
         "type": "redacted_session",
         "label": "Redacted session",
         "media_type": "application/json",
-        "href": ".qratum/redacted/ses_0001.redacted.json",
-        "digest": "sha256:c96f8f746d48a055acd2cb7c50c8f5b73a16f751802a1c7cd8f2ca2e8bc8e078",
+        "href": "sessions/ses_0001/redacted.json",
+        "digest": "sha256:79f6401299bb46943e803ab0b3c9dfb355bc8345b090c2f9df10eb87b37532d8",
         "created_at": "2026-05-21T22:10:00Z"
       },
       {
@@ -218,8 +218,8 @@
         "type": "evidence_bundle",
         "label": "Evidence bundle",
         "media_type": "application/json",
-        "href": ".qratum/evidence/ses_0001.evidence.json",
-        "digest": "sha256:ecbdd4d6949f206de08be2a29c484cce9179e294d860cd9d1c43a1c36c88b666",
+        "href": "sessions/ses_0001/evidence.json",
+        "digest": "sha256:a5d97699a6eb7e32a4cea47d1eea101cee373c54224de3773f21dd9c4fc31056",
         "created_at": "2026-05-21T22:10:00Z"
       },
       {
@@ -229,8 +229,8 @@
         "type": "review_card",
         "label": "Review card",
         "media_type": "application/json",
-        "href": ".qratum/reviews/ses_0001.review.json",
-        "digest": "sha256:2753ba543577e31c5b9d916aac812335e21397d4f5e827840bfce7edce8a6737",
+        "href": "sessions/ses_0001/review.json",
+        "digest": "sha256:36bc93d61c5f51fa8a7cac01b932727fab81fc5a124485d93fe2dd8cbe5c53ba",
         "created_at": "2026-05-21T22:10:00Z"
       },
       {
@@ -240,7 +240,7 @@
         "type": "html_report",
         "label": "HTML report",
         "media_type": "text/html",
-        "href": ".qratum/reports/ses_0001.html",
+        "href": "sessions/ses_0001/report.html",
         "digest": "sha256:7eebcba0121ff4a405d0b341c4236c9e87e7fb71da1212d242f349e0ea454e05",
         "created_at": "2026-05-21T22:10:00Z"
       },
@@ -251,7 +251,7 @@
         "type": "adp_strict_export",
         "label": "ADP strict export",
         "media_type": "application/jsonl",
-        "href": ".qratum/exports/ses_0001.adp.jsonl",
+        "href": "sessions/ses_0001/session.adp.jsonl",
         "digest": "sha256:557d1570a922936d2719bd74e6bcb031492101b3895473747842236e2bebddf4",
         "created_at": "2026-05-21T22:10:00Z"
       }
@@ -410,8 +410,8 @@
       "type": "redacted_session",
       "label": "Redacted session",
       "media_type": "application/json",
-      "href": ".qratum/redacted/ses_0001.redacted.json",
-      "digest": "sha256:c96f8f746d48a055acd2cb7c50c8f5b73a16f751802a1c7cd8f2ca2e8bc8e078",
+      "href": "sessions/ses_0001/redacted.json",
+      "digest": "sha256:79f6401299bb46943e803ab0b3c9dfb355bc8345b090c2f9df10eb87b37532d8",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
@@ -421,8 +421,8 @@
       "type": "evidence_bundle",
       "label": "Evidence bundle",
       "media_type": "application/json",
-      "href": ".qratum/evidence/ses_0001.evidence.json",
-      "digest": "sha256:ecbdd4d6949f206de08be2a29c484cce9179e294d860cd9d1c43a1c36c88b666",
+      "href": "sessions/ses_0001/evidence.json",
+      "digest": "sha256:a5d97699a6eb7e32a4cea47d1eea101cee373c54224de3773f21dd9c4fc31056",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
@@ -432,8 +432,8 @@
       "type": "review_card",
       "label": "Review card",
       "media_type": "application/json",
-      "href": ".qratum/reviews/ses_0001.review.json",
-      "digest": "sha256:2753ba543577e31c5b9d916aac812335e21397d4f5e827840bfce7edce8a6737",
+      "href": "sessions/ses_0001/review.json",
+      "digest": "sha256:36bc93d61c5f51fa8a7cac01b932727fab81fc5a124485d93fe2dd8cbe5c53ba",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
@@ -443,7 +443,7 @@
       "type": "html_report",
       "label": "HTML report",
       "media_type": "text/html",
-      "href": ".qratum/reports/ses_0001.html",
+      "href": "sessions/ses_0001/report.html",
       "digest": "sha256:7eebcba0121ff4a405d0b341c4236c9e87e7fb71da1212d242f349e0ea454e05",
       "created_at": "2026-05-21T22:10:00Z"
     },
@@ -454,7 +454,7 @@
       "type": "adp_strict_export",
       "label": "ADP strict export",
       "media_type": "application/jsonl",
-      "href": ".qratum/exports/ses_0001.adp.jsonl",
+      "href": "sessions/ses_0001/session.adp.jsonl",
       "digest": "sha256:557d1570a922936d2719bd74e6bcb031492101b3895473747842236e2bebddf4",
       "created_at": "2026-05-21T22:10:00Z"
     }

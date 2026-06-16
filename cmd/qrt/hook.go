@@ -333,7 +333,7 @@ func deterministicEventID(event captureEvent) string {
 }
 
 func writeCaptureEvent(eventsDir string, event captureEvent) error {
-	if err := os.MkdirAll(eventsDir, 0o755); err != nil {
+	if err := os.MkdirAll(eventsDir, 0o700); err != nil {
 		return fmt.Errorf("create event spool %s: %w", filepath.ToSlash(eventsDir), err)
 	}
 
@@ -365,7 +365,7 @@ func writeCaptureEvent(eventsDir string, event captureEvent) error {
 		_ = tmp.Close()
 		return fmt.Errorf("write capture event: %w", err)
 	}
-	if err := tmp.Chmod(0o644); err != nil {
+	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("set capture event permissions: %w", err)
 	}

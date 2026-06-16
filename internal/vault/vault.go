@@ -174,7 +174,7 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 		return ArchiveResult{}, fmt.Errorf("archive path %s is a directory", filepath.ToSlash(originalPath))
 	}
 
-	if err := os.MkdirAll(s.Paths.RawBlobsTempDir(), 0o750); err != nil {
+	if err := os.MkdirAll(s.Paths.RawBlobsTempDir(), 0o700); err != nil {
 		return ArchiveResult{}, fmt.Errorf("create blob temp directory: %w", err)
 	}
 	// #nosec G304 -- archive targets are explicit local filesystem paths chosen by the user or hook payload.
@@ -204,7 +204,7 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 		_ = tmp.Close()
 		return ArchiveResult{}, fmt.Errorf("copy archive path %s: %w", filepath.ToSlash(originalPath), err)
 	}
-	if err := tmp.Chmod(0o644); err != nil {
+	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return ArchiveResult{}, fmt.Errorf("set blob permissions: %w", err)
 	}
@@ -215,7 +215,7 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 	digestHex := fmt.Sprintf("%x", hash.Sum(nil))
 	digest := "sha256:" + digestHex
 	blobPath := s.Paths.BlobPathForDigest(digestHex)
-	if err := os.MkdirAll(filepath.Dir(blobPath), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(blobPath), 0o700); err != nil {
 		return ArchiveResult{}, fmt.Errorf("create blob directory: %w", err)
 	}
 
@@ -252,7 +252,7 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 }
 
 func (s Store) writeRawRef(ref RawRef, digestHex string) (bool, error) {
-	if err := os.MkdirAll(s.Paths.RawRefsDir(), 0o750); err != nil {
+	if err := os.MkdirAll(s.Paths.RawRefsDir(), 0o700); err != nil {
 		return false, fmt.Errorf("create raw refs directory: %w", err)
 	}
 	path := s.Paths.RawRefPathForDigest(digestHex)
@@ -275,7 +275,7 @@ func (s Store) writeRawRef(ref RawRef, digestHex string) (bool, error) {
 		return false, fmt.Errorf("encode raw ref %s: %w", ref.RawRefID, err)
 	}
 	data = append(data, '\n')
-	if err := writeFileAtomic(path, data, 0o644); err != nil {
+	if err := writeFileAtomic(path, data, 0o600); err != nil {
 		return false, fmt.Errorf("write raw ref %s: %w", filepath.ToSlash(path), err)
 	}
 	return true, nil
@@ -309,10 +309,10 @@ func (s Store) SaveState(state State) error {
 		return fmt.Errorf("encode vault state: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.MkdirAll(s.Paths.StateDir(), 0o750); err != nil {
+	if err := os.MkdirAll(s.Paths.StateDir(), 0o700); err != nil {
 		return fmt.Errorf("create state directory: %w", err)
 	}
-	if err := writeFileAtomic(s.Paths.VaultStatePath(), data, 0o644); err != nil {
+	if err := writeFileAtomic(s.Paths.VaultStatePath(), data, 0o600); err != nil {
 		return fmt.Errorf("write vault state %s: %w", filepath.ToSlash(s.Paths.VaultStatePath()), err)
 	}
 	return nil
@@ -575,7 +575,7 @@ func fileHash(path string) (string, error) {
 }
 
 func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")

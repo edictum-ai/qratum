@@ -37,7 +37,14 @@ func Resolve() (Paths, error) {
 	if err != nil {
 		return Paths{}, fmt.Errorf("resolve qratum home %q: %w", root, err)
 	}
-	return Paths{Root: filepath.Clean(abs)}, nil
+	clean := filepath.Clean(abs)
+	if err := os.MkdirAll(clean, 0o700); err != nil {
+		return Paths{}, fmt.Errorf("create qratum home %s: %w", filepath.ToSlash(clean), err)
+	}
+	if err := os.Chmod(clean, 0o700); err != nil {
+		return Paths{}, fmt.Errorf("secure qratum home %s: %w", filepath.ToSlash(clean), err)
+	}
+	return Paths{Root: clean}, nil
 }
 
 // EventsDir returns the capture event spool path.
@@ -86,10 +93,7 @@ func (p Paths) BlobPathForDigest(digest string) string {
 
 // RawRefIDForDigest returns the stable raw-ref identifier for a digest.
 func (p Paths) RawRefIDForDigest(digest string) string {
-	if len(digest) < 12 {
-		return "raw_" + digest
-	}
-	return "raw_" + digest[:12]
+	return "raw_" + digest
 }
 
 // RawRefPathForDigest returns the raw-ref file path for a digest.

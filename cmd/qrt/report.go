@@ -76,7 +76,7 @@ func report(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: render report: %v\n", err)
 		return 1
 	}
-	if err := writeFileAtomic(outputPath, data, 0o644); err != nil {
+	if err := writeFileAtomic(outputPath, data, 0o600); err != nil {
 		fmt.Fprintf(stderr, "error: write report %s: %v\n", displayPath(projectRoot, outputPath), err)
 		return 1
 	}

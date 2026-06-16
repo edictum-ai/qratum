@@ -72,12 +72,12 @@ verify_demo_artifacts() {
 	require_demo_artifact "vault event" "$QRATUM_HOME/events" "*.json"
 	require_demo_artifact "vault raw ref" "$QRATUM_HOME/raw/refs" "*.json"
 	require_demo_artifact "vault raw blob" "$QRATUM_HOME/raw/blobs/sha256" "*"
-	require_demo_artifact "normalized session" ".qratum/sessions" "*.normalized.json"
-	require_demo_artifact "redacted session" ".qratum/redacted" "*.redacted.json"
-	require_demo_artifact "evidence" ".qratum/evidence" "*.evidence.json"
-	require_demo_artifact "review" ".qratum/reviews" "*.review.json"
-	require_demo_artifact "HTML report" ".qratum/reports" "*.html"
-	require_demo_artifact "ADP strict export" ".qratum/exports" "*.adp.jsonl"
+	require_demo_artifact "normalized session" "$QRATUM_HOME/sessions" "normalized.json"
+	require_demo_artifact "redacted session" "$QRATUM_HOME/sessions" "redacted.json"
+	require_demo_artifact "evidence" "$QRATUM_HOME/sessions" "evidence.json"
+	require_demo_artifact "review" "$QRATUM_HOME/sessions" "review.json"
+	require_demo_artifact "HTML report" "$QRATUM_HOME/sessions" "report.html"
+	require_demo_artifact "ADP strict export" "$QRATUM_HOME/sessions" "session.adp.jsonl"
 }
 
 if [ "$mode" = "verify" ]; then
@@ -117,4 +117,3 @@ echo "Verified UI DTOs for session $session_id"
 
 echo "Generated artifacts:"
 find "$QRATUM_HOME" -type f | sort
-find .qratum -type f | sort

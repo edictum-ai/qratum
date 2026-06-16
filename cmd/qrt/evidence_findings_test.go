@@ -70,6 +70,7 @@ func TestEvidenceFlagsNetworkCallWithoutNeed(t *testing.T) {
 }
 
 func TestEvidenceDoesNotFlagNetworkCallWhenManifestChanged(t *testing.T) {
+	setTestQratumHome(t)
 	var session qratumSession
 	if err := json.Unmarshal(readEvidenceFixture(t, "network-call-without-need.input.json"), &session); err != nil {
 		t.Fatal(err)
@@ -116,6 +117,7 @@ func buildEvidenceFromFixture(t *testing.T, name string) evidenceBundle {
 	root := t.TempDir()
 	writeEvidenceFixture(t, root, name)
 	t.Chdir(root)
+	setTestQratumHome(t)
 	data, err := os.ReadFile(filepath.Join(root, "fixtures", "evidence", name))
 	if err != nil {
 		t.Fatal(err)

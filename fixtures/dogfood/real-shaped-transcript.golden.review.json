@@ -21,11 +21,11 @@
     "successful verification command after 2026-05-21T18:12:00Z"
   ],
   "artifact_paths": {
-    "session": ".qratum/sessions/dogfood-session-0001.normalized.json",
-    "redacted": ".qratum/redacted/dogfood-session-0001.redacted.json",
-    "evidence": ".qratum/evidence/dogfood-session-0001.evidence.json",
-    "review": ".qratum/reviews/dogfood-session-0001.review.json",
-    "report": ".qratum/reports/dogfood-session-0001.html",
-    "export": ".qratum/exports/dogfood-session-0001.adp.jsonl"
+    "session": "sessions/dogfood-session-0001/normalized.json",
+    "redacted": "sessions/dogfood-session-0001/redacted.json",
+    "evidence": "sessions/dogfood-session-0001/evidence.json",
+    "review": "sessions/dogfood-session-0001/review.json",
+    "report": "sessions/dogfood-session-0001/report.html",
+    "export": "sessions/dogfood-session-0001/session.adp.jsonl"
   }
 }

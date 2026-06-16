@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const (
@@ -357,14 +359,18 @@ func loadUISessionContextByID(projectRoot string, sessionID string) (uiSessionCo
 		matchedSession = session
 	}
 	if matchedPath == "" {
-		return uiSessionContext{}, fmt.Errorf("session %q not found in .qratum/sessions", sessionID)
+		return uiSessionContext{}, fmt.Errorf("session %q not found in qratum sessions", sessionID)
 	}
 
 	return loadUISessionContext(projectRoot, matchedPath, matchedSession)
 }
 
 func listUISessionFiles(projectRoot string) ([]string, error) {
-	sessionsDir := filepath.Join(projectRoot, ".qratum", "sessions")
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return nil, err
+	}
+	sessionsDir := filepath.Join(qratumHome.Root, "sessions")
 	info, err := os.Stat(sessionsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -376,7 +382,7 @@ func listUISessionFiles(projectRoot string) ([]string, error) {
 		return nil, fmt.Errorf("sessions path %s is not a directory", displayPath(projectRoot, sessionsDir))
 	}
 
-	paths, err := filepath.Glob(filepath.Join(sessionsDir, "*.normalized.json"))
+	paths, err := filepath.Glob(filepath.Join(sessionsDir, "*", "normalized.json"))
 	if err != nil {
 		return nil, fmt.Errorf("list sessions directory %s: %w", displayPath(projectRoot, sessionsDir), err)
 	}
@@ -635,6 +641,10 @@ func buildUIArtifactLinks(projectRoot string, sessionID string, createdAt string
 			return nil, fmt.Errorf("read artifact %s: %w", displayPath(projectRoot, absPath), err)
 		}
 		sum := sha256.Sum256(data)
+		href := slashPath(spec.path)
+		if filepath.IsAbs(filepath.FromSlash(spec.path)) {
+			href = displayPath(projectRoot, absPath)
+		}
 		links = append(links, uiArtifactLink{
 			SchemaVersion: qratumUIArtifactLinkSchemaVersion,
 			ArtifactID:    fmt.Sprintf("%s:%s", sessionID, spec.linkType),
@@ -642,7 +652,7 @@ func buildUIArtifactLinks(projectRoot string, sessionID string, createdAt string
 			Type:          spec.linkType,
 			Label:         spec.label,
 			MediaType:     spec.mediaType,
-			Href:          displayPath(projectRoot, absPath),
+			Href:          href,
 			Digest:        fmt.Sprintf("sha256:%x", sum[:]),
 			CreatedAt:     createdAt,
 		})

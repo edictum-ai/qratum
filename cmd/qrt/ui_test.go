@@ -147,7 +147,7 @@ func TestUIReviewJSONEmitsReviewDTOFixture(t *testing.T) {
 func TestUIRejectsMissingArtifact(t *testing.T) {
 	root := t.TempDir()
 	seedUIFixtureArtifacts(t, root)
-	if err := os.Remove(filepath.Join(root, ".qratum", "evidence", "ses_0001.evidence.json")); err != nil {
+	if err := os.Remove(qratumSessionArtifact(setTestQratumHome(t), "ses_0001", "evidence.json")); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(root)
@@ -163,7 +163,7 @@ func TestUIRejectsMissingArtifact(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"schema_version": "qratum.ui.api_error.v1"`,
-		"missing evidence .qratum/evidence/ses_0001.evidence.json",
+		"missing evidence",
 	} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
@@ -187,7 +187,7 @@ func TestUIRejectsMissingSession(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"schema_version": "qratum.ui.api_error.v1"`,
-		`session \"missing-session\" not found in .qratum/sessions`,
+		`session \"missing-session\" not found in qratum sessions`,
 	} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
@@ -198,7 +198,7 @@ func TestUIRejectsMissingSession(t *testing.T) {
 func TestUIRejectsUnsupportedEvidenceFindingType(t *testing.T) {
 	root := t.TempDir()
 	seedUIFixtureArtifacts(t, root)
-	evidencePath := filepath.Join(root, ".qratum", "evidence", "ses_0001.evidence.json")
+	evidencePath := qratumSessionArtifact(setTestQratumHome(t), "ses_0001", "evidence.json")
 	var bundle evidenceBundle
 	readJSONFile(t, evidencePath, &bundle)
 	bundle.Findings[0].Type = "tool_risk.future"
@@ -278,6 +278,7 @@ func TestUIRejectsBadArguments(t *testing.T) {
 
 func seedUIFixtureArtifacts(t *testing.T, root string) {
 	t.Helper()
+	setTestQratumHome(t)
 	var session qratumSession
 	if err := json.Unmarshal(readEvidenceFixture(t, "verification-gap.input.json"), &session); err != nil {
 		t.Fatalf("decode session fixture: %v", err)
@@ -299,12 +300,12 @@ func seedUIFixtureArtifacts(t *testing.T, root string) {
 		t.Fatalf("build UI fixture review: %v", err)
 	}
 
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Session)), session)
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Redacted)), redacted)
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Evidence)), evidence)
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Review)), review)
-	writeBytesFile(t, filepath.Join(root, filepath.FromSlash(paths.Report)), []byte("<!doctype html>\n<html lang=\"en\"><body><h1>Qratum Session ses_0001</h1></body></html>\n"))
-	writeBytesFile(t, filepath.Join(root, filepath.FromSlash(paths.Export)), readADPFixture(t, "session.adp-strict.golden.jsonl"))
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Session), session)
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Redacted), redacted)
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Evidence), evidence)
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Review), review)
+	writeBytesFile(t, artifactAbsolutePath(root, paths.Report), []byte("<!doctype html>\n<html lang=\"en\"><body><h1>Qratum Session ses_0001</h1></body></html>\n"))
+	writeBytesFile(t, artifactAbsolutePath(root, paths.Export), readADPFixture(t, "session.adp-strict.golden.jsonl"))
 }
 
 func writeJSONFile(t *testing.T, path string, value any) {

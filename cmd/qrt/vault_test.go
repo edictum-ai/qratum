@@ -238,6 +238,12 @@ func TestVaultArchiveSupportsKindsAndWritesRawRefFixture(t *testing.T) {
 	refPath := singleGlob(t, filepath.Join(qratumHome, "raw", "refs", "*.json"))
 	var ref vault.RawRef
 	readJSONFile(t, refPath, &ref)
+	assertPathMode(t, filepath.Join(qratumHome, "raw", "refs"), 0o700)
+	assertPathMode(t, refPath, 0o600)
+	assertPathMode(t, filepath.Dir(filepath.FromSlash(ref.ArchivedPath)), 0o700)
+	assertPathMode(t, filepath.FromSlash(ref.ArchivedPath), 0o600)
+	assertPathMode(t, filepath.Join(qratumHome, "state"), 0o700)
+	assertPathMode(t, filepath.Join(qratumHome, "state", "vault.json"), 0o600)
 	if got, want := ref.Kind, vault.KindSourceMetadata; got != want {
 		t.Fatalf("raw ref kind = %q, want %q", got, want)
 	}

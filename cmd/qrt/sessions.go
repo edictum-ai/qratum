@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 type sessionListEntry struct {
@@ -53,7 +55,11 @@ func listSessions() ([]sessionListEntry, error) {
 		return nil, fmt.Errorf("resolve current project absolute path: %w", err)
 	}
 
-	sessionsDir := filepath.Join(projectRoot, ".qratum", "sessions")
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return nil, err
+	}
+	sessionsDir := filepath.Join(qratumHome.Root, "sessions")
 	info, err := os.Stat(sessionsDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -65,7 +71,7 @@ func listSessions() ([]sessionListEntry, error) {
 		return nil, fmt.Errorf("sessions path %s is not a directory", displayPath(projectRoot, sessionsDir))
 	}
 
-	paths, err := filepath.Glob(filepath.Join(sessionsDir, "*.normalized.json"))
+	paths, err := filepath.Glob(filepath.Join(sessionsDir, "*", "normalized.json"))
 	if err != nil {
 		return nil, fmt.Errorf("list sessions directory %s: %w", displayPath(projectRoot, sessionsDir), err)
 	}

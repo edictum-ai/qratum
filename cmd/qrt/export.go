@@ -116,7 +116,7 @@ func exportCommand(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: build ADP strict export for %s: %v\n", displayPath(projectRoot, sessionPath), err)
 		return 1
 	}
-	if err := writeFileAtomic(outputPath, data, 0o644); err != nil {
+	if err := writeFileAtomic(outputPath, data, 0o600); err != nil {
 		fmt.Fprintf(stderr, "error: write export %s: %v\n", displayPath(projectRoot, outputPath), err)
 		return 1
 	}

@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const redactionStatus = "redacted"
@@ -167,31 +169,79 @@ func resolveProjectFilePath(projectRoot string, inputPath string, label string) 
 		return "", fmt.Errorf("missing %s path", label)
 	}
 
-	var resolved string
-	if filepath.IsAbs(inputPath) {
-		resolved = filepath.Clean(inputPath)
-	} else {
-		resolved = filepath.Clean(filepath.Join(projectRoot, inputPath))
-	}
-	rel, err := filepath.Rel(projectRoot, resolved)
-	if err != nil {
-		return "", fmt.Errorf("resolve %s path: %w", label, err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
-		return "", fmt.Errorf("%s path %q escapes current project", label, inputPath)
+	insideRoot := func(root string, path string) (bool, error) {
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return false, err
+		}
+		return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && !filepath.IsAbs(rel), nil
 	}
 
-	info, err := os.Stat(resolved)
-	if err != nil {
+	var candidates []string
+	if filepath.IsAbs(inputPath) {
+		resolved := filepath.Clean(inputPath)
+		insideProject, err := insideRoot(projectRoot, resolved)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s path: %w", label, err)
+		}
+		qratumHome, homeErr := workspace.Resolve()
+		if homeErr != nil {
+			return "", homeErr
+		}
+		insideQratumHome, err := insideRoot(qratumHome.Root, resolved)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s path: %w", label, err)
+		}
+		if !insideProject && !insideQratumHome {
+			return "", fmt.Errorf("%s path %q escapes current project or qratum home", label, inputPath)
+		}
+		candidates = append(candidates, resolved)
+	} else {
+		projectCandidate := filepath.Clean(filepath.Join(projectRoot, inputPath))
+		insideProject, err := insideRoot(projectRoot, projectCandidate)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s path: %w", label, err)
+		}
+		if !insideProject {
+			return "", fmt.Errorf("%s path %q escapes current project", label, inputPath)
+		}
+		candidates = append(candidates, projectCandidate)
+
+		qratumHome, homeErr := workspace.Resolve()
+		if homeErr != nil {
+			return "", homeErr
+		}
+		homeCandidate := filepath.Clean(filepath.Join(qratumHome.Root, filepath.FromSlash(inputPath)))
+		insideQratumHome, err := insideRoot(qratumHome.Root, homeCandidate)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s path: %w", label, err)
+		}
+		if insideQratumHome {
+			candidates = append(candidates, homeCandidate)
+		}
+	}
+
+	var firstMissing string
+	for _, resolved := range candidates {
+		info, err := os.Stat(resolved)
+		if err == nil {
+			if info.IsDir() {
+				return "", fmt.Errorf("%s %s is a directory", label, displayPath(projectRoot, resolved))
+			}
+			return resolved, nil
+		}
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("missing %s %s", label, displayPath(projectRoot, resolved))
+			if firstMissing == "" {
+				firstMissing = resolved
+			}
+			continue
 		}
 		return "", fmt.Errorf("inspect %s %s: %w", label, displayPath(projectRoot, resolved), err)
 	}
-	if info.IsDir() {
-		return "", fmt.Errorf("%s %s is a directory", label, displayPath(projectRoot, resolved))
+	if firstMissing != "" {
+		return "", fmt.Errorf("missing %s %s", label, displayPath(projectRoot, firstMissing))
 	}
-	return resolved, nil
+	return "", fmt.Errorf("missing %s path", label)
 }
 
 func redactQratumSession(session qratumSession) (qratumSession, error) {

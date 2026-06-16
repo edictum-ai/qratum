@@ -162,7 +162,7 @@ func evidence(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: resolve evidence output: %v\n", err)
 		return 1
 	}
-	if err := writeFileAtomic(outputPath, mustJSON(bundle), 0o644); err != nil {
+	if err := writeFileAtomic(outputPath, mustJSON(bundle), 0o600); err != nil {
 		fmt.Fprintf(stderr, "error: write evidence %s: %v\n", displayPath(projectRoot, outputPath), err)
 		return 1
 	}
@@ -229,7 +229,7 @@ func review(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: resolve review output: %v\n", err)
 		return 1
 	}
-	if err := writeFileAtomic(outputPath, mustJSON(card), 0o644); err != nil {
+	if err := writeFileAtomic(outputPath, mustJSON(card), 0o600); err != nil {
 		fmt.Fprintf(stderr, "error: write review %s: %v\n", displayPath(projectRoot, outputPath), err)
 		return 1
 	}
@@ -238,37 +238,15 @@ func review(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func artifactPathsForSession(projectRoot string, session qratumSession, sessionPath string) (daemonArtifactPaths, error) {
-	var paths daemonArtifactPaths
-	if session.ArtifactPaths != nil {
-		paths = *session.ArtifactPaths
-	}
-
 	stem, err := artifactStemForSession(session.SessionID)
 	if err != nil {
 		return daemonArtifactPaths{}, err
 	}
-	defaults := artifactPathsForStem(stem)
-	if strings.TrimSpace(paths.Session) == "" {
-		paths.Session = displayPath(projectRoot, sessionPath)
-	}
-	if strings.TrimSpace(paths.Redacted) == "" && strings.TrimSpace(session.PipelineStatus) == redactionStatus {
-		paths.Redacted = displayPath(projectRoot, sessionPath)
-	}
-	if strings.TrimSpace(paths.Evidence) == "" {
-		paths.Evidence = defaults.Evidence
-	}
-	if strings.TrimSpace(paths.Review) == "" {
-		paths.Review = defaults.Review
-	}
-	if strings.TrimSpace(paths.Report) == "" {
-		paths.Report = defaults.Report
-	}
-	if strings.TrimSpace(paths.Export) == "" {
-		paths.Export = defaults.Export
-	}
+	paths := artifactPathsForStem(stem)
 	if err := validateArtifactPathsScoped(projectRoot, paths); err != nil {
 		return daemonArtifactPaths{}, err
 	}
+	_ = sessionPath
 	return paths, nil
 }
 
@@ -281,14 +259,15 @@ func artifactStemForSession(sessionID string) (string, error) {
 }
 
 func artifactPathsForStem(stem string) daemonArtifactPaths {
+	sessionDir := filepath.Join("sessions", stem)
 	return daemonArtifactPaths{
-		Event:    slashPath(filepath.Join(".qratum", "events", stem+".json")),
-		Session:  slashPath(filepath.Join(".qratum", "sessions", stem+".normalized.json")),
-		Redacted: slashPath(filepath.Join(".qratum", "redacted", stem+".redacted.json")),
-		Evidence: slashPath(filepath.Join(".qratum", "evidence", stem+".evidence.json")),
-		Review:   slashPath(filepath.Join(".qratum", "reviews", stem+".review.json")),
-		Report:   slashPath(filepath.Join(".qratum", "reports", stem+".html")),
-		Export:   slashPath(filepath.Join(".qratum", "exports", stem+".adp.jsonl")),
+		Event:    slashPath(filepath.Join("events", stem+".json")),
+		Session:  slashPath(filepath.Join(sessionDir, "normalized.json")),
+		Redacted: slashPath(filepath.Join(sessionDir, "redacted.json")),
+		Evidence: slashPath(filepath.Join(sessionDir, "evidence.json")),
+		Review:   slashPath(filepath.Join(sessionDir, "review.json")),
+		Report:   slashPath(filepath.Join(sessionDir, "report.html")),
+		Export:   slashPath(filepath.Join(sessionDir, "session.adp.jsonl")),
 	}
 }
 
@@ -298,19 +277,24 @@ func resolveProjectOutputPath(projectRoot string, inputPath string, label string
 		return "", fmt.Errorf("missing %s output path", label)
 	}
 
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return "", err
+	}
 	var resolved string
 	if filepath.IsAbs(inputPath) {
 		resolved = filepath.Clean(inputPath)
 	} else {
-		resolved = filepath.Clean(filepath.Join(projectRoot, inputPath))
+		resolved = filepath.Clean(filepath.Join(qratumHome.Root, filepath.FromSlash(inputPath)))
 	}
-	rel, err := filepath.Rel(projectRoot, resolved)
+	rel, err := filepath.Rel(qratumHome.Root, resolved)
 	if err != nil {
 		return "", fmt.Errorf("resolve %s output path: %w", label, err)
 	}
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
-		return "", fmt.Errorf("%s output path %q escapes current project", label, inputPath)
+		return "", fmt.Errorf("%s output path %q escapes qratum home", label, inputPath)
 	}
+	_ = projectRoot
 	return resolved, nil
 }
 
@@ -344,25 +328,8 @@ func validateArtifactPathsScoped(projectRoot string, paths daemonArtifactPaths) 
 }
 
 func validateEventArtifactPath(projectRoot string, inputPath string) error {
-	if _, err := resolveProjectOutputPath(projectRoot, inputPath, "event"); err == nil {
-		return nil
-	}
-	qratumHome, err := workspace.Resolve()
-	if err != nil {
-		return err
-	}
-	if !filepath.IsAbs(inputPath) {
-		return fmt.Errorf("event output path %q escapes current project", inputPath)
-	}
-	resolved := filepath.Clean(inputPath)
-	rel, err := filepath.Rel(qratumHome.Root, resolved)
-	if err != nil {
-		return fmt.Errorf("resolve event output path: %w", err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
-		return fmt.Errorf("event output path %q escapes qratum home", inputPath)
-	}
-	return nil
+	_, err := resolveProjectOutputPath(projectRoot, inputPath, "event")
+	return err
 }
 
 func buildEvidenceBundle(session qratumSession, paths daemonArtifactPaths) (evidenceBundle, error) {

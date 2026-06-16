@@ -179,7 +179,7 @@ func runDaemonOnce() (daemonRunSummary, error) {
 		}
 		if applySourceEventTimestampFallback(&event, session) {
 			eventPath := artifactAbsolutePath(projectRoot, artifacts.Event)
-			if err := writeFileAtomic(eventPath, mustJSON(event), 0o644); err != nil {
+			if err := writeFileAtomic(eventPath, mustJSON(event), 0o600); err != nil {
 				return summary, fmt.Errorf("update capture event %s: %w", displayPath(projectRoot, eventPath), err)
 			}
 		}
@@ -311,11 +311,7 @@ func artifactPathsForEvent(event captureEvent) (daemonArtifactPaths, error) {
 		return daemonArtifactPaths{}, err
 	}
 	paths := artifactPathsForStem(stem)
-	qratumHome, err := workspace.Resolve()
-	if err != nil {
-		return daemonArtifactPaths{}, err
-	}
-	paths.Event = filepath.ToSlash(filepath.Join(qratumHome.EventsDir(), event.EventID+".json"))
+	paths.Event = filepath.ToSlash(filepath.Join("events", event.EventID+".json"))
 	return paths, nil
 }
 
@@ -344,7 +340,11 @@ func artifactAbsolutePath(projectRoot string, path string) string {
 	if filepath.IsAbs(resolved) {
 		return filepath.Clean(resolved)
 	}
-	return filepath.Join(projectRoot, resolved)
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return filepath.Join(projectRoot, resolved)
+	}
+	return filepath.Join(qratumHome.Root, resolved)
 }
 
 func inspectArtifactCompletion(files []daemonArtifactFile) (completed bool, empty bool, missing []string, existing []string, err error) {
@@ -416,7 +416,7 @@ func writePipelineArtifacts(projectRoot string, paths daemonArtifactPaths, sessi
 
 	files := artifactFilesForPaths(projectRoot, paths)
 	for _, file := range files {
-		if err := os.MkdirAll(filepath.Dir(file.abs), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(file.abs), 0o700); err != nil {
 			return fmt.Errorf("create artifact directory for %s: %w", file.rel, err)
 		}
 	}
@@ -430,15 +430,15 @@ func writePipelineArtifacts(projectRoot string, paths daemonArtifactPaths, sessi
 		path string
 		data []byte
 	}{
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Session)), mustJSON(session)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(redactedSession)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(evidenceBundle)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(reviewCard)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Export)), adpExport},
+		{artifactAbsolutePath(projectRoot, paths.Session), mustJSON(session)},
+		{artifactAbsolutePath(projectRoot, paths.Redacted), mustJSON(redactedSession)},
+		{artifactAbsolutePath(projectRoot, paths.Evidence), mustJSON(evidenceBundle)},
+		{artifactAbsolutePath(projectRoot, paths.Review), mustJSON(reviewCard)},
+		{artifactAbsolutePath(projectRoot, paths.Export), adpExport},
 	}
 
 	for _, write := range writes {
-		if err := writeFileAtomic(write.path, write.data, 0o644); err != nil {
+		if err := writeFileAtomic(write.path, write.data, 0o600); err != nil {
 			return fmt.Errorf("write artifact %s: %w", displayPath(projectRoot, write.path), err)
 		}
 	}
@@ -455,8 +455,8 @@ func writePipelineArtifacts(projectRoot string, paths daemonArtifactPaths, sessi
 	if err != nil {
 		return fmt.Errorf("build report for session %s: %w", session.SessionID, err)
 	}
-	reportPath := filepath.Join(projectRoot, filepath.FromSlash(paths.Report))
-	if err := writeFileAtomic(reportPath, reportData, 0o644); err != nil {
+	reportPath := artifactAbsolutePath(projectRoot, paths.Report)
+	if err := writeFileAtomic(reportPath, reportData, 0o600); err != nil {
 		return fmt.Errorf("write artifact %s: %w", displayPath(projectRoot, reportPath), err)
 	}
 	return nil
@@ -471,7 +471,7 @@ func mustJSON(value any) []byte {
 }
 
 func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
