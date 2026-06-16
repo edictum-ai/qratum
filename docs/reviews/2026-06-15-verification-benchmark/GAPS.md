@@ -179,7 +179,7 @@ These are real holes. Left unfixed, each one either ships a security or data ris
 
 ---
 
-## Open questions for Arnold (product/design decisions)
+## Open questions for the maintainer (product/design decisions)
 
 ### Q1 — Passive-capture liveness: does this milestone ship a scheduler?
 

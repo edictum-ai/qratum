@@ -42,7 +42,7 @@ it inside the harness.
   "Public-CLI vision vs. shipped-CLI reconciliation" item under "Explicitly out
   of scope" (the no-args exit-2 behavior and the README "across vendors / searches
   every session" overstatement).
-- `qratum/AGENTS.md` — Current Milestone (P2 is PROPOSED, awaiting Arnold),
+- `qratum/AGENTS.md` — Current Milestone (P2 is PROPOSED, awaiting the maintainer),
   Supply-Chain Rule, Testing (fixture/golden), Data Rule, "Still not built".
 - `qratum/docs/supply-chain.md` — what may and may not enter the runtime/CI.
 - `qratum/Makefile` — `verify` is `supply-chain vet lint test test-race build demo
@@ -200,14 +200,14 @@ report the divergence rather than silently editing the list.
 ### Public-CLI reconciliation — `qrt` no-args
 - Today `runWithIO` with no args prints usage + `error: missing command` and
   returns exit 2 (`main.go:25-30`).
-- **DECISION POINT (present to Arnold; do not pick silently).** Two options:
+- **DECISION POINT (present to the maintainer; do not pick silently).** Two options:
   - **(A) default status view** — no-args runs the status/doctor view and exits 0
     (the spec's recommended direction). Implication: `qrt` becomes safe to run with
     no args; scripts that relied on exit 2 for "no command" change behavior.
   - **(B) keep the error** — no-args stays `error: missing command`, exit 2; the
     spec's "dashboard" framing is dropped as not-shipped.
-  Per the standing rule that design/contract decisions go through Arnold, surface
-  both with this trade-off and let Arnold pin it. Then implement the pinned choice,
+  Per the standing rule that design/contract decisions go through the maintainer, surface
+  both with this trade-off and let the maintainer pin it. Then implement the pinned choice,
   and make `qrt trust` / `qrt status` consistent with it (e.g. if (A), the default
   view and `qrt status` should not contradict each other). Update `main_test.go`
   (which currently asserts the exit-2 message) to match the pinned behavior.
@@ -269,7 +269,7 @@ report the divergence rather than silently editing the list.
 - `make verify` includes `trust`; CI runs `make trust` and uploads the scorecard
   artifact; no existing check was weakened.
 - Public-CLI reconciliation done: `qrt` with no args has a **pinned** behavior
-  (status view vs. error, chosen by Arnold) and is implemented and tested; the
+  (status view vs. error, chosen by the maintainer) and is implemented and tested; the
   README no longer overstates "searches every session" and states capture + refine
   are Claude-Code-only.
 - No new third-party Go dependency; the harness is stdlib-only.
@@ -288,11 +288,11 @@ report the divergence rather than silently editing the list.
 - Anti-gaming: D3 recall split into a hard covered-corpus blocker + a monotonic
   extended-class recall (corpus shrinkage is a visible regression).
 - Public-CLI: the no-args behavior choice (status view vs. error) is a
-  **contract decision that goes through Arnold** — present both options, do not
+  **contract decision that goes through the maintainer** — present both options, do not
   pick silently. The README overstatement fix is docs-reflect-reality (capture +
   refine are Claude-Code-only; no search ships).
 - Runtime/CI/public-CLI build requires the P2-VERIFY-TRUST-GATE milestone to be
-  explicitly unlocked by Arnold (currently PROPOSED).
+  explicitly unlocked by the maintainer (currently PROPOSED).
 
 ## Behavior Contract
 
@@ -312,7 +312,7 @@ report the divergence rather than silently editing the list.
 - [ ] FAILS: weakening any existing `make verify` / CI check to get green.
 - [ ] FAILS on real-home mutation in tests/CI; evidence: `QRATUM_HOME` + temp dir.
 - [ ] FAILS: picking the `qrt` no-args behavior without surfacing the options to
-  Arnold.
+  the maintainer.
 
 ## Drift Handling
 
@@ -330,32 +330,32 @@ report the divergence rather than silently editing the list.
 
 ```sh
 # Full local CI mirror (now includes trust):
-make -C /Users/acartagena/project/qratum verify
+make -C . verify
 
 # The trust gate alone, in an isolated workspace (no real home touched):
 export QRATUM_HOME="$(mktemp -d)"
-make -C /Users/acartagena/project/qratum build
-make -C /Users/acartagena/project/qratum trust
+make -C . build
+make -C . trust
 # emit + inspect the scorecard JSON and confirm the headline enum + residual block:
-/Users/acartagena/project/qratum/bin/qrt trust --json > "$QRATUM_HOME/scorecard.json"
-/Users/acartagena/project/qratum/bin/qrt trust          # human summary + verbatim residual block
+./bin/qrt trust --json > "$QRATUM_HOME/scorecard.json"
+./bin/qrt trust          # human summary + verbatim residual block
 unset QRATUM_HOME
 
 # Scorecard is a governed object: validate it against its schema and prove it
 # carries no canary in its own bytes (driven by the trust runner's tests):
-go -C /Users/acartagena/project/qratum test ./cmd/trustbench/... ./cmd/qrt/... -run 'Trust|Scorecard|Residual|GateState|Recall'
+go -C . test ./cmd/trustbench/... ./cmd/qrt/... -run 'Trust|Scorecard|Residual|GateState|Recall'
 
 # Race-clean (the harness must not introduce a data race):
-make -C /Users/acartagena/project/qratum test-race
+make -C . test-race
 
 # Public-CLI no-args reconciliation (assert the PINNED behavior — example for (A) status view):
 export QRATUM_HOME="$(mktemp -d)"
-/Users/acartagena/project/qratum/bin/qrt ; echo "exit=$?"   # (A): status view, exit 0  |  (B): error, exit 2
+./bin/qrt ; echo "exit=$?"   # (A): status view, exit 0  |  (B): error, exit 2
 unset QRATUM_HOME
 
 # README overstatement gone (no shipped search; capture/refine Claude-Code-only):
-! grep -q "searches every session" /Users/acartagena/project/qratum/README.md
-grep -qi "claude code" /Users/acartagena/project/qratum/README.md
+! grep -q "searches every session" ./README.md
+grep -qi "claude code" ./README.md
 ```
 
 VERIFY GAP: confirm the trust runner location before dispatch — the spec offers
@@ -383,7 +383,7 @@ confirm the exact `make trust` recipe shape mirrors the `dogfood-demo`
   consent-gated exception; + the rest).
 - [ ] `make verify` includes `trust`; CI uploads the scorecard artifact; no check
   weakened.
-- [ ] `qrt` no-args behavior is the option Arnold pinned (not chosen silently), and
+- [ ] `qrt` no-args behavior is the option the maintainer pinned (not chosen silently), and
   `main_test.go` matches it; README no longer claims "searches every session" and
   states capture + refine are Claude-Code-only.
 - [ ] No new third-party Go dependency; no real secret/identifier in fixtures; tests
@@ -402,7 +402,7 @@ Reviewer guidance:
 > the `qratum.trust_scorecard.v1` schema is committed and wired into D9, the
 > no-leak checker runs over the scorecard's own bytes, and the provenance block is
 > present; the honest-residual block prints verbatim and is complete. Confirm the
-> two public-CLI reconciliations: the `qrt` no-args behavior was surfaced to Arnold
+> two public-CLI reconciliations: the `qrt` no-args behavior was surfaced to the maintainer
 > as a decision and the pinned choice is implemented and tested; the README no
 > longer overstates "searches every session" and states capture + refine are
 > Claude-Code-only. Flag: any new third-party Go dependency, any weakened existing
@@ -412,7 +412,7 @@ Reviewer guidance:
 
 ## Stop conditions
 
-- STOP if the Qratum milestone is still `P1-VAULT-FIRST` / `P0` and Arnold has not
+- STOP if the Qratum milestone is still `P1-VAULT-FIRST` / `P0` and the maintainer has not
   explicitly unlocked `P2-VERIFY-TRUST-GATE` — this is runtime + CI + public-CLI
   work and is gated.
 - STOP if P2, P3, P4, or P5 has not landed — this prompt assembles their
@@ -421,8 +421,8 @@ Reviewer guidance:
   the P2–P5 residual list diverges from §3's honest-residual list — do not absorb
   the gap inside the harness or silently rewrite the residual block.
 - STOP if the harness or scorecard appears to require a third-party Go dependency —
-  report it as a supply-chain decision for Arnold rather than adding it.
-- STOP and present both options to Arnold before implementing the `qrt` no-args
+  report it as a supply-chain decision for the maintainer rather than adding it.
+- STOP and present both options to the maintainer before implementing the `qrt` no-args
   behavior — this is a contract decision (status view vs. error), not a free call.
 - STOP before running any command against the real `~/.claude` or `~/.qratum`;
   all runs use `QRATUM_HOME` pointed at a temp dir.

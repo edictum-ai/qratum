@@ -298,7 +298,7 @@ later prompt.
   record it here.
 - FIX-11: ADP becomes an allowlist projection.
 - Runtime build requires an explicit milestone unlock to `P2-VERIFY-TRUST-GATE`
-  (Arnold).
+  (the maintainer).
 
 ## Behavior Contract
 
@@ -332,21 +332,21 @@ later prompt.
 
 ```sh
 # Full local CI mirror (build, vet, lint, test, race, demo, dogfood, security):
-make -C /Users/acartagena/project/qratum verify
+make -C . verify
 
 # Race-clean is mandatory for the concurrency-sensitive harness:
-go -C /Users/acartagena/project/qratum test -race ./...
+go -C . test -race ./...
 
 # Run the trust harness directly over the covered corpus (build-tagged or
 # cmd/trustbench, per the package shape chosen in this prompt):
-go -C /Users/acartagena/project/qratum test -tags trust -run 'D3|D4|Canary|Boundary|Redact' ./...
+go -C . test -tags trust -run 'D3|D4|Canary|Boundary|Redact' ./...
 
 # End-to-end secret proof in an isolated workspace (no real home touched):
 export QRATUM_HOME="$(mktemp -d)"
-make -C /Users/acartagena/project/qratum build
+make -C . build
 # feed the secret-bearing transcript through the real daemon, then assert no
 # canary/secret survives into any artifact under $QRATUM_HOME/sessions/<id>/:
-/Users/acartagena/project/qratum/bin/qrt evidence \
+./bin/qrt evidence \
   "$QRATUM_HOME"/sessions/*/normalized.json   # must reject or emit redacted
 unset QRATUM_HOME
 ```
@@ -407,10 +407,10 @@ Reviewer guidance:
 
 - STOP if P1 has not landed (specs/contracts still contradictory) — this depends
   on P1.
-- STOP if the Qratum milestone is not unlocked to `P2-VERIFY-TRUST-GATE` by Arnold
+- STOP if the Qratum milestone is not unlocked to `P2-VERIFY-TRUST-GATE` by the maintainer
   — runtime/verification build is gated; do not build against a stale pointer.
 - STOP if any part of the harness or checker appears to require a third-party Go
-  dependency — report it as a supply-chain decision for Arnold rather than adding
+  dependency — report it as a supply-chain decision for the maintainer rather than adding
   it.
 - STOP before running any command against the real `~/.claude` or `~/.qratum` —
   use `QRATUM_HOME` pointed at a temp dir.

@@ -296,7 +296,7 @@ recorded, tombstone-based erasure verb (FIX-16).
 
 ## Decision Trace
 
-- 2026-06-15 (Arnold, in `verification-and-trust-gate.md` §5): promoted to
+- 2026-06-15 (the maintainer, in `verification-and-trust-gate.md` §5): promoted to
   in-scope required work — disk-full guard (FIX-14), tombstone-respecting
   `qrt vault gc` that refuses referenced blobs (FIX-15), per-object
   tombstone-based erasure verb (FIX-16, the only removal path), streaming
@@ -360,26 +360,26 @@ recorded, tombstone-based erasure verb (FIX-16).
 
 ```sh
 # Full local CI mirror (build, vet, lint, test, RACE, demo, dogfood, security):
-make -C /Users/acartagena/project/qratum verify
+make -C . verify
 
 # Race-only fast loop while iterating on the UpdateState concurrency work
 # (the FIX-6 capture-path race is P1's):
-make -C /Users/acartagena/project/qratum test-race
+make -C . test-race
 
 # Integrity + lifecycle dimension tests in isolation:
-go -C /Users/acartagena/project/qratum test -race ./internal/vault/... ./cmd/qrt/...
+go -C . test -race ./internal/vault/... ./cmd/qrt/...
 
 # End-to-end recoverability proof (D6a / FIX-3) in an isolated workspace
 # (no real home touched): capture, DELETE the source, prove refine succeeds
 # from the blob.
 export QRATUM_HOME="$(mktemp -d)"
-make -C /Users/acartagena/project/qratum build
-cat /Users/acartagena/project/qratum/fixtures/dogfood/real-shaped-transcript.jsonl \
-  | /Users/acartagena/project/qratum/bin/qrt hook claude-code   # capture → blob
+make -C . build
+cat ./fixtures/dogfood/real-shaped-transcript.jsonl \
+  | ./bin/qrt hook claude-code   # capture → blob
 # remove the live transcript the hook just captured, then run the refinery and
 # confirm it rebuilds from the blob (not the deleted live path):
-/Users/acartagena/project/qratum/bin/qrt vault doctor
-/Users/acartagena/project/qratum/bin/qrt status
+./bin/qrt vault doctor
+./bin/qrt status
 unset QRATUM_HOME
 ```
 
@@ -455,10 +455,10 @@ Reviewer guidance:
 ## Stop conditions
 
 - STOP if P1 (spec hygiene / acceptance) has not landed — this depends on P1.
-- STOP if the Qratum milestone is not at `P2-VERIFY-TRUST-GATE` and Arnold has
+- STOP if the Qratum milestone is not at `P2-VERIFY-TRUST-GATE` and the maintainer has
   not explicitly unlocked it — this is gated runtime work.
 - STOP if any integrity/lifecycle fix appears to require a third-party Go
-  dependency — report it as a supply-chain decision for Arnold rather than adding
+  dependency — report it as a supply-chain decision for the maintainer rather than adding
   it (prefer stdlib `syscall` for `Statfs`/flock).
 - STOP before running `gc`, erase, backup, or capture against the real
   `~/.claude` or `~/.qratum`; tests/demos use `QRATUM_HOME`.

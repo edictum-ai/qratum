@@ -99,7 +99,7 @@ those are other prompts in this package.
   mode. No test may write to, `launchctl load`, or `systemctl --user enable`
   anything on the real machine.
 - Do NOT run `install-schedule` / `uninstall-schedule` against the real home —
-  that is an Arnold-only manual step (it mutates the user's real launchd/systemd
+  that is an maintainer-only manual step (it mutates the user's real launchd/systemd
   and would start running real backfills).
 - No trust harness, no redactor/schema/lifecycle work, no scorecard — other
   prompts.
@@ -237,7 +237,7 @@ those are other prompts in this package.
 
 ## Decision Trace
 
-- Q1 resolved by Arnold (2026-06-15): **ship `qrt vault install-schedule`** — an
+- Q1 resolved by the maintainer (2026-06-15): **ship `qrt vault install-schedule`** — an
   OS timer running `qrt vault backfill` as the safety net behind the real-time
   hook; **not** a resident daemon; refine stays on-demand; ships **with an
   explicit OS-timer test plan**. (`verification-and-trust-gate.md` §"Decisions
@@ -275,37 +275,37 @@ those are other prompts in this package.
   `cmd/qrt/hook.go` before editing. Update goldens only when an output contract
   intentionally changes, and say so.
 - If a stdlib-only plist/unit generation turns out to need a third-party library,
-  STOP and report it as a supply-chain decision for Arnold — do not add the dep.
+  STOP and report it as a supply-chain decision for the maintainer — do not add the dep.
 
 ## Verification
 
 ```sh
 # Full local CI mirror (build, vet, lint, test, race, demo, dogfood, security):
-make -C /Users/acartagena/project/qratum verify
+make -C . verify
 
 # Race-clean (the schedule generator and doctor counters):
-make -C /Users/acartagena/project/qratum test-race
+make -C . test-race
 
 # Dry-run / print mode in an isolated workspace (no real home, no real launchd):
 export QRATUM_HOME="$(mktemp -d)"
 export QRATUM_SCHEDULE_DIR="$(mktemp -d)"   # fake LaunchAgents / systemd user dir
-make -C /Users/acartagena/project/qratum build
+make -C . build
 # Print mode writes nothing and prints the exact plist/unit + the installed command:
-/Users/acartagena/project/qratum/bin/qrt vault install-schedule --print
+./bin/qrt vault install-schedule --print
 # Assert it printed `qrt vault backfill` and a cadence field, and that the fake
 # schedule dir is still empty after --print:
 ls -A "$QRATUM_SCHEDULE_DIR"            # expect: empty
 
 # Real-but-fake install lands the file only in the fake dir, idempotent, then clean uninstall:
-/Users/acartagena/project/qratum/bin/qrt vault install-schedule
+./bin/qrt vault install-schedule
 ls -A "$QRATUM_SCHEDULE_DIR"            # expect: exactly the timer file(s)
-/Users/acartagena/project/qratum/bin/qrt vault install-schedule   # second run: byte-identical, "no change"
-/Users/acartagena/project/qratum/bin/qrt vault uninstall-schedule
+./bin/qrt vault install-schedule   # second run: byte-identical, "no change"
+./bin/qrt vault uninstall-schedule
 ls -A "$QRATUM_SCHEDULE_DIR"            # expect: empty again
-/Users/acartagena/project/qratum/bin/qrt vault uninstall-schedule # clean no-op, exit 0
+./bin/qrt vault uninstall-schedule # clean no-op, exit 0
 
 # Doctor truthfulness in isolation (uses injected state via tests; manual smoke):
-/Users/acartagena/project/qratum/bin/qrt vault doctor
+./bin/qrt vault doctor
 # expect: a `transcript_drift (heuristic): …` line, an always-present cloud line,
 # a `schedule_installed: …` line, and `warnings:` reflecting the injected state.
 unset QRATUM_HOME QRATUM_SCHEDULE_DIR
@@ -354,14 +354,14 @@ Reviewer guidance:
 
 ## Stop conditions
 
-- STOP if the **P2-VERIFY-TRUST-GATE** milestone is not unlocked by Arnold —
+- STOP if the **P2-VERIFY-TRUST-GATE** milestone is not unlocked by the maintainer —
   this is gated runtime/ops work. If the milestone pointer in `SPEC.md` is still
   pre-P2-VERIFY-TRUST-GATE, stop and report.
 - STOP if P1 (spec hygiene / contracts) has not landed — this prompt depends on
   P1.
 - STOP if a stdlib-only plist/unit generator appears to require a third-party Go
-  dependency — report it as a supply-chain decision for Arnold, do not add it.
+  dependency — report it as a supply-chain decision for the maintainer, do not add it.
 - STOP before running `install-schedule` / `uninstall-schedule` against the real
-  home or the real launchd/systemd — that is an Arnold-only manual step.
+  home or the real launchd/systemd — that is an maintainer-only manual step.
 - STOP if `make verify` or `go test -race` cannot be made green without weakening
   a check — report the failure, do not suppress it.

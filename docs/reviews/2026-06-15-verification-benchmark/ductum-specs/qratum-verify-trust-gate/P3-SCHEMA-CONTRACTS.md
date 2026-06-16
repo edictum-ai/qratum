@@ -40,7 +40,7 @@ runtime rewiring, no new commands, no leak-harness.
   `source_metadata`" footgun.
 - `qratum/AGENTS.md` — supply-chain rule, no-Python single-Go-binary rule,
   fixture/golden contract, current milestone (P2-VERIFY-TRUST-GATE is PROPOSED,
-  awaiting Arnold), Definition of Done.
+  awaiting the maintainer), Definition of Done.
 - `qratum/docs/supply-chain.md`.
 - `qratum/schemas/*.json` — the current schemas. Note exactly what is wrong:
   `qratum-session.v1.schema.json` declares 8 fields and no
@@ -83,7 +83,7 @@ runtime rewiring, no new commands, no leak-harness.
 
 - No new third-party Go dependency. The validator is **stdlib-only**
   (`encoding/json` + hand-rolled checks). Reaching for a JSON-Schema library is
-  an explicit supply-chain decision — STOP and report it to Arnold instead of
+  an explicit supply-chain decision — STOP and report it to the maintainer instead of
   adding it (§6 names a vetted ≥7-day-old pure-Go validator as a *possible*
   later call, sign-off only).
 - No `$ref` resolver, no remote-schema fetch, no full JSON-Schema draft
@@ -281,7 +281,7 @@ a leaking key inside `turns[]` or `tool_calls[].input` pass. So:
 - `qratum.trust_scorecard.v1` is agreed (Q4) and wired into D9 as a governed
   object.
 - Stdlib mini-validator only (§6 non-goal); a third-party validator is a
-  supply-chain decision requiring Arnold's sign-off.
+  supply-chain decision requiring the maintainer's sign-off.
 
 ## Behavior Contract
 
@@ -321,22 +321,22 @@ a leaking key inside `turns[]` or `tool_calls[].input` pass. So:
 
 ```sh
 # Full local CI mirror (build, vet, lint, test, race, demo, dogfood, security):
-make -C /Users/acartagena/project/qratum verify
+make -C . verify
 
 # The schema/validator tests specifically (in an isolated workspace):
 export QRATUM_HOME="$(mktemp -d)"
-go -C /Users/acartagena/project/qratum test ./internal/schema/... -run 'Schema|Validator|Parity|DataClass|Registry|Receipt|Scorecard|Config' -v
+go -C . test ./internal/schema/... -run 'Schema|Validator|Parity|DataClass|Registry|Receipt|Scorecard|Config' -v
 unset QRATUM_HOME
 
 # Prove the validator REJECTS an injected extra key (the strictness has teeth):
-go -C /Users/acartagena/project/qratum test ./internal/schema/... -run 'RejectExtraKey' -v
+go -C . test ./internal/schema/... -run 'RejectExtraKey' -v
 
 # Prove the struct-tag set == schema-property-set for every emitted object:
-go -C /Users/acartagena/project/qratum test ./internal/schema/... -run 'Parity' -v
+go -C . test ./internal/schema/... -run 'Parity' -v
 
 # Prove every emitted schema_version (incl. ADP + redaction summary) maps to a
 # schema, with the hyphen/dot name assertion and missing-schema loud-fail:
-go -C /Users/acartagena/project/qratum test ./internal/schema/... -run 'Registry|NameMapping|MissingSchema' -v
+go -C . test ./internal/schema/... -run 'Registry|NameMapping|MissingSchema' -v
 ```
 
 VERIFY GAP: confirm the package name/path the harness expects for the validator
@@ -391,7 +391,7 @@ Reviewer guidance:
 
 ## Stop conditions
 
-- STOP if the P2-VERIFY-TRUST-GATE milestone is still PROPOSED and Arnold has
+- STOP if the P2-VERIFY-TRUST-GATE milestone is still PROPOSED and the maintainer has
   not explicitly unlocked it — this task is gated. (`AGENTS.md` Current
   Milestone: "Do not implement P2-or-later runtime behavior unless the user
   explicitly accepts the proposed milestone.")

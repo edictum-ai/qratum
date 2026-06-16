@@ -48,10 +48,10 @@ Concretely: qratum is a single Go binary, `qrt`. The vault runtime is **merged**
 | | Config schema (`config.toml` / `config.schema.json`) | `SPEC.md` P0 deliverable; **absent** from repo (no config schema in `schemas/`, no config handling in `main.go`) |
 | | Session revision/resume worker, SQLite projection, retention/delete verbs, tombstones | All `P0 Non-Goals` / spec'd-only |
 | | JSON Schema validation | `schemas/*.json` are **orphaned** — zero Go references (confirmed `grep`); no validator, no Makefile target; no `additionalProperties` anywhere |
-| **Parked (with trigger)** | Local SQLite FTS search | Trigger: Arnold greps the vault twice (first 3rd-party Go dep — supply-chain decision) |
+| **Parked (with trigger)** | Local SQLite FTS search | Trigger: the maintainer greps the vault twice (first 3rd-party Go dep — supply-chain decision) |
 | | Thin claude-ai-export normalizer | Trigger: summary/conversation mining actually wanted (Tier-1 summaries preferred) |
 | | Git-native curation lane (the "dream") | Trigger: real recurring candidates exist (`PROPOSAL.md` W5) |
-| **Open decisions** | **Insurance vs dream** fork | `BACKLOG.md` pre-flight: preserve+import+stop, OR preserve-as-foundation+curation lane. Unresolved by Arnold |
+| **Open decisions** | **Insurance vs dream** fork | `BACKLOG.md` pre-flight: preserve+import+stop, OR preserve-as-foundation+curation lane. Unresolved by the maintainer |
 | | **Daemon vs no-daemon / passive capture** | No scheduler ships. `daemon run-once` and `backfill` are manual; preservation freshness depends on out-of-band cron/launchd the product does not install |
 | | Benchmark scope | Whether to fix the redactor (extend coverage) vs drop unredacted fields from artifacts; whether normalized-session-on-disk is in scope as raw retention store |
 | **Cross-repo (gateway)** | `memory_import_receipt` archive | `KindMemoryImport` shipped (`vault.go:52`); qratum's **receiving** end is ready but **dormant**. Producer (`scripts/import-claude-memories.ts`) lives in personal-memory, gated on gateway Phase 1, **not built** |
@@ -188,7 +188,7 @@ Three structural rules apply to every test below:
 - **Drift direction is pinned to emitted-keys ⊆ schema-declared-keys** — the only direction that catches a leak. This **fails today on every artifact**, which is the point: it stays planned-RED until the schemas are completed. Make it a HARD gate with teeth.
 - **Validator self-test:** assert the validator **REJECTS** an instance with an injected extra secret-bearing key — not merely that it accepts valid ones.
 - **The denominator is emitted objects, not files.** Enumerate every emitted `schema_version` literal (`qratum.event.v1`, `qratum.session.v1`, `qratum.evidence.v1`, `qratum.review_card.v1`, `qratum.raw_ref.v1`, `qratum.vault_state.v1`, `qratum.ui.api_error.v1`, **plus the schemaless ADP export and the redaction summary**) and FAIL loudly when an emitted object has **no** schema file. Add a name-mapping assertion (file `qratum-X.v1` ↔ emitted `qratum.X.v1`) so the hyphen-vs-dot naming drift can't hide a missing schema. Note that the **config schema is a missing P0 deliverable** in the residual block.
-- **Mini-validator stays stdlib-only** (supply-chain rule). A vetted, ≥7-day-old pure-Go validator only with Arnold's sign-off.
+- **Mini-validator stays stdlib-only** (supply-chain rule). A vetted, ≥7-day-old pure-Go validator only with the maintainer's sign-off.
 
 ### D10 — Cross-repo import (GATED on gateway)
 
@@ -261,7 +261,7 @@ The archive directory-walk tags every file with the requested kind and dedups; o
 
 ---
 
-## 5. Open decisions for Arnold
+## 5. Open decisions for the maintainer
 
 **A. Daemon / no-daemon (passive-capture liveness).** The hook captures, but nothing schedules `run-once`/`backfill`; the 0%-engagement history is the proof point.
 - *Option 1 — stay manual, name it loudly:* D12 just asserts the staleness gates, and the scorecard states "no scheduler ships; freshness depends on out-of-band cron/launchd." Cheapest; honest; preservation freshness stays a user responsibility.

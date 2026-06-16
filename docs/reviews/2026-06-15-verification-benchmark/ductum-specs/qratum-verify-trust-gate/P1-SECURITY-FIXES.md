@@ -270,7 +270,7 @@ from history, so a fresh clone still exposes it. Add a lint (a Go test, or a
 - Fails loudly listing offending commit + path. If history already contains the
   identifier (it does), the lint should **report it as a known finding** with a
   clear message that history rewrite/relocation is required — do **not** silently
-  pass, and do **not** attempt a history rewrite yourself (that is an Arnold-only
+  pass, and do **not** attempt a history rewrite yourself (that is an maintainer-only
   decision; STOP and report it).
 
 ## Acceptance criteria
@@ -309,14 +309,14 @@ from history, so a fresh clone still exposes it. Add a lint (a Go test, or a
 
 ## Decision Trace
 
-- 2026-06-15 (Arnold): redactor field-leak fix = **HYBRID** (drop git/time/event
+- 2026-06-15 (the maintainer): redactor field-leak fix = **HYBRID** (drop git/time/event
   from shareable artifacts, redact them in the redacted JSON; fix the `=>` bug
   regardless; re-redact the golden). Per `verification-and-trust-gate.md` §"Decisions
   already taken" and FIX-2.
-- 2026-06-15 (Arnold): the two newly found leaks (world-readable raw blobs / M4,
+- 2026-06-15 (the maintainer): the two newly found leaks (world-readable raw blobs / M4,
   ungoverned raw egress / M5) are **spec-now / fix-with-P2** — M4 is FIX-8 / D14 in
   this task; M5 (FIX-9) is a later prompt.
-- 2026-06-15 (Arnold): at-rest **encryption is out of scope** — the gate enforces
+- 2026-06-15 (the maintainer): at-rest **encryption is out of scope** — the gate enforces
   file **permissions**, not encryption (Threat Model).
 - Tier 0 sequencing (§4) names FIX-1/2/5/6/8/11/12 as the cheapest, highest-value
   first batch, each with its locking test.
@@ -346,31 +346,31 @@ from history, so a fresh clone still exposes it. Add a lint (a Go test, or a
   golden, regenerate that golden **and say so explicitly** (an intentional output
   contract change), and confirm the dropped fields are absent.
 - If git history rewrite would be required to fully clear a leaked identifier, that
-  is an Arnold-only decision — report it, do not rewrite history.
+  is an maintainer-only decision — report it, do not rewrite history.
 
 ## Verification
 
 ```sh
 # Build + unit/golden tests + race (the FIX-6 concurrency test):
-make -C /Users/acartagena/project/qratum build
-make -C /Users/acartagena/project/qratum test
-make -C /Users/acartagena/project/qratum test-race
+make -C . build
+make -C . test
+make -C . test-race
 
 # Targeted: each fix's locking test (names indicative — match what you add):
-( cd /Users/acartagena/project/qratum && \
+( cd . && \
   go test ./cmd/qrt/ -run 'Redact|ArrowSeparator|GitFieldHybrid|SSHRemote|ADPAllowlist|HookPathConfinement' -v )
-( cd /Users/acartagena/project/qratum && \
+( cd . && \
   go test ./internal/vault/... ./internal/workspace/... -run 'RefIDCollision|AtRestPerms|CaptureRace' -race -v )
 
 # The no-secret golden lint over working tree AND git history:
-( cd /Users/acartagena/project/qratum && go test ./cmd/qrt/ -run 'NoSecretInGolden' -v )
+( cd . && go test ./cmd/qrt/ -run 'NoSecretInGolden' -v )
 
 # Confirm the committed golden no longer carries the real identifier:
 grep -RnE 'edictum-ai/qratum\.git|git@github\.com' \
-  /Users/acartagena/project/qratum/fixtures/redaction/ ; echo "exit=$? (want non-zero / no match in tree)"
+  ./fixtures/redaction/ ; echo "exit=$? (want non-zero / no match in tree)"
 
 # Full local CI mirror (must stay green; do not weaken any check):
-make -C /Users/acartagena/project/qratum verify
+make -C . verify
 ```
 
 VERIFY GAP: confirm the exact test package layout. `internal/vault` and
@@ -427,12 +427,12 @@ Reviewer guidance:
 ## Stop conditions
 
 - STOP if the **P2-VERIFY-TRUST-GATE** milestone is not explicitly unlocked by
-  Arnold. `AGENTS.md` shows it as PROPOSED (awaiting acceptance); this task builds
+  the maintainer. `AGENTS.md` shows it as PROPOSED (awaiting acceptance); this task builds
   runtime/security code and is gated on that unlock.
 - STOP if any fix appears to require a new third-party Go dependency — report it as
-  a supply-chain decision for Arnold rather than adding it.
+  a supply-chain decision for the maintainer rather than adding it.
 - STOP and report (do not rewrite history) if clearing a leaked identifier from git
-  history is required — that is an Arnold-only decision.
+  history is required — that is an maintainer-only decision.
 - STOP before running anything against the real `~/.claude` or `~/.qratum`.
 - STOP if `make verify` (including `-race`) cannot be made green without weakening a
   check — report the failure, do not suppress it.

@@ -45,18 +45,18 @@ This is where the project stands and what you may act on.
 
 ```txt
 P1-VAULT-FIRST — SHIPPED (merged, test-backed)
-P2-VERIFY-TRUST-GATE — PROPOSED (awaiting Arnold's acceptance)
+P2-VERIFY-TRUST-GATE — ACCEPTED / UNLOCKED 2026-06-16
 ```
 
 The vault-first runtime (P1) has shipped and is test-backed (the `qrt` binary
 self-reports `milestone: vault-first`). The P0 contract work (schemas, ADRs,
-source-of-truth cleanup) is substantially complete. Two P0 gaps remain: the
-missing config schema and the unvalidated `schemas/`. The next proposed unlock
-is the verify trust gate (P2-VERIFY-TRUST-GATE) — see
-`specs/current/verification-and-trust-gate.md`.
+source-of-truth cleanup) is substantially complete. P2-VERIFY-TRUST-GATE is now
+accepted and unlocked — implement it per the ductum spec package under
+`docs/reviews/2026-06-15-verification-benchmark/ductum-specs/qratum-verify-trust-gate/`
+(the contract is `specs/current/verification-and-trust-gate.md`).
 
-Do not implement P2-or-later runtime behavior unless the user explicitly accepts
-the proposed milestone.
+Do not implement P3-or-later runtime behavior unless the user explicitly unlocks
+a later milestone.
 
 ## Shipped runtime (no longer "do not implement")
 

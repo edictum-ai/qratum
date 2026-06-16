@@ -184,7 +184,7 @@ enforces, against the gateway's **real** vocabulary:
 
 ## Decision Trace
 
-- Scope = **BOTH** (Q3, Arnold 2026-06-15) — reverses the earlier insurance-only
+- Scope = **BOTH** (Q3, the maintainer 2026-06-15) — reverses the earlier insurance-only
   call. The dream / curation tier is **in scope as its own gated phase**, not
   hidden behind a feature flag.
 - The schema-and-archive work lands **now**; the full behavioral round-trip is
@@ -193,7 +193,7 @@ enforces, against the gateway's **real** vocabulary:
 - Dead-bridge lesson (memory-architecture review, 2026-06-12): never invent
   counterparty behavior — reject any receipt outside the gateway's real
   outcome/errorClass vocabulary.
-- Runtime build requires the P2-VERIFY-TRUST-GATE milestone unlock (Arnold).
+- Runtime build requires the P2-VERIFY-TRUST-GATE milestone unlock (the maintainer).
 
 ## Behavior Contract
 
@@ -225,31 +225,31 @@ enforces, against the gateway's **real** vocabulary:
 
 ```sh
 # Full local CI mirror (build, vet, lint, test, race, demo, dogfood, security, trust):
-make -C /Users/acartagena/project/qratum verify
+make -C . verify
 
 # Half A — pinned-kind receipt archive round-trip in an isolated workspace
 # (no real home touched):
 export QRATUM_HOME="$(mktemp -d)"
-make -C /Users/acartagena/project/qratum build
-/Users/acartagena/project/qratum/bin/qrt vault archive \
-  /Users/acartagena/project/qratum/fixtures/memory-import/synthetic-receipt.json \
+make -C . build
+./bin/qrt vault archive \
+  ./fixtures/memory-import/synthetic-receipt.json \
   --kind memory_import_receipt
 # assert the ref records kind=memory_import_receipt (NOT source_metadata):
-/Users/acartagena/project/qratum/bin/qrt status
+./bin/qrt status
 unset QRATUM_HOME
 
 # Half A — the default-kind footgun is visible (archiving without --kind labels
 # the receipt source_metadata): exercised by the vault_test.go golden tests.
-go -C /Users/acartagena/project/qratum test ./cmd/qrt/ -run TestArchive -count=1
+go -C . test ./cmd/qrt/ -run TestArchive -count=1
 
 # Half B — the receipt-vocabulary validator unit tests (schema-driven, no
 # gateway): namespace_forbidden / unknown-contentClass / out-of-vocabulary
 # outcome+errorClass / malformed-shape fail-closed:
-go -C /Users/acartagena/project/qratum test ./internal/... -run Receipt -count=1
+go -C . test ./internal/... -run Receipt -count=1
 
 # The trust gate reports D10 testable-now as a CONTRACT check (not a leak proof)
 # and the gated half as not-yet-runnable; confirm the scorecard JSON says so:
-make -C /Users/acartagena/project/qratum trust
+make -C . trust
 ```
 
 VERIFY GAP: confirm the exact fixture path for the synthetic receipt before
@@ -296,7 +296,7 @@ Reviewer guidance:
 
 ## Stop conditions
 
-- STOP if the **P2-VERIFY-TRUST-GATE** milestone is not unlocked by Arnold —
+- STOP if the **P2-VERIFY-TRUST-GATE** milestone is not unlocked by the maintainer —
   this is runtime/cross-repo work and is gated; the milestone is PROPOSED today.
 - STOP if **P3** (the `memory_import_receipt` JSON Schema) has not landed —
   Half A's schema validation and all of Half B depend on it.
@@ -307,7 +307,7 @@ Reviewer guidance:
 - STOP and report if any part requires building the producer or gateway inside
   qratum — that work lives in personal-memory.
 - STOP if a feature appears to require a third-party Go dependency — report it as
-  a supply-chain decision for Arnold rather than adding it.
+  a supply-chain decision for the maintainer rather than adding it.
 - STOP before running any command against the real `~/.claude` or `~/.qratum`.
 - STOP if `make verify` or `make trust` cannot be made green without weakening a
   check — report the failure, do not suppress it.

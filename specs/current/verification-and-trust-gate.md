@@ -1,7 +1,8 @@
 # Qratum Verification & Trust Gate
 
-Status: **Proposed — v2, 2026-06-15 (awaiting Arnold).** Not yet accepted; does
-not change the current milestone pointer in `SPEC.md` until Arnold unlocks it.
+Status: **Accepted 2026-06-16.** P2-VERIFY-TRUST-GATE is unlocked; the ductum
+package may be dispatched. (Spec reviewed and approved; the milestone pointer in
+`SPEC.md` is updated to match.)
 v2 folds in the adversarial gap review
 (`docs/reviews/2026-06-15-verification-benchmark/GAPS.md`).
 
@@ -26,7 +27,7 @@ build was caught hiding real credential leaks — so this milestone fixes the
 confirmed leaks and stands up a test gate that actually runs secrets through the
 pipeline and proves nothing leaks.
 
-Decisions already taken by Arnold (2026-06-15):
+Decisions already taken by the maintainer (2026-06-15):
 - Spec everything in one place; tackle benchmark + confirmed defects together
   (this file).
 - Redactor field-leak fix = **hybrid**: drop git/time/event fields from
@@ -840,7 +841,7 @@ matrix meaningful.
 
 All scope decisions are now resolved; nothing below blocks building.
 
-**Resolved by Arnold (folded into the spec above):**
+**Resolved by the maintainer (folded into the spec above):**
 - **Passive-capture liveness (Q1)** → ship `qrt vault install-schedule` (timer +
   backfill); not a resident daemon — **with an explicit OS-timer test plan** (D12).
 - **Artifact placement (FIX-4) (Q2)** → central `~/.qratum/sessions/<session_id>/`

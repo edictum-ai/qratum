@@ -1,12 +1,12 @@
 # Qratum Vault-First Revision
 
-Status: Accepted 2026-06-14 (Arnold). Supersedes
+Status: Accepted 2026-06-14 (the maintainer). Supersedes
 `specs/current/memory-curation-pipeline.md` (now marked superseded) and
 revises parts of `specs/current/operational-model-redesign.md` (exact edits
 listed under "Spec hygiene"). Source analysis:
 `docs/reviews/2026-06-12-memory-architecture/`.
 
-Decisions already taken by Arnold (2026-06-12): all gateway verb work proceeds
+Decisions already taken by the maintainer (2026-06-12): all gateway verb work proceeds
 in phases; import namespaces are `personal` + `coding` with an extensible
 override map; unknown contentClass becomes a hard reject gateway-side; this
 session produces specs only — implementation requires an explicit milestone
@@ -274,7 +274,7 @@ Plain rule: do not build any of these until there is real evidence someone
 needs it. Each has a named trigger.
 
 - **Local search (SQLite FTS)** over redacted/normalized sessions. Trigger:
-  Arnold actually greps the vault twice. Note: this is the repo's first
+  the maintainer actually greps the vault twice. Note: this is the repo's first
   third-party Go dependency (CGO `mattn` vs `modernc.org/sqlite` tree) — an
   explicit supply-chain decision under `docs/supply-chain.md`, not ambient.
 - **Thin claude-ai-export normalizer**: only if summary/conversation mining is
@@ -322,7 +322,7 @@ overlay it:
 5. Milestones: replace the current P1-P5 ladder with vault-first sequencing
    (P1 = this vault spec; later milestones only on demonstrated pull).
 6. `SPEC.md`: point to this file; current milestone remains
-   P0-SPEC-AND-CONTRACTS until Arnold unlocks vault implementation.
+   P0-SPEC-AND-CONTRACTS until the maintainer unlocks vault implementation.
 7. New ADR 0010: vault-first; no one-person publish ceremony; the store owns
    its own curation; direct gateway calls with a locally-held credential are
    the integration mechanism.

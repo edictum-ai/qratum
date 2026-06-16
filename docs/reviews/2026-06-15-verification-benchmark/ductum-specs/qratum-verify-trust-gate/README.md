@@ -46,15 +46,13 @@ gateway being deployed** before its round-trip leak proof means anything.
 
 ## Gate before dispatching
 
-1. **Milestone unlock** — Qratum's current milestone is `P1-VAULT-FIRST` shipped;
-   `P2-VERIFY-TRUST-GATE` is **PROPOSED, awaiting Arnold's acceptance**
-   (`AGENTS.md` → Current Milestone). Every task in this package builds P2 runtime
-   and therefore **STOPS at its first stop condition** unless Arnold has explicitly
-   unlocked `P2-VERIFY-TRUST-GATE`. A dispatched agent must not implement
-   P2-or-later runtime behavior on its own.
-2. **Spec accepted** — `qratum/specs/current/verification-and-trust-gate.md` still
-   reads `Status: Proposed — v2, 2026-06-15 (awaiting Arnold)`. The Status line
-   must be flipped to "Accepted (date)" before any phase past the gate runs.
+1. **Milestone unlock — SATISFIED (2026-06-16).** `P2-VERIFY-TRUST-GATE` is
+   **accepted and unlocked** (`AGENTS.md` / `SPEC.md` → Current Milestone). The
+   per-task stop conditions for "milestone still locked" are therefore cleared.
+   (A dispatched agent must still not implement P3-or-later behavior on its own.)
+2. **Spec accepted — SATISFIED (2026-06-16).**
+   `qratum/specs/current/verification-and-trust-gate.md` now reads
+   `Status: Accepted 2026-06-16`.
 3. **Clean inputs** — the spec/review files each prompt reads must be committed
    (`git status --short` clean for those paths) so a task builds against a fixed
    contract, not a dirty working tree.
@@ -63,7 +61,7 @@ gateway being deployed** before its round-trip leak proof means anything.
    committed schema + the pinned-`--kind` archive path; its synthetic no-leak check
    is labeled "not-yet-meaningful as a leak proof," not faked green.
 
-## Manual, Arnold-only steps (never automated by a dispatched agent)
+## Manual, maintainer-only steps (never automated by a dispatched agent)
 
 - Running `qrt vault install-schedule` against the **real** home (installs an OS
   timer into `~/Library/LaunchAgents` / the systemd user dir). Agents build, test
@@ -78,7 +76,7 @@ builds and tests the commands; it must **never** run them against the real
 
 ## Decision Trace
 
-Decisions taken by Arnold on 2026-06-15 (folded into the spec above; see its §5):
+Decisions taken by the maintainer on 2026-06-15 (folded into the spec above; see its §5):
 
 - **Spec everything in one place** — benchmark + confirmed defects together.
 - **Scope = BOTH (insurance AND dream)** — reverses the earlier insurance-only
@@ -114,7 +112,7 @@ Decisions taken by Arnold on 2026-06-15 (folded into the spec above; see its §5
 ## Behavior Contract
 
 - [ ] FAILS the task: any phase implements P2 runtime while
-  `P2-VERIFY-TRUST-GATE` is still PROPOSED (not unlocked by Arnold).
+  `P2-VERIFY-TRUST-GATE` is still PROPOSED (not unlocked by the maintainer).
 - [ ] FAILS without a supply-chain decision: any new third-party Go dependency
   (the trust harness is **stdlib-only**); evidence: `make verify` / `make trust`.
 - [ ] FAILS if the hook parses/networks/calls an LLM or emits raw at runtime
@@ -131,7 +129,7 @@ Decisions taken by Arnold on 2026-06-15 (folded into the spec above; see its §5
 
 - Per-phase: each task carries its own concrete `make`/`sh` commands plus the
   isolated-`QRATUM_HOME` end-to-end proof. See each task's Verification.
-- Package-level: `make -C /Users/acartagena/project/qratum verify` (which after
+- Package-level: `make -C . verify` (which after
   P6 includes `trust`) is green; CI fails on any BLOCKING-RED gate (a regression
   of a green gate, or a KNOWN-RED past its deadline) and uploads the scorecard JSON.
 - `go test -race ./...` is clean (the FIX-6 TOCTOU and concurrency tests).

@@ -24,14 +24,14 @@ specs/current/memory-curation-pipeline.md    (SUPERSEDED 2026-06-12;
                                              historical only)
 ```
 
-One more spec exists, but Arnold has not signed it off yet. It changes nothing on this page until he accepts it.
+One more spec exists, but the maintainer has not signed it off yet. It changes nothing on this page until he accepts it.
 
 Proposed (not yet accepted):
 
 ```txt
 specs/current/verification-and-trust-gate.md (proposed 2026-06-15;
                                              P2-VERIFY-TRUST-GATE; awaiting
-                                             Arnold's acceptance — does not
+                                             the maintainer's acceptance — does not
                                              change this milestone until then)
 ```
 
@@ -51,19 +51,20 @@ specs/current/milestone-a/
 
 ## Current Milestone
 
-Where things stand right now, in one line: the vault-first phase (P1-VAULT-FIRST) has shipped, and the verify/trust-gate phase (P2-VERIFY-TRUST-GATE) is only proposed.
+Where things stand right now, in one line: the vault-first phase (P1-VAULT-FIRST) has shipped, and the verify/trust-gate phase (P2-VERIFY-TRUST-GATE) is now accepted and unlocked for implementation.
 
 ```txt
 P1-VAULT-FIRST — SHIPPED (merged, test-backed)
-P2-VERIFY-TRUST-GATE — PROPOSED (specs/current/verification-and-trust-gate.md;
-                       awaiting Arnold's acceptance)
+P2-VERIFY-TRUST-GATE — ACCEPTED / UNLOCKED 2026-06-16
+                       (specs/current/verification-and-trust-gate.md;
+                       dispatchable via the ductum package)
 ```
 
 The vault-first phase (P1-VAULT-FIRST) has shipped. It is merged, it runs from the `qrt` binary, and it is test-backed. The binary self-reports `milestone: vault-first` (Details: `specs/current/qratum-vault-first.md`).
 
 The earlier spec-and-contracts phase (P0-SPEC-AND-CONTRACTS — schemas, ADRs, source-of-truth cleanup) is substantially complete. Its remaining gaps are tracked under "Known P0 gaps" below.
 
-The next phase to unlock is the verify/trust-gate phase (P2-VERIFY-TRUST-GATE), but only if Arnold approves it. That phase is the verification benchmark plus the confirmed-defect fixes (Details: `specs/current/verification-and-trust-gate.md`).
+The verify/trust-gate phase (P2-VERIFY-TRUST-GATE) is now accepted and unlocked: the verification benchmark plus the confirmed-defect fixes (Details: `specs/current/verification-and-trust-gate.md`). It is delivered as the ductum spec package under `docs/reviews/2026-06-15-verification-benchmark/ductum-specs/qratum-verify-trust-gate/`.
 
 ## Shipped runtime (vault-first P1)
 
