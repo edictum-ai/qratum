@@ -15,39 +15,70 @@
 
 ---
 
-**Qratum** is a local-first library, vault, and review pipeline for AI coding
-sessions. It captures, preserves, normalizes, redacts, reviews, and searches
-every session — **without ever uploading your raw transcripts.** Single Go
-binary (`qrt`). No cloud, no accounts, no telemetry.
+**Qratum** keeps a permanent, private copy of your AI coding sessions on your own
+machine, so nothing is lost when the tool that made them deletes them. It is a
+local-first library, vault, and review pipeline for AI coding sessions. It
+captures, preserves, normalizes, redacts, reviews, and searches every session —
+**without ever uploading your raw transcripts.** Single Go binary (`qrt`). No
+cloud, no accounts, no telemetry.
 
 Qratum is the system of record for **where session data came from**: raw
 history, provenance, and deterministic derivations. The first user is the
 developer running it on their own machine.
 
+### Plain-language glossary
+
+A few terms used below, in plain words:
+
+- **Transcript** — the full text record of one AI coding session.
+- **Blob** — a single stored file in the vault (e.g. one captured transcript).
+- **Content-addressed / sha256-addressed** — each blob is named by a hash of its
+  own contents, so identical files are stored once and any change produces a new
+  name.
+- **Redaction** — automatically removing secrets and sensitive data before
+  anything is exported.
+- **Deterministic** — given the same input, it always produces the exact same
+  output (no randomness).
+- **Provenance** — the recorded history of where each piece of data came from and
+  how it was transformed.
+- **Tombstone** — a marker that records "this was removed" instead of silently
+  deleting it.
+- **ADP** — the redacted export format the refinery produces for downstream use.
+
 ## Highlights
 
-- **Local-first** — raw transcripts never leave your machine unless you explicitly approve. No cloud, no accounts, no telemetry.
-- **Single Go binary** — `qrt`, cross-platform. One file.
-- **Trust boundaries** — no silent data-class upgrades; deterministic redaction gates export; no raw routes.
-- **Content-addressed** — every blob is sha256-addressed and immutable; tombstones, never silent deletion.
+- **Local-first** — your data stays on your machine. Raw transcripts never leave it unless you explicitly approve. No cloud, no accounts, no telemetry.
+- **Single Go binary** — one file to install. `qrt`, cross-platform.
+- **Trust boundaries** — nothing leaks out by accident. No silent data-class upgrades; deterministic redaction gates export; no raw routes.
+- **Content-addressed** — files can't be silently changed or lost. Every blob is sha256-addressed and immutable; tombstones (removal is recorded), never silent deletion.
 
 ## Why
 
-AI coding tools delete your sessions. Claude Code purges transcripts after
-~30 days — months of debugging, decisions, and trajectories vanish, and nothing
-records provenance. Qratum fixes both: it preserves, and it remembers where the
-data came from.
+The tools that make your AI coding sessions also throw them away. Claude Code
+purges transcripts after ~30 days — months of debugging, decisions, and
+trajectories vanish, and nothing records where the data came from (its
+provenance). Qratum fixes both: it preserves your sessions, and it remembers
+where the data came from.
 
 ## Three pillars
 
-- **The Vault** — content-addressed capture & archive. A transcript the tool
-  deletes tomorrow is recoverable. Copy-on-capture, dedup by sha256,
-  `backup --verify`.
-- **The Refinery** — on demand: normalize → deterministic redaction → evidence →
-  review → report → corpus. Runs only when you ask. No daemon, no queue.
-- **Provenance** — every object carries `schema_version`, producer, and
-  transform version; data-class lineage `raw → redacted → review → corpus →
-  published`; tombstones, never silent deletion.
+Qratum is built on three parts:
+
+- **The Vault** — keeps a permanent, private copy of every session so nothing is
+  lost. It copies each transcript on capture and archives it by content hash, so
+  a transcript the tool deletes tomorrow is still recoverable. Identical files
+  are stored once (dedup by sha256), and `backup --verify` confirms the copy is
+  intact.
+- **The Refinery** — turns a raw session into a safe, reviewed export, but only
+  when you ask. On demand it runs each session through these steps: normalize →
+  deterministic redaction (remove secrets) → evidence → review → report →
+  corpus. It runs only when you ask (`qrt daemon run-once`): there is no standing
+  daemon and no background queue.
+- **Provenance** — records where every piece of data came from and how it
+  changed. Every object carries its `schema_version`, the producer that made it,
+  and the transform version that shaped it. Each one moves through a recorded
+  data-class lineage (`raw → redacted → review → corpus → published`), and
+  removal is always recorded as a tombstone — never a silent deletion.
 
 Local-first is the architecture, not a feature: raw never leaves the machine
 unless explicitly approved; no boundary may silently upgrade to a more
@@ -55,13 +86,30 @@ sensitive data class; deterministic redaction gates export.
 
 ## Status
 
-**Pre-1.0, spec phase (P0).** Milestone A (one local vertical slice) is proven
-and remains as compatibility/debug behavior while the new operational model is
-specified. The vault-first proposal is under review. Deterministic redaction is
-best-effort alpha. Nothing beyond Milestone A is promised as shipped.
+**Pre-1.0.** Here is what works today and what does not.
+
+The vault has shipped. The vault is the part that keeps the permanent private
+copy (P1, the vault-first runtime). These pieces are merged and test-backed: the
+copy-on-capture hook, the content-addressed blob store, `hook install`, the
+`vault backfill/archive/backup --verify/doctor` commands, and `status`. The
+Milestone A refinery (normalize → redact → evidence → review → report → ADP
+export) runs as on-demand tooling.
+
+Honest boundaries — three limits to know about today:
+
+- Redaction is not yet airtight. The automatic secret-removal step
+  (deterministic redaction) is **best-effort alpha** and has known gaps where
+  secrets can leak through. Closing those gaps is the proposed verification
+  trust gate work (P2-VERIFY-TRUST-GATE).
+- Re-deriving from a deleted source is not wired up yet. The preserved copy
+  covers the **raw blob** — a transcript the tool deletes is kept — but the
+  refinery currently reads the live transcript. So re-deriving the review/report
+  from a deleted source does not work yet.
+- Only local sessions are captured. Cloud and web sessions are not captured.
 
 - Source of truth: [`SPEC.md`](SPEC.md) → [`specs/current/operational-model-redesign.md`](specs/current/operational-model-redesign.md)
-- Vault-first proposal: [`specs/current/qratum-vault-first.md`](specs/current/qratum-vault-first.md)
+- Vault-first (accepted 2026-06-14, [ADR 0010](docs/decisions/0010-vault-first-and-direct-gateway-integration.md)): [`specs/current/qratum-vault-first.md`](specs/current/qratum-vault-first.md)
+- Verification benchmark (proposed 2026-06-15): [`specs/current/verification-and-trust-gate.md`](specs/current/verification-and-trust-gate.md)
 
 ## Quick start
 
