@@ -34,7 +34,7 @@ do not touch `edictum` or `edictum-harness`.
 | 4 | [P4-VAULT-INTEGRITY-LIFECYCLE.md](P4-VAULT-INTEGRITY-LIFECYCLE.md) | qratum | runtime/vault | Golden-leak lint (D5), source-scope guard (D13), backup consent+streaming (D8), recoverability + integrity proofs + `gc`+erasure (FIX-3/14/15/16, D2/D6/D6a, FIX-3 KNOWN-RED) | [ ] | P1 |
 | 5 | [P5-LIVENESS-SCHEDULER.md](P5-LIVENESS-SCHEDULER.md) | qratum | runtime/ops | Doctor truthfulness (D7) + `qrt vault install-schedule` + OS-timer test plan (D12) | [ ] | P1 |
 | 6 | [P6-TRUST-GATE-AND-CI.md](P6-TRUST-GATE-AND-CI.md) | qratum | trust/CI | `make trust` skeleton + three-state gate + scorecard JSON + `qrt trust` + wire into `make verify`/CI + CLI reconciliation | [ ] | P2, P3, P4, P5 |
-| 7 | [P7-CURATION-TIER.md](P7-CURATION-TIER.md) | qratum | contracts/import | `memory_import_receipt` schema + `--kind` archive round-trip (D10); behavioral round-trip gated | [ ] | P3 + personal-memory gateway deployed |
+| 7 | [P7-CURATION-TIER.md](P7-CURATION-TIER.md) | qratum | contracts/import | `memory_import_receipt` schema + `--kind` archive round-trip (D10); behavioral round-trip gated | [ ] | P3 |
 
 Dependency graph in plain terms: P1 stands alone (the cheapest, highest-value
 contained fixes). P2/P3/P4/P5 each build on P1 and are otherwise independent of
