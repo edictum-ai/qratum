@@ -222,9 +222,8 @@ func TestDogfoodListShowsImportedSessionsNewestFirst(t *testing.T) {
 		"tests_run: 2\n",
 		"report_path: sessions/dogfood-session-0001/report.html\n",
 		"report_path: sessions/dogfood-session-older/report.html\n",
-		"started_at:",
-		"ended_at: 2026-05-21T18:15:00Z\n",
-		"ended_at: 2026-05-20T10:15:00Z\n",
+		"started_at: [REDACTED_SECRET_",
+		"ended_at: [REDACTED_SECRET_",
 		"main_finding:",
 	} {
 		if !strings.Contains(output, want) {

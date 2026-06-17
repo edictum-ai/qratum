@@ -107,7 +107,7 @@ func TestReportDoesNotLeakFixtureSecrets(t *testing.T) {
 	}
 	report := readTextFile(t, qratumSessionArtifact(qratumHome, "ses_0001", "report.html"))
 	for _, raw := range []string{
-		"sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890",
+		"qratumSECRETtoken1234567890abcdef",
 		"supersecret",
 		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.signature",
 		"/Users/acartagena/project/qratum/.env",

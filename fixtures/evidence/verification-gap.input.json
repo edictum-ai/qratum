@@ -36,7 +36,7 @@
     }
   ],
   "git": {
-    "remote": "git@github.com:edictum-ai/qratum.git",
+    "remote": "https://example.invalid/qratum-fixture.git",
     "branch": "main",
     "head_sha": "0000000000000000000000000000000000000000"
   },

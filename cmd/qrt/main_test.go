@@ -506,7 +506,7 @@ func TestRedactSecretSessionFixtureMatchesGolden(t *testing.T) {
 
 	output := stdout.String()
 	for _, raw := range []string{
-		"sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890",
+		"qratumSECRETtoken1234567890abcdef",
 		"supersecret",
 		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.signature",
 		"/Users/acartagena/project/qratum/.env",
@@ -2160,11 +2160,12 @@ func assertFindingTypes(t *testing.T, findings []evidenceFinding, want []string)
 
 func setTestQratumHome(t *testing.T) string {
 	t.Helper()
-	if root := os.Getenv("QRATUM_HOME"); strings.TrimSpace(root) != "" {
-		return root
+	if os.Getenv("QRATUM_TEST_HOME_ACTIVE") == "1" {
+		return os.Getenv("QRATUM_HOME")
 	}
 	root := filepath.Join(t.TempDir(), "qratum-home")
 	t.Setenv("QRATUM_HOME", root)
+	t.Setenv("QRATUM_TEST_HOME_ACTIVE", "1")
 	return root
 }
 

@@ -52,6 +52,9 @@ const (
 	KindMemoryImport = "memory_import_receipt"
 	// KindUnknown labels uncategorized raw archive items.
 	KindUnknown = "unknown"
+	// MaxArchiveFileBytes caps a single raw archive copy. This is a permissions/
+	// containment guard, not at-rest encryption.
+	MaxArchiveFileBytes int64 = 50 << 20
 )
 
 // Store wraps access to the local vault workspace.
@@ -166,12 +169,18 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 	if err != nil {
 		return ArchiveResult{}, fmt.Errorf("resolve archive path %q: %w", req.OriginalPath, err)
 	}
-	info, err := os.Stat(originalPath)
+	info, err := os.Lstat(originalPath)
 	if err != nil {
 		return ArchiveResult{}, fmt.Errorf("inspect archive path %s: %w", filepath.ToSlash(originalPath), err)
 	}
-	if info.IsDir() {
-		return ArchiveResult{}, fmt.Errorf("archive path %s is a directory", filepath.ToSlash(originalPath))
+	if info.Mode()&os.ModeSymlink != 0 {
+		return ArchiveResult{}, fmt.Errorf("archive path %s is a symlink", filepath.ToSlash(originalPath))
+	}
+	if !info.Mode().IsRegular() {
+		return ArchiveResult{}, fmt.Errorf("archive path %s is not a regular file", filepath.ToSlash(originalPath))
+	}
+	if info.Size() > MaxArchiveFileBytes {
+		return ArchiveResult{}, fmt.Errorf("archive path %s exceeds %d byte capture cap", filepath.ToSlash(originalPath), MaxArchiveFileBytes)
 	}
 
 	if err := os.MkdirAll(s.Paths.RawBlobsTempDir(), 0o700); err != nil {
@@ -199,10 +208,14 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 	}()
 
 	hash := sha256.New()
-	size, err := io.Copy(io.MultiWriter(tmp, hash), src)
+	size, err := io.Copy(io.MultiWriter(tmp, hash), io.LimitReader(src, MaxArchiveFileBytes+1))
 	if err != nil {
 		_ = tmp.Close()
 		return ArchiveResult{}, fmt.Errorf("copy archive path %s: %w", filepath.ToSlash(originalPath), err)
+	}
+	if size > MaxArchiveFileBytes {
+		_ = tmp.Close()
+		return ArchiveResult{}, fmt.Errorf("archive path %s exceeds %d byte capture cap", filepath.ToSlash(originalPath), MaxArchiveFileBytes)
 	}
 	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()

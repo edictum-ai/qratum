@@ -1,0 +1,5 @@
+crypto/sha256
+github.com/edictum-ai/qratum/internal/vault
+github.com/edictum-ai/qratum/internal/workspace
+io
+os
