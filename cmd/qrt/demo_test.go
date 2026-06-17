@@ -24,7 +24,7 @@ func TestMakeDemoProducesFullMilestoneSlice(t *testing.T) {
 		"QRATUM_HOME=",
 		"qratum daemon run-once",
 		"processed: 1",
-		"claude-session-0001\t.qratum/sessions/",
+		"claude-session-0001\t.qratum-home.",
 		"Verified UI DTOs for session claude-session-0001",
 		"Generated artifacts:",
 	} {
@@ -51,12 +51,12 @@ func TestMakeDemoProducesFullMilestoneSlice(t *testing.T) {
 		{label: "vault event", pattern: filepath.Join(qratumHome, "events", "*.json")},
 		{label: "vault raw ref", pattern: filepath.Join(qratumHome, "raw", "refs", "*.json")},
 		{label: "vault raw blob", pattern: filepath.Join(qratumHome, "raw", "blobs", "sha256", "*", "*")},
-		{label: "normalized session", pattern: ".qratum/sessions/*.normalized.json"},
-		{label: "redacted session", pattern: ".qratum/redacted/*.redacted.json"},
-		{label: "evidence", pattern: ".qratum/evidence/*.evidence.json"},
-		{label: "review", pattern: ".qratum/reviews/*.review.json"},
-		{label: "HTML report", pattern: ".qratum/reports/*.html"},
-		{label: "ADP strict export", pattern: ".qratum/exports/*.adp.jsonl"},
+		{label: "normalized session", pattern: filepath.Join(qratumHome, "sessions", "*", "normalized.json")},
+		{label: "redacted session", pattern: filepath.Join(qratumHome, "sessions", "*", "redacted.json")},
+		{label: "evidence", pattern: filepath.Join(qratumHome, "sessions", "*", "evidence.json")},
+		{label: "review", pattern: filepath.Join(qratumHome, "sessions", "*", "review.json")},
+		{label: "HTML report", pattern: filepath.Join(qratumHome, "sessions", "*", "report.html")},
+		{label: "ADP strict export", pattern: filepath.Join(qratumHome, "sessions", "*", "session.adp.jsonl")},
 	} {
 		pattern := expected.pattern
 		if !filepath.IsAbs(pattern) {
@@ -108,13 +108,13 @@ func TestDemoArtifactVerifierRejectsMissingArtifacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{
-		".qratum/sessions/demo.normalized.json",
-		".qratum/redacted/demo.redacted.json",
-		".qratum/reviews/demo.review.json",
-		".qratum/reports/demo.html",
-		".qratum/exports/demo.adp.jsonl",
+		"sessions/demo/normalized.json",
+		"sessions/demo/redacted.json",
+		"sessions/demo/review.json",
+		"sessions/demo/report.html",
+		"sessions/demo/session.adp.jsonl",
 	} {
-		abs := filepath.Join(root, filepath.FromSlash(path))
+		abs := filepath.Join(qratumHome, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -122,7 +122,7 @@ func TestDemoArtifactVerifierRejectsMissingArtifacts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(root, ".qratum", "evidence"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(qratumHome, "sessions", "demo"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 

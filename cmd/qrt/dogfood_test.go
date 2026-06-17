@@ -25,9 +25,9 @@ func TestDogfoodImportRealShapedFixtureWritesArtifacts(t *testing.T) {
 	for _, want := range []string{
 		"qratum dogfood import\n",
 		"session_id: dogfood-session-0001\n",
-		"review_path: .qratum/reviews/dogfood-session-0001.review.json\n",
-		"html_report_path: .qratum/reports/dogfood-session-0001.html\n",
-		"adp_export_path: .qratum/exports/dogfood-session-0001.adp.jsonl\n",
+		"review_path: sessions/dogfood-session-0001/review.json\n",
+		"html_report_path: sessions/dogfood-session-0001/report.html\n",
+		"adp_export_path: sessions/dogfood-session-0001/session.adp.jsonl\n",
 	} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, missing %q", stdout.String(), want)
@@ -35,14 +35,14 @@ func TestDogfoodImportRealShapedFixtureWritesArtifacts(t *testing.T) {
 	}
 
 	for _, path := range []string{
-		".qratum/sessions/dogfood-session-0001.normalized.json",
-		".qratum/redacted/dogfood-session-0001.redacted.json",
-		".qratum/evidence/dogfood-session-0001.evidence.json",
-		".qratum/reviews/dogfood-session-0001.review.json",
-		".qratum/reports/dogfood-session-0001.html",
-		".qratum/exports/dogfood-session-0001.adp.jsonl",
+		"sessions/dogfood-session-0001/normalized.json",
+		"sessions/dogfood-session-0001/redacted.json",
+		"sessions/dogfood-session-0001/evidence.json",
+		"sessions/dogfood-session-0001/review.json",
+		"sessions/dogfood-session-0001/report.html",
+		"sessions/dogfood-session-0001/session.adp.jsonl",
 	} {
-		info, err := os.Stat(path)
+		info, err := os.Stat(artifactAbsolutePath(root, path))
 		if err != nil {
 			t.Fatalf("stat %s: %v", path, err)
 		}
@@ -51,11 +51,11 @@ func TestDogfoodImportRealShapedFixtureWritesArtifacts(t *testing.T) {
 		}
 	}
 
-	review := []byte(readTextFile(t, ".qratum/reviews/dogfood-session-0001.review.json"))
+	review := []byte(readTextFile(t, artifactAbsolutePath(root, "sessions/dogfood-session-0001/review.json")))
 	assertJSONEqual(t, review, readDogfoodFixture(t, "real-shaped-transcript.golden.review.json"))
 
 	var session qratumSession
-	readJSONFile(t, ".qratum/sessions/dogfood-session-0001.normalized.json", &session)
+	readJSONFile(t, artifactAbsolutePath(root, "sessions/dogfood-session-0001/normalized.json"), &session)
 	if got, want := session.AgentModel, "claude-sonnet-4-20250514"; got != want {
 		t.Fatalf("agent_model = %q, want %q", got, want)
 	}
@@ -99,16 +99,16 @@ func TestDogfoodImportDoesNotCopyRawTranscriptContent(t *testing.T) {
 	if strings.Contains(stdout.String(), "RAW_TRANSCRIPT_COPY_CANARY") || strings.Contains(stderr.String(), "RAW_TRANSCRIPT_COPY_CANARY") {
 		t.Fatalf("dogfood output printed raw transcript canary; stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
-	assertQratumTreeDoesNotContain(t, ".qratum", []string{
+	assertQratumTreeDoesNotContain(t, setTestQratumHome(t), []string{
 		"RAW_TRANSCRIPT_COPY_CANARY",
 		"/Users/example/dev/qratum",
 	})
-	if matches, err := filepath.Glob(".qratum/**/*.jsonl"); err != nil {
+	if matches, err := filepath.Glob(filepath.Join(setTestQratumHome(t), "sessions", "*", "*.jsonl")); err != nil {
 		t.Fatal(err)
 	} else {
 		for _, match := range matches {
 			if strings.Contains(filepath.ToSlash(match), "real-shaped-transcript") {
-				t.Fatalf("raw transcript appears to have been copied into .qratum: %s", match)
+				t.Fatalf("raw transcript appears to have been copied into qratum home: %s", match)
 			}
 		}
 	}
@@ -155,8 +155,8 @@ func TestDogfoodLatestPrintsCompactReview(t *testing.T) {
 		"- reliability.repeated_failing_command:",
 		"evidence:\n",
 		"suggested_next_habit: After the last edit, run the project's verification command and keep the result in the session.\n",
-		"html_report_path: .qratum/reports/dogfood-session-0001.html\n",
-		"adp_export_path: .qratum/exports/dogfood-session-0001.adp.jsonl\n",
+		"html_report_path: sessions/dogfood-session-0001/report.html\n",
+		"adp_export_path: sessions/dogfood-session-0001/session.adp.jsonl\n",
 	} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("stdout = %q, missing %q", stdout.String(), want)
@@ -220,11 +220,10 @@ func TestDogfoodListShowsImportedSessionsNewestFirst(t *testing.T) {
 		"files_changed: 1\n",
 		"commands_run: 2\n",
 		"tests_run: 2\n",
-		"report_path: .qratum/reports/dogfood-session-0001.html\n",
-		"report_path: .qratum/reports/dogfood-session-older.html\n",
-		"started_at:",
-		"ended_at: 2026-05-21T18:15:00Z\n",
-		"ended_at: 2026-05-20T10:15:00Z\n",
+		"report_path: sessions/dogfood-session-0001/report.html\n",
+		"report_path: sessions/dogfood-session-older/report.html\n",
+		"started_at: [REDACTED_SECRET_",
+		"ended_at: [REDACTED_SECRET_",
 		"main_finding:",
 	} {
 		if !strings.Contains(output, want) {
@@ -268,8 +267,8 @@ func TestDogfoodShowPrintsDetailWithArtifactPaths(t *testing.T) {
 		"last_file_change_at: 2026-05-21T18:12:00Z\n",
 		"last_test_command_at: 2026-05-21T18:07:00Z\n",
 		"last_successful_verification_at: -\n",
-		"html_report_path: .qratum/reports/dogfood-session-0001.html\n",
-		"adp_export_path: .qratum/exports/dogfood-session-0001.adp.jsonl\n",
+		"html_report_path: sessions/dogfood-session-0001/report.html\n",
+		"adp_export_path: sessions/dogfood-session-0001/session.adp.jsonl\n",
 	} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Fatalf("dogfood show output missing %q:\n%s", want, stdout.String())
@@ -387,6 +386,7 @@ func readDogfoodFixture(t *testing.T, name string) []byte {
 
 func writeDogfoodFixture(t *testing.T, root string, name string) {
 	t.Helper()
+	setTestQratumHome(t)
 	target := filepath.Join(root, "fixtures", "dogfood", name)
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		t.Fatal(err)
@@ -398,28 +398,35 @@ func writeDogfoodFixture(t *testing.T, root string, name string) {
 
 func cloneDogfoodArtifacts(t *testing.T, paths daemonArtifactPaths, mutate func([]byte) []byte) {
 	t.Helper()
+	projectRoot, err := currentProjectRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourcePaths := artifactPathsForStem("dogfood-session-0001")
 	for _, item := range []struct {
 		source string
 		target string
 	}{
-		{source: ".qratum/sessions/dogfood-session-0001.normalized.json", target: paths.Session},
-		{source: ".qratum/redacted/dogfood-session-0001.redacted.json", target: paths.Redacted},
-		{source: ".qratum/evidence/dogfood-session-0001.evidence.json", target: paths.Evidence},
-		{source: ".qratum/reviews/dogfood-session-0001.review.json", target: paths.Review},
-		{source: ".qratum/reports/dogfood-session-0001.html", target: paths.Report},
-		{source: ".qratum/exports/dogfood-session-0001.adp.jsonl", target: paths.Export},
+		{source: sourcePaths.Session, target: paths.Session},
+		{source: sourcePaths.Redacted, target: paths.Redacted},
+		{source: sourcePaths.Evidence, target: paths.Evidence},
+		{source: sourcePaths.Review, target: paths.Review},
+		{source: sourcePaths.Report, target: paths.Report},
+		{source: sourcePaths.Export, target: paths.Export},
 	} {
-		data, err := os.ReadFile(item.source)
+		sourcePath := artifactAbsolutePath(projectRoot, item.source)
+		data, err := os.ReadFile(sourcePath)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if mutate != nil {
 			data = mutate(data)
 		}
-		if err := os.MkdirAll(filepath.Dir(item.target), 0o755); err != nil {
+		targetPath := artifactAbsolutePath(projectRoot, item.target)
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(item.target, data, 0o644); err != nil {
+		if err := os.WriteFile(targetPath, data, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

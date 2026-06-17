@@ -76,7 +76,7 @@ func report(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: render report: %v\n", err)
 		return 1
 	}
-	if err := writeFileAtomic(outputPath, data, 0o644); err != nil {
+	if err := writeFileAtomic(outputPath, data, 0o600); err != nil {
 		fmt.Fprintf(stderr, "error: write report %s: %v\n", displayPath(projectRoot, outputPath), err)
 		return 1
 	}
@@ -300,19 +300,13 @@ func writeSessionSummary(b *strings.Builder, detail uiSessionDetail, sessionPath
 	writeTableRow(b, "Agent model", detail.AgentModel)
 	writeTableRow(b, "Input session artifact", sessionPath)
 	writeTableRow(b, "Status", detail.Summary.Status)
-	writeTableRow(b, "Started at", detail.Time.StartedAt)
-	writeTableRow(b, "Ended at", detail.Time.EndedAt)
 	writeTableRow(b, "Duration seconds", fmt.Sprintf("%d", detail.Time.DurationSeconds))
-	writeTableRow(b, "Source event ID", detail.Summary.SourceEventID)
 	writeTableRow(b, "Source event type", detail.Summary.SourceEventType)
 	writeTableRow(b, "Source event timestamp", detail.Summary.SourceEventTimestamp)
 	writeTableRow(b, "Source transcript session ID", detail.Summary.SourceTranscriptSessionID)
 	writeTableRow(b, "Workspace ID", detail.Repo.WorkspaceID)
 	writeTableRow(b, "Repo ID", detail.Repo.RepoID)
 	writeTableRow(b, "CWD", detail.Repo.CWD)
-	writeTableRow(b, "Git remote", detail.Repo.GitRemote)
-	writeTableRow(b, "Git branch", detail.Repo.GitBranch)
-	writeTableRow(b, "Git head SHA", detail.Repo.GitHeadSHA)
 	writeTableRow(b, "Turns", fmt.Sprintf("%d", detail.Summary.Turns))
 	writeTableRow(b, "Tool calls", fmt.Sprintf("%d", detail.Summary.ToolCalls))
 	writeTableRow(b, "Files changed", fmt.Sprintf("%d", detail.Summary.FilesChanged))

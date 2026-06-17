@@ -12,7 +12,9 @@ import (
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
-const version = "dev"
+// version is the build version. It defaults to "dev" for local builds and is
+// overridden at release time via -ldflags "-X main.version={{.Version}}".
+var version = "dev"
 
 func main() {
 	os.Exit(runWithIO(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
@@ -121,5 +123,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | hook install | hook status | vault doctor | vault backfill | vault archive <path> [--kind K] | vault backup [--verify] <dest> | daemon run-once | dogfood import <transcript_path> | dogfood latest | dogfood list | dogfood show <session_id> | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | hook install | hook status | vault doctor | vault backfill | vault archive <path> [--kind K] | vault backup [--verify] <dest> | daemon run-once | dogfood import <transcript_path> | dogfood latest | dogfood list | dogfood show <session_id> | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list [--repo <repo_id>] | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
 }

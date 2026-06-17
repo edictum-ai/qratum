@@ -139,10 +139,12 @@
     "test file change in the same session"
   ],
   "artifact_paths": {
-    "session": "fixtures/evidence/verification-gap.input.json",
-    "evidence": ".qratum/evidence/ses_0001.evidence.json",
-    "review": ".qratum/reviews/ses_0001.review.json",
-    "report": ".qratum/reports/ses_0001.html",
-    "export": ".qratum/exports/ses_0001.adp.jsonl"
+    "event": "events/ses_0001.json",
+    "session": "sessions/ses_0001/normalized.json",
+    "redacted": "sessions/ses_0001/redacted.json",
+    "evidence": "sessions/ses_0001/evidence.json",
+    "review": "sessions/ses_0001/review.json",
+    "report": "sessions/ses_0001/report.html",
+    "export": "sessions/ses_0001/session.adp.jsonl"
   }
 }

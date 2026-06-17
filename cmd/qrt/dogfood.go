@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const dogfoodImportStatus = "dogfood_imported"
@@ -149,7 +151,7 @@ func writeDogfoodArtifacts(projectRoot string, paths daemonArtifactPaths, sessio
 		if strings.TrimSpace(file.rel) == "" {
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(file.abs), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(file.abs), 0o700); err != nil {
 			return fmt.Errorf("create artifact directory for %s: %w", file.rel, err)
 		}
 	}
@@ -158,15 +160,15 @@ func writeDogfoodArtifacts(projectRoot string, paths daemonArtifactPaths, sessio
 		path string
 		data []byte
 	}{
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Session)), mustJSON(safeSession)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Redacted)), mustJSON(redactedSession)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Evidence)), mustJSON(evidenceBundle)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Review)), mustJSON(reviewCard)},
-		{filepath.Join(projectRoot, filepath.FromSlash(paths.Export)), adpExport},
+		{artifactAbsolutePath(projectRoot, paths.Session), mustJSON(safeSession)},
+		{artifactAbsolutePath(projectRoot, paths.Redacted), mustJSON(redactedSession)},
+		{artifactAbsolutePath(projectRoot, paths.Evidence), mustJSON(evidenceBundle)},
+		{artifactAbsolutePath(projectRoot, paths.Review), mustJSON(reviewCard)},
+		{artifactAbsolutePath(projectRoot, paths.Export), adpExport},
 	}
 
 	for _, write := range writes {
-		if err := writeFileAtomic(write.path, write.data, 0o644); err != nil {
+		if err := writeFileAtomic(write.path, write.data, 0o600); err != nil {
 			return fmt.Errorf("write artifact %s: %w", displayPath(projectRoot, write.path), err)
 		}
 	}
@@ -183,8 +185,8 @@ func writeDogfoodArtifacts(projectRoot string, paths daemonArtifactPaths, sessio
 	if err != nil {
 		return fmt.Errorf("build report for session %s: %w", session.SessionID, err)
 	}
-	reportPath := filepath.Join(projectRoot, filepath.FromSlash(paths.Report))
-	if err := writeFileAtomic(reportPath, reportData, 0o644); err != nil {
+	reportPath := artifactAbsolutePath(projectRoot, paths.Report)
+	if err := writeFileAtomic(reportPath, reportData, 0o600); err != nil {
 		return fmt.Errorf("write artifact %s: %w", displayPath(projectRoot, reportPath), err)
 	}
 	return nil
@@ -367,7 +369,11 @@ func dogfoodShow(sessionID string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func loadDogfoodSessions(projectRoot string) ([]dogfoodSessionEntry, error) {
-	sessionsDir := filepath.Join(projectRoot, ".qratum", "sessions")
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		return nil, err
+	}
+	sessionsDir := filepath.Join(qratumHome.Root, "sessions")
 	info, err := os.Stat(sessionsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -379,7 +385,7 @@ func loadDogfoodSessions(projectRoot string) ([]dogfoodSessionEntry, error) {
 		return nil, fmt.Errorf("sessions path %s is not a directory", displayPath(projectRoot, sessionsDir))
 	}
 
-	paths, err := filepath.Glob(filepath.Join(sessionsDir, "*.normalized.json"))
+	paths, err := filepath.Glob(filepath.Join(sessionsDir, "*", "normalized.json"))
 	if err != nil {
 		return nil, fmt.Errorf("list sessions directory %s: %w", displayPath(projectRoot, sessionsDir), err)
 	}

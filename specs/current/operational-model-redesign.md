@@ -3,10 +3,59 @@
 Status: design/spec draft. Do not implement until this document is accepted and
 split into implementation prompts.
 
+## Plain-language glossary
+
+These words show up throughout. Here is what they mean in everyday terms.
+
+- **Raw / transcript:** the original conversation file a source tool wrote
+  (for example, a Claude Code session log). It can contain anything the user
+  typed or the agent saw.
+- **Vault / raw archive:** Qratum's safe local copy of those raw files, kept so
+  they survive even after the source tool deletes them.
+- **Redaction:** removing or masking secrets (API keys, tokens, etc.) from data
+  before it can move anywhere riskier.
+- **Blob:** a single stored file, named by its content hash so identical files
+  are stored once. "World-readable blob" means a stored file other users on the
+  machine could open.
+- **Digest / hash (sha256):** a fingerprint of some bytes. Same bytes give the
+  same fingerprint; any change gives a different one.
+- **Content-addressed:** stored and looked up by that fingerprint, not by a
+  filename or path.
+- **Idempotent (runs every time without making changes):** you can run it again
+  and again and it does not duplicate work or cause new side effects.
+- **Monotonic:** only moves in one direction; never silently goes backward.
+- **Data class:** a sensitivity label on a piece of data (raw, redacted,
+  review, metrics, lesson, corpus, publishable, published).
+- **Consent:** a recorded human approval for a sensitive action.
+- **Provenance:** the recorded history of how an object was produced — which
+  inputs, which transform versions, which model.
+- **ADP:** an export format family (ADP-style JSONL) Qratum can write.
+- **DTO (data transfer object):** a clean shaped object the UI consumes, instead
+  of Qratum's raw internal pipeline objects.
+- **Source adapter:** the code that knows how to read and normalize one specific
+  source tool (Claude Code is the first one).
+- **Facet:** an AI- or classifier-assigned label on a session (its goal,
+  outcome, friction, and so on).
+- **Signal:** a low-level observation (deterministic or AI-generated) that may
+  feed findings, metrics, lessons, or corpus scoring.
+- **Finding:** a concrete, user-relevant issue or observation with evidence.
+- **Corpus:** cleaned, scored, provenance-bound trajectory data prepared for
+  export to some downstream consumer.
+- **Trajectory:** the ordered sequence of what happened in a session
+  (messages plus tool calls).
+- **Recall / precision (used for the redaction benchmark):** recall is "of all
+  the secrets present, how many did we catch"; precision is "of everything we
+  flagged, how much was actually a secret."
+- **Planted-secret corpus:** a test set seeded with known secrets so we can
+  measure how many the redactor catches (recall).
+- **TOCTOU (time-of-check to time-of-use):** a bug class where something changes
+  between when you check it and when you act on it.
+
 ## One-Sentence Product
 
-Qratum is a local-first AI session librarian: preserve first, then use
-on-demand review, search, and curation only when they earn their keep.
+Qratum is a local-first AI session librarian. It preserves your AI coding
+sessions first, then offers review, search, and curation on demand — only when
+those features earn their keep.
 
 The first user is the person running Qratum on their own machine. The first
 valuable loop is:
@@ -25,12 +74,15 @@ and turn them into longer-lived Knowledge with cross-source links.
 
 ## Locked Product Decisions
 
-Unlocked and rewritten on 2026-06-14 after the accepted vault-first review.
-Re-measured at 2026-06-14T15:33:55Z: repo-local capture had 80 event files, 43
-referenced transcript paths were already missing, and
+These are the decisions already taken. They were unlocked and rewritten on
+2026-06-14 after the accepted vault-first review.
+
+For context, here is what the machine actually looked like when re-measured at
+2026-06-14T15:33:55Z: repo-local capture had 80 event files; 43 of the
+transcript paths they referenced were already missing; and
 `~/.claude/projects/**/*.jsonl` held 305 local transcripts totaling about 99.1
-MB. These are volatile observations, not targets; they justify preservation
-first.
+MB. These are volatile observations, not targets. They are here because they
+justify the "preserve first" priority.
 
 - Long-term shape: local-first personal librarian for AI session data, with
   on-demand refinery work that must earn itself.
@@ -65,6 +117,9 @@ first.
 
 ## What The Current Milestone A Proves
 
+This section sorts the existing Milestone A work into things worth keeping and
+things to rebuild.
+
 Keep:
 
 - Go single binary.
@@ -89,6 +144,9 @@ Redo:
   contracts.
 
 ## Core Primitives
+
+These are the building-block objects Qratum works with. Each line names the
+object and says, in plain terms, what it represents.
 
 - Workspace: the local Qratum environment under `~/.qratum`.
 - Source: an AI coding tool or import format.
@@ -120,7 +178,7 @@ Redo:
 - Provenance: input digests, transform versions, scorer versions, and data class
   history.
 
-Object hierarchy:
+Object hierarchy (which object sits on top of which):
 
 ```txt
 SessionRevision = normalized source data
@@ -143,6 +201,9 @@ can appear as "labels" and `Signal` can appear as "detected evidence".
 
 ## Architecture Style
 
+In short: keep the core business objects clean and stable, and push everything
+that talks to the outside world behind clear boundaries.
+
 Qratum uses lightweight DDD plus ports and adapters.
 
 Rules:
@@ -158,6 +219,9 @@ Rules:
 - Do not introduce abstractions until the boundary is real.
 
 ## Schema Registry
+
+The contracts that different processes rely on live as schema files. This
+section lists them and flags which names ship today versus which are the target.
 
 Qratum's cross-process contracts live in `schemas/`. Go types may be handwritten
 or generated, but JSON Schema files are the source of truth for stored objects,
@@ -188,6 +252,19 @@ schemas/
   qratum.import_plan.v1.schema.json
 ```
 
+> **Reconciliation notes (2026-06-15):** the layout above is the *target* shape,
+> not what is on disk today. Two things to know:
+> - The schemas that actually ship today use **hyphen** names (`qratum-event.v1`,
+>   `qratum-session.v1`, `qratum-review-card.v1`, `qratum-evidence.v1`,
+>   `qratum-raw-ref.v1`, `qratum-provenance.v1`, plus the `schemas/ui/` DTOs). The
+>   rename/migration to the dot-named layout is P0 contract work, tracked by the
+>   schema-naming-and-validator decision (`verification-and-trust-gate.md` D9),
+>   which also adds the missing `additionalProperties:false` and a validator.
+> - `qratum.lesson.v1`, `qratum.publish_manifest.v1`, and any
+>   `memory_export`/`memory_bundle` schema are **deferred/dead** per
+>   `qratum-vault-first.md` §Dead — do not author them at P0.
+>   `qratum.consent.v1` is **future-only** (see §Consent Records below).
+
 Rules:
 
 ```txt
@@ -197,7 +274,7 @@ Migration plans reference source and target schema versions.
 UI DTOs have their own schemas when they become stable contracts.
 ```
 
-Use cases:
+Use cases (the named operations Qratum performs):
 
 ```txt
 SetupWorkspace
@@ -218,7 +295,7 @@ RetryJob
 RepairObject
 ```
 
-Ports:
+Ports (the boundaries to the outside world):
 
 ```txt
 ObjectStore
@@ -229,7 +306,6 @@ SignalDetector
 ReviewEngine
 AIProvider
 SearchBackend
-AnalyticsBackend
 Renderer
 Exporter
 Publisher
@@ -239,7 +315,8 @@ Clock
 IDGenerator
 ```
 
-Expected adapters across milestones:
+Expected adapters across milestones (the concrete implementations behind those
+ports):
 
 ```txt
 FilesystemObjectStore
@@ -257,7 +334,10 @@ LocalFolderPublisher
 
 ## Object Lifecycle
 
-Product lifecycle:
+This section traces one session from capture through to a published bundle, and
+spells out which steps are automatic versus gated.
+
+Product lifecycle (the path data travels):
 
 ```txt
 Capture
@@ -276,7 +356,7 @@ Capture
   -> Publish bundles
 ```
 
-Transition rules:
+Transition rules (what triggers each step, and whether it needs approval):
 
 ```txt
 Capture -> RawRef
@@ -317,6 +397,9 @@ Jobs track work on transitions. They are not the product lifecycle. A failed
 job can be retried without rerunning the whole import or pipeline.
 
 ## Central Workspace Layout
+
+Everything Qratum manages lives in one folder under the user's home directory.
+This section shows the full v2 folder tree, then flags what actually ships today.
 
 All Qratum-managed state lives under the user's workspace.
 
@@ -377,6 +460,17 @@ All Qratum-managed state lives under the user's workspace.
     migrations/
 ```
 
+> **Shipped vs target (2026-06-15):** the tree above is the *full v2* layout. The
+> shipped vault-minimum workspace is much smaller — only `raw/blobs/`,
+> `raw/refs/`, `events/`, and `state/vault.json` (per `qratum-vault-first.md`).
+> The `daemon/` directory (`pid`/`lock`/`app_auth.json`) assumes a **resident
+> daemon, which is still an open decision** — see the daemon-vs-no-daemon
+> question (`verification-and-trust-gate.md` §5 / D12). Only
+> `qrt daemon run-once` and `qrt vault backfill` are committed today, both
+> manual; no scheduler ships. Note: derived refinery artifacts currently land in
+> repo-local `./.qratum/`, not under `~/.qratum/` — moving them here is target
+> state tracked by the centralize-workspace fix (trust-gate D11/FIX-4).
+
 Repositories are metadata and context only. Qratum stores repo path, branch,
 remote, head SHA, working tree status, and source discovery hints centrally.
 
@@ -384,6 +478,10 @@ If a user exports or publishes a bundle into a folder, bucket, endpoint, or
 repository, that destination is a publish target, not Qratum working state.
 
 ## Config Shape
+
+There is one config file, and it is generated for the user, not hand-written.
+This section shows the target full config and flags which blocks are not
+day-one defaults.
 
 `~/.qratum/config.toml` is autogenerated on first use. First use can be `qrt`,
 `qrt setup`, `qrt import`, or `qrt open`.
@@ -393,6 +491,14 @@ only common options and detected values. Advanced options are discoverable
 through CLI help, the local app settings page, and `config.schema.json`.
 
 Example generated personal config:
+
+> **Earned-later defaults (2026-06-15):** the example below shows the *target*
+> full config. Per the accepted "primary surface: CLI + vault; app earned later"
+> decision, the `[app]`, `[worker]`, and `[backend] mode = "sqlite"` blocks are
+> **not** day-one defaults. The vault-first install configures hook + backfill +
+> backup only. `[backend]` defaults to `"none"` (file-backed views) until SQLite
+> search is unlocked as an explicit supply-chain decision; `[app]` and `[worker]`
+> stay off until the local app surface is earned.
 
 ```toml
 [raw]
@@ -480,6 +586,10 @@ none
 
 ## Raw Archive And Retention
 
+The point here is simple: copy the original transcripts somewhere safe before
+the source tool can delete them, and never throw those copies away unless the
+user says so.
+
 Setup asks whether to archive raw transcripts. The default answer can be
 references only, but the personal configuration should support raw copy.
 
@@ -504,7 +614,7 @@ Suggested raw storage:
     raw_abc123.json
 ```
 
-Raw ref shape:
+Raw ref shape (a small JSON record pointing at one archived raw file):
 
 ```json
 {
@@ -522,7 +632,7 @@ Raw ref shape:
 }
 ```
 
-Raw kinds:
+Raw kinds (what type of raw file each blob is):
 
 ```txt
 main_transcript
@@ -533,7 +643,8 @@ source_metadata
 unknown
 ```
 
-The local app must show data class badges:
+The local app must show data class badges so the user can always see how
+sensitive a piece of data is:
 
 ```txt
 raw
@@ -547,6 +658,9 @@ published
 ```
 
 ## Trust Boundaries
+
+Trust boundaries are the gates that stop data from quietly moving somewhere more
+dangerous than where it started. This section lists each gate and its default.
 
 Trust boundaries prevent accidental data movement.
 
@@ -572,6 +686,22 @@ Boundary defaults:
 | Export | Explicit command/approval only. Eligibility checked first. |
 | Publish | Manual first. Raw forbidden by default. Destination recorded in manifest. |
 
+> **Warning — redaction is best-effort alpha (2026-06-15), with known leaks.** The
+> Redaction boundary above is the *intended* contract, not a proven guarantee.
+> The shipped deterministic redactor only matches an enumerated set of secret
+> classes, and it currently leaks in several ways:
+> - a `=>` assignment edge case (the real value survives after the placeholder);
+> - the fields `git.branch`, `git.head_sha`, `started_at`, `ended_at`, and
+>   `source_event_id` are not routed through redaction at all;
+> - SSH-style git remotes (`git@host:org/repo.git`) are not caught;
+> - and a committed golden fixture ships some of these unredacted.
+>
+> Closing these gaps — and proving it with a planted-secret recall benchmark — is
+> the proposed verification-and-trust-gate work (P2-VERIFY-TRUST-GATE), namely
+> the redaction-completeness and benchmark decisions
+> (`verification-and-trust-gate.md` D3/D4, FIX-1/FIX-2). Do not rely on redaction
+> as the sole barrier until that gate is green.
+
 Every boundary should answer:
 
 ```txt
@@ -586,6 +716,10 @@ Is user approval required?
 
 ## Consent Records
 
+When the user approves something sensitive, Qratum records that approval. For
+the MVP this record is deliberately tiny: a one-line audit event. A richer
+consent record exists only as documented future work.
+
 Config is default policy. For the vault-first MVP, consent storage stays
 intentionally small: config carries the defaults, and each sensitive action
 writes a one-line audit event describing what was approved, by whom, for what
@@ -595,13 +729,13 @@ This deliberately mirrors Edictum's "policy default + audited override"
 semantics, but it is a documented resemblance only. Qratum does not depend on
 Edictum runtime or storage to do it.
 
-MVP audit event example:
+MVP audit event example (this is the shipped MVP behavior):
 
 ```json
 {"event_type":"consent_audit","scope":"external_ai_redacted","decision":"approved","approved_by":"local_user","approved_at":"2026-05-24T10:10:00Z","object_selector":{"type":"current_workspace","object_ids":[]},"provider":"openrouter","destination":null,"created_from":"local_cli"}
 ```
 
-Future full consent record shape (documented here, not MVP behavior):
+Future full consent record shape (documented here, **not** MVP behavior):
 
 ```json
 {
@@ -628,7 +762,7 @@ Future full consent record shape (documented here, not MVP behavior):
 Stored duration choices and revocation records belong to that future full
 shape, not the vault-first MVP.
 
-MVP consent defaults:
+MVP consent defaults (what Qratum asks, and when, for each sensitive scope):
 
 | Scope | Default |
 | --- | --- |
@@ -646,6 +780,9 @@ existing raw data, derived outputs, external provider copies, or published
 destinations. Deletion and purge are separate actions.
 
 ## Sources
+
+A "source" is one AI coding tool Qratum can read from. The rule is to only show
+the user sources Qratum can actually use right now.
 
 Normal UX only shows sources Qratum can actually use.
 
@@ -671,7 +808,7 @@ error
 Normal wizard and source list show only detected, usable sources. Debug/doctor
 may show known adapters with `--all` and explain why they are hidden.
 
-Every source adapter supports some subset of:
+Every source adapter supports some subset of these operations:
 
 ```txt
 discover
@@ -682,7 +819,7 @@ archive_raw
 normalize
 ```
 
-SourceAdapter contract:
+SourceAdapter contract (the methods an adapter must provide):
 
 ```txt
 Name() string
@@ -693,7 +830,7 @@ Inventory(ctx, opts) InventoryResult
 Normalize(ctx, rawRefs) SessionRevision
 ```
 
-Source capability flags:
+Source capability flags (what a given adapter is able to do):
 
 ```txt
 inventory_supported
@@ -705,7 +842,7 @@ facet_supported
 export_supported
 ```
 
-Known Claude discovery targets include:
+Known Claude discovery targets (where the Claude Code adapter looks for data):
 
 ```txt
 ~/.claude/projects/**/*.jsonl
@@ -720,6 +857,10 @@ known locations with user consent.
 
 ## Import Everything
 
+Importing many old sessions at once should feel like a guided wizard, not a
+silent bulk scan. The user sees what is available and chooses before any heavy
+work runs.
+
 `qrt import --all` should be a wizard, not a blind scan.
 
 Flow:
@@ -728,7 +869,7 @@ Flow:
 2. Show what is available by source, count, size, date range, and support level.
 3. Let the user choose what to import.
 4. Write an import plan.
-5. Run the plan idempotently.
+5. Run the plan idempotently (re-running it does not duplicate work).
 6. Archive raw files if configured.
 7. Normalize into sessions/revisions.
 8. Redact, review, index, and mark corpus candidates.
@@ -736,7 +877,8 @@ Flow:
 
 Large imports are planned, checkpointed, pausable, resumable, and rate-limited.
 
-Backpressure controls:
+Backpressure controls (the levers that keep a big import from overwhelming the
+machine):
 
 ```txt
 max concurrent jobs
@@ -751,7 +893,7 @@ retry individual failed jobs
 skip unsupported files
 ```
 
-Import plan shape:
+Import plan shape (the plan written before a bulk import runs):
 
 ```json
 {
@@ -778,7 +920,8 @@ Import plan shape:
 }
 ```
 
-AI job plans must estimate before running large batches:
+Before running large AI batches, Qratum estimates the work first so the user
+isn't surprised by cost or time:
 
 ```txt
 items to process
@@ -793,7 +936,7 @@ data classes included
 consent needed
 ```
 
-AI job plan shape:
+AI job plan shape (the estimate written before an AI batch runs):
 
 ```json
 {
@@ -823,10 +966,14 @@ after each item or batch and can be retried individually.
 
 ## Session Revisions And Resumes
 
+Source tools let a user reopen an old conversation and add to it. When that
+happens, Qratum must not overwrite what it already processed — it records a new
+revision instead.
+
 Source tools can resume old sessions and append new turns. Qratum should not
 overwrite prior processing output.
 
-Model:
+Model (three layers of identity):
 
 ```txt
 source session = source tool conversation identity
@@ -834,7 +981,7 @@ qratum session = stable Qratum identity for that source session
 session revision = normalized state observed at a specific digest/time
 ```
 
-Session identity:
+Session identity (what makes two observations "the same session"):
 
 ```txt
 source + source_session_id
@@ -859,13 +1006,13 @@ optional_topology_node_id
 If a source does not provide globally unique session IDs, that source adapter
 must define a source-specific `source_session_key`.
 
-Library default:
+Library default (how sessions and revisions are shown):
 
 - Main list shows source sessions.
 - A secondary view shows recent revisions.
 - Session detail shows revisions/timeline.
 
-Worker logic:
+Worker logic (step by step, what the worker does for each captured item):
 
 1. Observe capture or import item.
 2. Compute raw digest.
@@ -885,7 +1032,7 @@ session_rollup_review
 insight
 ```
 
-Revision review answers:
+A revision review answers:
 
 ```txt
 What changed since the last Qratum observation?
@@ -894,7 +1041,7 @@ What was fixed?
 What remains unresolved?
 ```
 
-Session rollup answers:
+A session rollup answers:
 
 ```txt
 What is the current overall state of the source session?
@@ -903,6 +1050,10 @@ Is this trajectory a corpus candidate?
 ```
 
 ## Retention And Deletion
+
+Deleting things is mostly done through the app, where the user can see the blast
+radius first. The CLI keeps a small set of delete commands for automation and
+emergencies.
 
 Deletion is UI-first. CLI deletion exists for automation and emergencies.
 
@@ -925,7 +1076,7 @@ tombstone behavior
 whether original source files may still exist outside Qratum
 ```
 
-Deletion modes:
+Deletion modes (how far the delete reaches):
 
 ```txt
 object_only
@@ -933,7 +1084,8 @@ object_and_derived
 object_derived_and_raw
 ```
 
-Tombstone shape:
+Tombstone shape (the marker left behind after a delete — it records that
+something was removed, without keeping the removed content):
 
 ```json
 {
@@ -968,10 +1120,13 @@ external destinations.
 
 ## Failure Taxonomy And Retry
 
+When anything fails, Qratum writes down exactly what failed and whether it can
+be retried. Retrying one failed step should never force a whole re-import.
+
 Every failed capture, import, job, export, publish, AI run, or index update
 produces a structured failure record.
 
-Outcomes:
+Outcomes (the three ways an action can end short of success):
 
 ```txt
 failed
@@ -1033,7 +1188,7 @@ Failure record shape:
 
 Individual retry is first-class. Each job targets one object transition.
 
-Job record shape:
+Job record shape (one unit of worker processing state):
 
 ```json
 {
@@ -1069,6 +1224,10 @@ If policy changed, re-evaluate policy before running.
 schedules missing downstream jobs.
 
 ## Versioning And Migrations
+
+Every stored object carries version stamps so Qratum can read old data and
+migrate it safely. The guiding rule is: never silently destroy or rewrite the
+original raw data.
 
 Every stored object has version metadata.
 
@@ -1113,9 +1272,14 @@ Migration manifests live under:
 
 ## Deduplication Policy
 
+Qratum should not store the same thing twice or re-process unchanged data. It
+matches on exact fingerprints first; detecting "near-duplicates" is left for
+later.
+
 Dedup is exact first. Near-duplicate detection is deferred.
 
-Dedup levels:
+Dedup levels (for each object type, the key used to decide "this is the same
+thing I already have"):
 
 | Level | Key |
 | --- | --- |
@@ -1132,7 +1296,7 @@ Dedup levels:
 | CorpusItem | `source_review_id + export_digest + corpus_schema_version` |
 | PublishBundle | `publisher_id + bundle_digest + destination` |
 
-Rules:
+Rules (common situations and what dedup does in each):
 
 ```txt
 same raw digest, different import path
@@ -1158,6 +1322,10 @@ Dedup never deletes source history automatically. It marks duplicates/skips and
 preserves provenance paths.
 
 ## Artifact Manifests
+
+Every file Qratum writes is tracked by a manifest record — there are no loose,
+unmanaged files lying around. The file's identity is its ID, not its path, so
+moving a file doesn't change what it is.
 
 Every file Qratum writes is managed by an artifact manifest. No loose reports,
 exports, bundles, or diagnostics.
@@ -1201,7 +1369,8 @@ migration_report
 diagnostic_bundle
 ```
 
-Eligibility values:
+Eligibility values (whether an artifact may leave the machine, and under what
+condition):
 
 ```txt
 not_exportable
@@ -1237,9 +1406,14 @@ qratum://corpus/cor_...
 
 ## Review, Metrics, Lessons, And Insights
 
+A "review" looks at one session and says what happened in it. "Insights" zoom
+out across many sessions to describe the user's overall AI coding practice. This
+section also covers the metrics and the lessons Qratum can suggest.
+
 Replace `ReviewCard` as the central product object with `ReviewEnvelope`.
 
-Review envelope shape:
+Review envelope shape (the central object that wraps everything known about one
+review):
 
 ```json
 {
@@ -1282,7 +1456,7 @@ external_network_calls
 Deterministic review must treat tool-call sequences as first-class input, not
 just message text.
 
-Signal classes:
+Signal classes (the categories of observation the review can produce):
 
 ```txt
 message_text_signals
@@ -1292,7 +1466,8 @@ verification_signals
 cost_time_signals
 ```
 
-Important tool-call findings:
+Important tool-call findings (specific patterns worth flagging from the tool
+calls):
 
 ```txt
 edits after last verification
@@ -1342,7 +1517,8 @@ Insights are not the same product as per-session review. A review tells the user
 what happened in one session or revision. An insight report tells the user what
 their AI coding practice looks like across many sessions.
 
-Lessons from reviewed usage-insights implementations:
+Lessons from reviewed usage-insights implementations (design lessons learned
+from other people's insight tools):
 
 - Keep lightweight inventory separate from transcript parsing.
 - Cache deterministic session metadata separately from AI facets.
@@ -1356,7 +1532,7 @@ Lessons from reviewed usage-insights implementations:
 - Do not copy monolithic command shapes, provider-specific model calls, hidden
   remote collection, or automatic external publishing.
 
-Qratum Insights pipeline:
+Qratum Insights pipeline (the ordered steps that produce an insight report):
 
 1. Inventory source sessions using file metadata and source indexes first.
 2. Parse only new or changed raw refs.
@@ -1368,7 +1544,8 @@ Qratum Insights pipeline:
 8. Generate the at-a-glance summary from the completed sections.
 9. Render local app DTOs and optional HTML artifacts.
 
-Canonical aggregate rules:
+Canonical aggregate rules (which revision counts when summarizing across
+sessions — and how to keep the rest without losing it):
 
 - Keep every raw ref, session, and revision.
 - Aggregate on the latest complete revision per source session by default.
@@ -1428,7 +1605,8 @@ lesson_candidates
 corpus_candidate_reason
 ```
 
-Facet cache keys must include:
+Facet cache keys must include (so a cached facet is reused only when all of
+these match):
 
 ```txt
 revision_digest
@@ -1445,9 +1623,13 @@ require Claude Code.
 
 ## AI Providers And Data Policy
 
+Qratum talks to AI models through one provider interface, so local and external
+models are interchangeable behind it. Local models are preferred; external calls
+are gated by data policy.
+
 Qratum should support local AI and external AI behind a provider interface.
 
-Provider priority:
+Provider priority (which local runtimes to prefer, in order):
 
 1. OpenAI-compatible local endpoint.
 2. Ollama through compatible endpoint or adapter.
@@ -1466,7 +1648,7 @@ endpoints first and use `llmfit` as an optional setup advisor.
 - It can suggest local coding/reasoning models.
 - It is optional and never required for core Qratum.
 
-Data policy:
+Data policy (what each kind of AI is allowed to see by default):
 
 ```txt
 local AI default: may see redacted, review, metrics, lessons
@@ -1491,6 +1673,9 @@ approved_by
 
 ## Search And Derived Projections
 
+Search is a convenience layer built *on top of* the files, never a second copy
+of the truth. You can always rebuild it from the filesystem objects.
+
 Qratum always has a filesystem object store. That store is the source of
 truth. Search is a derived local projection, not a second store.
 
@@ -1504,7 +1689,7 @@ Projections must respect consent, retention, and tombstones.
 Projections must be rebuildable from filesystem objects where possible.
 ```
 
-Search interface:
+Search interface (what any search backend must support):
 
 ```txt
 SearchBackend
@@ -1552,6 +1737,10 @@ fresh spec and measured demand rather than this draft assuming them in advance.
 
 ## Corpus Export
 
+A "corpus" is cleaned training-style data prepared for some downstream consumer.
+Producing it is a separate, explicitly-approved act — having reviewed a session
+does not make it safe to export.
+
 Qratum should produce two export families:
 
 - ADP-style JSONL.
@@ -1559,7 +1748,7 @@ Qratum should produce two export families:
 
 Corpus export is separate from review publishing.
 
-Corpus bundle:
+Corpus bundle (the files written for one corpus export):
 
 ```txt
 corpus_export/
@@ -1569,7 +1758,7 @@ corpus_export/
   redaction_report.json
 ```
 
-Corpus item shape:
+Corpus item shape (one entry in a corpus export):
 
 ```json
 {
@@ -1607,10 +1796,14 @@ provenance/export rights are unknown.
 
 ## Publishing
 
+Publishing is how approved outputs leave Qratum for a destination the user
+chose. Today that destination is a local folder, by manual approval only.
+Private-perimeter publishing is future scope.
+
 Publishing exists so the user can move approved Qratum outputs to an explicit
 destination. Private-perimeter publishing is future scope.
 
-Store, exporter, and publisher are separate:
+Store, exporter, and publisher are three separate things:
 
 ```txt
 Store: where Qratum keeps working data.
@@ -1646,7 +1839,8 @@ policy_auto
 MVP mode is manual. `suggested_auto` and `policy_auto` are future modes. No
 automatic publishing is part of the normal operating model.
 
-First publishable bundle:
+First publishable bundle (the files in the first kind of bundle Qratum can
+publish):
 
 ```txt
 review_bundle/
@@ -1661,7 +1855,7 @@ review_bundle/
 
 Raw data is forbidden by default.
 
-Publish manifest:
+Publish manifest (the record of one publish run):
 
 ```json
 {
@@ -1687,6 +1881,9 @@ Publish manifest:
 ```
 
 ## Public CLI
+
+This is the command surface the user sees. It is kept deliberately small;
+heavier internals live under `qrt debug`.
 
 Normal commands:
 
@@ -1741,9 +1938,9 @@ Debug commands:
 ```txt
 qrt debug hook claude-code
 qrt debug daemon run-once
-qrt debug daemon start
-qrt debug daemon stop
-qrt debug daemon status
+qrt debug daemon start    # resident daemon — OPEN decision, not committed
+qrt debug daemon stop     # (see verification-and-trust-gate.md §5 / D12)
+qrt debug daemon status   #
 qrt debug jobs
 qrt debug jobs show <job_id>
 qrt debug jobs retry --all
@@ -1765,6 +1962,10 @@ stay debug/internal.
 
 ## Local App (later surface)
 
+A browser-based local app is a *later* feature, not part of phase one. The CLI
+and vault commands lead until the preserved data proves people actually need
+richer inspection.
+
 A local app is a later surface, not the phase-one default. The CLI and vault
 commands lead until preserved data proves a real need for richer inspection.
 
@@ -1785,7 +1986,7 @@ Settings
 
 The app should always show data class badges and whether external AI was used.
 
-Local app security:
+Local app security (it binds to localhost only; no LAN access in the MVP):
 
 ```txt
 default host: 127.0.0.1
@@ -1793,7 +1994,7 @@ default port: 9218
 remote LAN mode: unsupported for MVP
 ```
 
-MVP auth:
+MVP auth (how the local app authenticates the user on first launch):
 
 ```txt
 Use a one-time bootstrap nonce on first local launch.
@@ -1803,7 +2004,7 @@ Store token hash, not plaintext token.
 Store auth state under ~/.qratum/daemon/app_auth.json with 0600 permissions.
 ```
 
-Bootstrap example:
+Bootstrap example (the first-launch handshake, step by step):
 
 ```txt
 open http://127.0.0.1:9218/bootstrap?nonce=...
@@ -1852,7 +2053,17 @@ X-Content-Type-Options: nosniff
 
 ## Setup
 
-`qrt setup` should be short.
+`qrt setup` should be short. Note that the wizard described here is the target,
+not what ships today.
+
+> **Shipped vs target (2026-06-15):** the `qrt setup` *wizard* below is not yet
+> built (it remains a non-goal). What ships today is the vault-first onboarding:
+> `qrt hook install` (global SessionEnd hook), `qrt vault backfill`, and
+> `qrt vault backup [--verify]`. When the wizard is built, its vault-first
+> defaults are hook + backfill + backup. Prompt 1's "SQLite local projection",
+> prompt 4's AI, and prompt 5's "worker + local app" describe **earned-later**
+> surfaces, not P1 defaults — reword them to vault-first defaults when the
+> wizard is implemented.
 
 Prompts:
 
@@ -1880,10 +2091,14 @@ projection are not happy-path setup prompts.
 
 ## No Hidden Processing
 
+Qratum must never quietly do anything expensive, sensitive, or visible to the
+outside world. If it costs money, touches raw data, or leaves the machine, the
+user asked for it.
+
 Qratum must not perform expensive, sensitive, or externally visible work unless
 the user explicitly asked for it or enabled a background policy.
 
-No hidden actions:
+No hidden actions (these never happen on their own):
 
 ```txt
 large scans
@@ -1897,7 +2112,8 @@ migration apply
 backend projection to remote targets
 ```
 
-Allowed implicit/light actions:
+Allowed implicit/light actions (small, safe things Qratum may do without
+asking):
 
 ```txt
 create ~/.qratum/config.toml on first use
@@ -1908,7 +2124,14 @@ start local app when user runs qrt open
 resume daemon if user enabled background worker
 ```
 
-Command rules:
+> **Note (2026-06-15):** the last two lines above assume a local app and a
+> resident background worker/daemon. Both are **earned-later / open** — the
+> daemon-vs-no-daemon question is undecided (`verification-and-trust-gate.md`
+> §5 / D12). Today the only implicit/light action that ships is creating
+> `~/.qratum/` state and reading it; refine runs only when explicitly invoked
+> (`qrt daemon run-once`).
+
+Command rules (per command, how much work it is allowed to do):
 
 ```txt
 qrt
@@ -1936,11 +2159,14 @@ qrt export
   writes only after explicit command and eligibility check
 ```
 
-A configured policy is explicit permission. For example, `raw.archive = true`
-allows the worker to archive raw refs from captured sessions, but
+A configured policy counts as explicit permission. For example, `raw.archive =
+true` allows the worker to archive raw refs from captured sessions, but
 `ai.external = "ask"` does not allow background external AI calls.
 
 ## Performance Principles
+
+These are guidelines for keeping Qratum responsive, not hard service-level
+guarantees.
 
 These are principles, not strict SLAs:
 
@@ -1957,10 +2183,14 @@ External provider calls are rate-limited and retryable.
 Worker concurrency is configurable.
 ```
 
-Hook rule remains hard: source hooks must not parse full transcripts, call AI,
+One hard rule stands: source hooks must not parse full transcripts, call AI,
 generate reports, or perform network calls.
 
 ## Observability
+
+Qratum emits traces and metrics from day one, using OpenTelemetry APIs, but it
+does not require a collector to run. Crucially, sensitive content never goes
+into telemetry.
 
 Qratum uses OpenTelemetry APIs internally from the start. A collector is not
 required to run Qratum.
@@ -2020,7 +2250,7 @@ qratum.exports.total
 qratum.publish.total
 ```
 
-Safe attributes:
+Safe attributes (low-sensitivity labels that may appear on spans/metrics):
 
 ```txt
 source
@@ -2061,7 +2291,7 @@ Detailed diagnostics live in `qrt debug` now and can later gain a local app surf
 
 ### P0-SPEC-AND-CONTRACTS
 
-Goal: lock the redesign before runtime changes.
+Goal: lock the redesign before any runtime changes.
 
 Deliverables:
 
@@ -2089,6 +2319,9 @@ Acceptance:
 
 ### P1-VAULT-FIRST
 
+Status: **SHIPPED** (merged, test-backed; `qrt` self-reports
+`milestone: vault-first`).
+
 Goal: preservation before product surface.
 
 Deliverables:
@@ -2105,7 +2338,12 @@ Deliverables:
 
 Acceptance:
 
-- A deleted source transcript remains recoverable from the vault.
+- A deleted source transcript remains recoverable from the vault. (Met for the
+  **raw blob** — the content-addressed copy survives. NOT yet met for *derived
+  artifacts*: the refinery reads the live `transcript_path` (`daemon.go`) and
+  does not fall back to the blob, so re-deriving review/report from a deleted
+  source fails. Tracked by the blob-fallback fix in
+  `verification-and-trust-gate.md` FIX-3 / D6a.)
 - Hook install is idempotent and global.
 - Backfill re-runs cleanly with digest dedup.
 - Doctor reports missing hook, copy failures, stale backfill, missing or
@@ -2130,6 +2368,8 @@ Possible later unlocks, in earned order:
 5. Corpus: only after a real downstream consumer exists.
 
 ## Explicit Non-Goals For The Next Build Phase
+
+These are deliberately out of scope for the next build phase:
 
 - Hosted service.
 - Enterprise dashboard.

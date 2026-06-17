@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const redactionStatus = "redacted"
@@ -19,7 +21,8 @@ var (
 	credentialURLPattern    = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://[^\s\"'<>@:/]+:[^\s\"'<>@]+@[^\s\"'<>]+`)
 	jwtLikePattern          = regexp.MustCompile(`\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}\b`)
 	apiKeyPattern           = regexp.MustCompile(`\b(?:sk-[A-Za-z0-9][A-Za-z0-9_-]{20,}|(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b`)
-	secretAssignmentPattern = regexp.MustCompile(`(?i)\b((?:[A-Z0-9_]*(?:API[_-]?KEY|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|TOKEN|SECRET|PASSWORD|PASSWD|JWT)[A-Z0-9_]*)\s*[:=]\s*)([^\s\"',;]+)`)
+	sshRemotePattern        = regexp.MustCompile(`\bgit@[A-Za-z0-9._-]+:[A-Za-z0-9._~/%+-]+(?:\.git)?\b`)
+	secretAssignmentPattern = regexp.MustCompile(`(?i)\b((?:[A-Z0-9_]*(?:API[_-]?KEY|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|TOKEN|SECRET|PASSWORD|PASSWD|JWT)[A-Z0-9_]*)\s*(?:[:=]\s*)+(?:>\s*)?)([^\s\"',;]+)`)
 	highEntropyPattern      = regexp.MustCompile(`\b[A-Za-z0-9+/=_-]{32,}\b`)
 	posixLocalPathPattern   = regexp.MustCompile(`/(?:Users|home|tmp|private|var|opt|Volumes)(?:/[A-Za-z0-9._@%+=:,~-]+)+`)
 	windowsLocalPathPattern = regexp.MustCompile(`[A-Za-z]:\\(?:Users|Temp|tmp|Windows|ProgramData)(?:\\[^\s\"'<>|;]+)+`)
@@ -167,31 +170,97 @@ func resolveProjectFilePath(projectRoot string, inputPath string, label string) 
 		return "", fmt.Errorf("missing %s path", label)
 	}
 
-	var resolved string
-	if filepath.IsAbs(inputPath) {
-		resolved = filepath.Clean(inputPath)
-	} else {
-		resolved = filepath.Clean(filepath.Join(projectRoot, inputPath))
-	}
-	rel, err := filepath.Rel(projectRoot, resolved)
-	if err != nil {
-		return "", fmt.Errorf("resolve %s path: %w", label, err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
-		return "", fmt.Errorf("%s path %q escapes current project", label, inputPath)
+	insideRoot := func(root string, path string) (bool, error) {
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return false, err
+		}
+		return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && !filepath.IsAbs(rel), nil
 	}
 
-	info, err := os.Stat(resolved)
-	if err != nil {
+	var candidates []string
+	if filepath.IsAbs(inputPath) {
+		resolved := filepath.Clean(inputPath)
+		insideProject, err := insideRoot(projectRoot, resolved)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s path: %w", label, err)
+		}
+		insideQratumHome := false
+		if !insideProject {
+			qratumHome, homeErr := workspace.Resolve()
+			if homeErr != nil {
+				return "", homeErr
+			}
+			insideQratumHome, err = insideRoot(qratumHome.Root, resolved)
+			if err != nil {
+				return "", fmt.Errorf("resolve %s path: %w", label, err)
+			}
+		}
+		if !insideProject && !insideQratumHome {
+			return "", fmt.Errorf("%s path %q escapes current project or qratum home", label, inputPath)
+		}
+		candidates = append(candidates, resolved)
+	} else {
+		projectCandidate := filepath.Clean(filepath.Join(projectRoot, inputPath))
+		insideProject, err := insideRoot(projectRoot, projectCandidate)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s path: %w", label, err)
+		}
+		if !insideProject {
+			return "", fmt.Errorf("%s path %q escapes current project", label, inputPath)
+		}
+		if info, err := os.Stat(projectCandidate); err == nil {
+			if info.IsDir() {
+				return "", fmt.Errorf("%s %s is a directory", label, displayPath(projectRoot, projectCandidate))
+			}
+			return projectCandidate, nil
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("inspect %s %s: %w", label, displayPath(projectRoot, projectCandidate), err)
+		}
+		candidates = append(candidates, projectCandidate)
+
+		if shouldResolveQratumHomeCandidate(inputPath) {
+			qratumHome, homeErr := workspace.Resolve()
+			if homeErr != nil {
+				return "", homeErr
+			}
+			homeCandidate := filepath.Clean(filepath.Join(qratumHome.Root, filepath.FromSlash(inputPath)))
+			insideQratumHome, err := insideRoot(qratumHome.Root, homeCandidate)
+			if err != nil {
+				return "", fmt.Errorf("resolve %s path: %w", label, err)
+			}
+			if insideQratumHome {
+				candidates = append(candidates, homeCandidate)
+			}
+		}
+	}
+
+	var firstMissing string
+	for _, resolved := range candidates {
+		info, err := os.Stat(resolved)
+		if err == nil {
+			if info.IsDir() {
+				return "", fmt.Errorf("%s %s is a directory", label, displayPath(projectRoot, resolved))
+			}
+			return resolved, nil
+		}
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("missing %s %s", label, displayPath(projectRoot, resolved))
+			if firstMissing == "" {
+				firstMissing = resolved
+			}
+			continue
 		}
 		return "", fmt.Errorf("inspect %s %s: %w", label, displayPath(projectRoot, resolved), err)
 	}
-	if info.IsDir() {
-		return "", fmt.Errorf("%s %s is a directory", label, displayPath(projectRoot, resolved))
+	if firstMissing != "" {
+		return "", fmt.Errorf("missing %s %s", label, displayPath(projectRoot, firstMissing))
 	}
-	return resolved, nil
+	return "", fmt.Errorf("missing %s path", label)
+}
+
+func shouldResolveQratumHomeCandidate(inputPath string) bool {
+	slash := filepath.ToSlash(strings.TrimSpace(inputPath))
+	return strings.HasPrefix(slash, "sessions/") || strings.HasPrefix(slash, "events/")
 }
 
 func redactQratumSession(session qratumSession) (qratumSession, error) {
@@ -240,9 +309,15 @@ func redactQratumSession(session qratumSession) (qratumSession, error) {
 		redacted.Commands[i].Output = redactor.redactString(fmt.Sprintf("commands[%d].output", i), command.Output)
 	}
 
+	redacted.StartedAt = redactor.redactSensitiveMetadata("started_at", redacted.StartedAt)
+	redacted.EndedAt = redactor.redactSensitiveMetadata("ended_at", redacted.EndedAt)
+	redacted.SourceEventID = redactor.redactSensitiveMetadata("source_event_id", redacted.SourceEventID)
+
 	if session.Git != nil {
 		git := *session.Git
-		git.Remote = redactor.redactString("git.remote", git.Remote)
+		git.Remote = redactor.redactSensitiveMetadata("git.remote", git.Remote)
+		git.Branch = redactor.redactSensitiveMetadata("git.branch", git.Branch)
+		git.HeadSHA = redactor.redactSensitiveMetadata("git.head_sha", git.HeadSHA)
 		redacted.Git = &git
 	}
 	if session.Provenance != nil {
@@ -301,6 +376,7 @@ func (r *deterministicRedactor) redactString(field string, value string) string 
 	redacted = r.replacePattern(redacted, credentialURLPattern, "secret", &tracker)
 	redacted = r.replacePattern(redacted, jwtLikePattern, "secret", &tracker)
 	redacted = r.replacePattern(redacted, apiKeyPattern, "secret", &tracker)
+	redacted = r.replacePattern(redacted, sshRemotePattern, "secret", &tracker)
 	redacted = r.replaceSecretAssignments(redacted, &tracker)
 	redacted = r.replaceHighEntropy(redacted, &tracker)
 	redacted = r.replacePattern(redacted, posixLocalPathPattern, "path", &tracker)
@@ -308,6 +384,21 @@ func (r *deterministicRedactor) redactString(field string, value string) string 
 
 	r.recordFindings(field, tracker)
 	return redacted
+}
+
+func (r *deterministicRedactor) redactSensitiveMetadata(field string, value string) string {
+	redacted := r.redactString(field, value)
+	if redacted != value || shouldSkipCandidate(value) {
+		return redacted
+	}
+	tracker := fieldRedactionTracker{
+		secretPlaceholders: map[string]struct{}{},
+		pathPlaceholders:   map[string]struct{}{},
+	}
+	placeholder := r.placeholder("secret", value)
+	tracker.add("secret", placeholder)
+	r.recordFindings(field, tracker)
+	return placeholder
 }
 
 func (r *deterministicRedactor) replacePattern(value string, pattern *regexp.Regexp, kind string, tracker *fieldRedactionTracker) string {

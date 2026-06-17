@@ -52,6 +52,9 @@ const (
 	KindMemoryImport = "memory_import_receipt"
 	// KindUnknown labels uncategorized raw archive items.
 	KindUnknown = "unknown"
+	// MaxArchiveFileBytes caps a single raw archive copy. This is a permissions/
+	// containment guard, not at-rest encryption.
+	MaxArchiveFileBytes int64 = 50 << 20
 )
 
 // Store wraps access to the local vault workspace.
@@ -166,25 +169,41 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 	if err != nil {
 		return ArchiveResult{}, fmt.Errorf("resolve archive path %q: %w", req.OriginalPath, err)
 	}
-	info, err := os.Stat(originalPath)
+	info, err := os.Lstat(originalPath)
 	if err != nil {
 		return ArchiveResult{}, fmt.Errorf("inspect archive path %s: %w", filepath.ToSlash(originalPath), err)
 	}
-	if info.IsDir() {
-		return ArchiveResult{}, fmt.Errorf("archive path %s is a directory", filepath.ToSlash(originalPath))
+	if info.Mode()&os.ModeSymlink != 0 {
+		return ArchiveResult{}, fmt.Errorf("archive path %s is a symlink", filepath.ToSlash(originalPath))
+	}
+	if !info.Mode().IsRegular() {
+		return ArchiveResult{}, fmt.Errorf("archive path %s is not a regular file", filepath.ToSlash(originalPath))
+	}
+	if info.Size() > MaxArchiveFileBytes {
+		return ArchiveResult{}, fmt.Errorf("archive path %s exceeds %d byte capture cap", filepath.ToSlash(originalPath), MaxArchiveFileBytes)
 	}
 
-	if err := os.MkdirAll(s.Paths.RawBlobsTempDir(), 0o750); err != nil {
+	if err := os.MkdirAll(s.Paths.RawBlobsTempDir(), 0o700); err != nil {
 		return ArchiveResult{}, fmt.Errorf("create blob temp directory: %w", err)
 	}
 	// #nosec G304 -- archive targets are explicit local filesystem paths chosen by the user or hook payload.
-	src, err := os.Open(originalPath)
+	src, err := openFileNoFollowRead(originalPath)
 	if err != nil {
 		return ArchiveResult{}, fmt.Errorf("open archive path %s: %w", filepath.ToSlash(originalPath), err)
 	}
 	defer func() {
 		_ = src.Close()
 	}()
+	openedInfo, err := src.Stat()
+	if err != nil {
+		return ArchiveResult{}, fmt.Errorf("inspect opened archive path %s: %w", filepath.ToSlash(originalPath), err)
+	}
+	if !openedInfo.Mode().IsRegular() {
+		return ArchiveResult{}, fmt.Errorf("archive path %s is not a regular file", filepath.ToSlash(originalPath))
+	}
+	if openedInfo.Size() > MaxArchiveFileBytes {
+		return ArchiveResult{}, fmt.Errorf("archive path %s exceeds %d byte capture cap", filepath.ToSlash(originalPath), MaxArchiveFileBytes)
+	}
 
 	tmp, err := os.CreateTemp(s.Paths.RawBlobsTempDir(), ".blob.*.tmp")
 	if err != nil {
@@ -199,12 +218,16 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 	}()
 
 	hash := sha256.New()
-	size, err := io.Copy(io.MultiWriter(tmp, hash), src)
+	size, err := io.Copy(io.MultiWriter(tmp, hash), io.LimitReader(src, MaxArchiveFileBytes+1))
 	if err != nil {
 		_ = tmp.Close()
 		return ArchiveResult{}, fmt.Errorf("copy archive path %s: %w", filepath.ToSlash(originalPath), err)
 	}
-	if err := tmp.Chmod(0o644); err != nil {
+	if size > MaxArchiveFileBytes {
+		_ = tmp.Close()
+		return ArchiveResult{}, fmt.Errorf("archive path %s exceeds %d byte capture cap", filepath.ToSlash(originalPath), MaxArchiveFileBytes)
+	}
+	if err := tmp.Chmod(0o600); err != nil {
 		_ = tmp.Close()
 		return ArchiveResult{}, fmt.Errorf("set blob permissions: %w", err)
 	}
@@ -215,7 +238,7 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 	digestHex := fmt.Sprintf("%x", hash.Sum(nil))
 	digest := "sha256:" + digestHex
 	blobPath := s.Paths.BlobPathForDigest(digestHex)
-	if err := os.MkdirAll(filepath.Dir(blobPath), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(blobPath), 0o700); err != nil {
 		return ArchiveResult{}, fmt.Errorf("create blob directory: %w", err)
 	}
 
@@ -252,7 +275,7 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 }
 
 func (s Store) writeRawRef(ref RawRef, digestHex string) (bool, error) {
-	if err := os.MkdirAll(s.Paths.RawRefsDir(), 0o750); err != nil {
+	if err := os.MkdirAll(s.Paths.RawRefsDir(), 0o700); err != nil {
 		return false, fmt.Errorf("create raw refs directory: %w", err)
 	}
 	path := s.Paths.RawRefPathForDigest(digestHex)
@@ -275,7 +298,7 @@ func (s Store) writeRawRef(ref RawRef, digestHex string) (bool, error) {
 		return false, fmt.Errorf("encode raw ref %s: %w", ref.RawRefID, err)
 	}
 	data = append(data, '\n')
-	if err := writeFileAtomic(path, data, 0o644); err != nil {
+	if err := writeFileAtomic(path, data, 0o600); err != nil {
 		return false, fmt.Errorf("write raw ref %s: %w", filepath.ToSlash(path), err)
 	}
 	return true, nil
@@ -309,10 +332,10 @@ func (s Store) SaveState(state State) error {
 		return fmt.Errorf("encode vault state: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.MkdirAll(s.Paths.StateDir(), 0o750); err != nil {
+	if err := os.MkdirAll(s.Paths.StateDir(), 0o700); err != nil {
 		return fmt.Errorf("create state directory: %w", err)
 	}
-	if err := writeFileAtomic(s.Paths.VaultStatePath(), data, 0o644); err != nil {
+	if err := writeFileAtomic(s.Paths.VaultStatePath(), data, 0o600); err != nil {
 		return fmt.Errorf("write vault state %s: %w", filepath.ToSlash(s.Paths.VaultStatePath()), err)
 	}
 	return nil
@@ -488,7 +511,7 @@ func copyTree(source string, dest string) (int, error) {
 	if !info.IsDir() {
 		return 0, fmt.Errorf("qratum home %s is not a directory", filepath.ToSlash(source))
 	}
-	if err := os.MkdirAll(dest, 0o750); err != nil {
+	if err := os.MkdirAll(dest, 0o700); err != nil {
 		return 0, fmt.Errorf("create backup destination %s: %w", filepath.ToSlash(dest), err)
 	}
 
@@ -503,7 +526,7 @@ func copyTree(source string, dest string) (int, error) {
 		}
 		target := filepath.Join(dest, rel)
 		if d.IsDir() {
-			return os.MkdirAll(target, 0o750)
+			return os.MkdirAll(target, 0o700)
 		}
 		info, err := d.Info()
 		if err != nil {
@@ -575,7 +598,7 @@ func fileHash(path string) (string, error) {
 }
 
 func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")

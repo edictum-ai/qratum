@@ -1,54 +1,84 @@
 # Qratum agent instructions
 
+This file tells an agent how to work in Qratum: where the rules live, what is
+already built, what must not be built yet, and when a task counts as done.
+
+## Plain-language glossary
+
+A few terms recur below. Plain meaning first; the term is kept for accuracy.
+
+- **Redaction**: removing secrets/sensitive strings from text before it leaves
+  the system.
+- **ADP**: the internal session data format (ADP JSONL) the runtime produces.
+- **DTO**: a clean, UI-facing data shape, as opposed to a raw internal model.
+- **Blob store**: a content-addressed file store (each file is keyed by a hash
+  of its contents).
+- **Hook**: a small program Claude Code calls on each event; it must stay fast
+  and do almost nothing.
+- **Fixture / golden test**: a saved input and its expected output, used to lock
+  behavior so changes are caught.
+
 ## Source Of Truth
 
-Follow `SPEC.md` first.
+When you are unsure what's authoritative, start here. `SPEC.md` wins.
 
-`SPEC.md` points to the canonical operational model:
+Follow `SPEC.md` first. It points to the canonical operational model:
 
 ```txt
 specs/current/operational-model-redesign.md
 ```
 
-Files under `specs/current/milestone-a/` are historical Milestone A notes. They
-explain the completed vertical slice and compatibility behavior, but they do
-not define the current product model.
+The rest of the tree carries different weight:
 
-Files under `docs/architecture/` are forward-design references only. They are
-not permission to implement future features.
-
-Files under `docs/decisions/` are accepted architectural decisions. Schemas
-under `schemas/` are contracts. Fixtures under `fixtures/` are part of the test
-contract.
+- Files under `specs/current/milestone-a/` are historical Milestone A notes.
+  They explain the completed vertical slice and compatibility behavior, but they
+  do not define the current product model.
+- Files under `docs/architecture/` are forward-design references only. They are
+  not permission to implement future features.
+- Files under `docs/decisions/` are accepted architectural decisions.
+- Schemas under `schemas/` are contracts.
+- Fixtures under `fixtures/` are part of the test contract.
 
 ## Current Milestone
 
-Current milestone:
+This is where the project stands and what you may act on.
 
 ```txt
-P0-SPEC-AND-CONTRACTS
+P1-VAULT-FIRST — SHIPPED (merged, test-backed)
+P2-VERIFY-TRUST-GATE — ACCEPTED / UNLOCKED 2026-06-16
 ```
 
-P0 work is contract and source-of-truth work only:
+The vault-first runtime (P1) has shipped and is test-backed (the `qrt` binary
+self-reports `milestone: vault-first`). The P0 contract work (schemas, ADRs,
+source-of-truth cleanup) is substantially complete. P2-VERIFY-TRUST-GATE is now
+accepted and unlocked — implement it per the ductum spec package under
+`docs/reviews/2026-06-15-verification-benchmark/ductum-specs/qratum-verify-trust-gate/`
+(the contract is `specs/current/verification-and-trust-gate.md`).
 
-- schema registry
-- JSON Schemas for core objects
-- config schema
-- fixture examples
-- schema validation tests
-- migration notes from Milestone A
-- documentation/source-of-truth cleanup
+Do not implement P3-or-later runtime behavior unless the user explicitly unlocks
+a later milestone.
 
-Do not implement P1+ runtime behavior unless the user explicitly changes the
-milestone.
+## Shipped runtime (no longer "do not implement")
 
-## P0 Non-Goals
+This is the live code. It is merged, registered in `qrt`, and test-backed, so
+you may change it (carefully). It includes:
 
-Do not implement:
+- central workspace at `~/.qratum/` (`QRATUM_HOME` override)
+- copy-on-capture hook + content-addressed blob store
+- `qrt hook install` / `hook status`
+- `qrt vault backfill` / `archive` / `backup [--verify]` / `doctor`
+- `qrt status`
+- the Milestone A refinery, as on-demand tooling
+
+When changing this shipped runtime, treat it as live code: fixture/golden tests
+remain the contract; do not regress the demo.
+
+## Still not built (genuine non-goals)
+
+These do not exist yet, on purpose. Do not build any of them unless an accepted
+milestone unlocks it:
 
 - setup wizard behavior
-- central workspace creation behavior
-- raw archive implementation
 - import wizard implementation
 - session revision worker
 - local app
@@ -57,21 +87,26 @@ Do not implement:
 - lesson or insight generation
 - corpus export changes
 - publisher behavior
-- daemon behavior changes beyond compatibility fixes
+- a standing/resident daemon or review queue (refine is a one-shot; daemon vs
+  no-daemon is an open decision per verification-and-trust-gate.md §5)
 - new source adapters beyond accepted schema fixtures
 
 ## Runtime
 
-Use Go. No Python runtime in Qratum.
+Qratum is a single Go binary. There is no Python at runtime.
 
-The long-term runtime is still a Go single binary named `qrt`.
+Use Go. No Python runtime in Qratum. The long-term runtime is still a Go single
+binary named `qrt`.
 
 ## Compatibility Rules
+
+Old Milestone A commands can stick around for compatibility/debug, but the hook
+must stay tiny and fast.
 
 Milestone A commands and artifacts may remain as compatibility/debug behavior
 while the new operational model is implemented.
 
-If touching existing Milestone A runtime paths:
+If you touch existing Milestone A runtime paths:
 
 - `qrt hook claude-code` must stay fast.
 - The hook only reads JSON from stdin, writes a capture event, and exits.
@@ -82,6 +117,9 @@ If touching existing Milestone A runtime paths:
 
 ## Data Rule
 
+Raw transcripts are sensitive. Get the path from the payload, and never let raw
+transcripts escape.
+
 Use `transcript_path` from source payloads where available. Do not hardcode
 Claude local transcript paths as the primary capture mechanism.
 
@@ -89,7 +127,18 @@ Do not send raw transcripts to external services.
 
 Do not render raw transcripts into shareable reports.
 
+Redaction does not yet fully work — treat it as best-effort, not a guarantee.
+Deterministic redaction is **best-effort alpha**: it matches an enumerated set
+of secret classes and has known leak gaps. The known gaps are: a `=>` assignment
+edge case; `git.branch`/`git.head_sha`/`started_at`/`ended_at`/`source_event_id`
+are not redacted; and SSH-style git remotes are not caught. Do not treat
+redaction as a guarantee, and do not weaken the "no raw in shareable reports"
+rule on the assumption it already holds. Closing these gaps is proposed
+P2-VERIFY-TRUST-GATE work.
+
 ## UI Contract Rule
+
+The UI gets clean data shapes (DTOs). It must never have to parse raw internals.
 
 Product surfaces consume DTOs, not raw internal models.
 
@@ -103,6 +152,9 @@ Backend code must not require UI code to parse:
 
 ## Testing
 
+Behavior is locked by saved input/expected-output pairs (fixtures and golden
+files). Update them only when an output contract intentionally changes.
+
 Every behavior must be fixture-driven where practical.
 
 Update fixtures and golden files when output contracts intentionally change.
@@ -115,6 +167,9 @@ supply-chain checks.
 For documentation-only changes, tests are not required.
 
 ## Supply-Chain Rule
+
+Pin everything; pull nothing from the network at build/run time. Details live in
+`docs/supply-chain.md`.
 
 Follow `docs/supply-chain.md`.
 

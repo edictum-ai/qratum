@@ -2,3 +2,8 @@ bin/
 /qrt
 .qratum/
 .DS_Store
+
+# local build / test artifacts (never commit)
+.gocache/
+.gopath/
+.qratum-home.*

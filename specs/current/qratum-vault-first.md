@@ -1,23 +1,54 @@
 # Qratum Vault-First Revision
 
-Status: Accepted 2026-06-14 (Arnold). Supersedes
+Status: Accepted 2026-06-14 (the maintainer). Supersedes
 `specs/current/memory-curation-pipeline.md` (now marked superseded) and
 revises parts of `specs/current/operational-model-redesign.md` (exact edits
 listed under "Spec hygiene"). Source analysis:
 `docs/reviews/2026-06-12-memory-architecture/`.
 
-Decisions already taken by Arnold (2026-06-12): all gateway verb work proceeds
+Decisions already taken by the maintainer (2026-06-12): all gateway verb work proceeds
 in phases; import namespaces are `personal` + `coding` with an extensible
 override map; unknown contentClass becomes a hard reject gateway-side; this
 session produces specs only — implementation requires an explicit milestone
 unlock.
 
+## Plain-language glossary
+
+A few terms recur throughout. Plain meaning first, exact term in parentheses.
+
+- **Blob** — a single file of saved content stored under a name derived from
+  its own contents, so identical content is never stored twice
+  (content-addressed).
+- **Content-addressed** — the file's storage name is a hash of its bytes
+  (sha256). Same bytes in, same name out; that is how we deduplicate.
+- **Immutable** — once written, a blob is never changed.
+- **Runs every time without making changes if nothing is new** (idempotent) —
+  you can run the command repeatedly and a second run does nothing extra.
+- **Digest** — the sha256 hash that identifies a blob.
+- **Redaction** — removing secrets (tokens, keys, etc.) from content before it
+  leaves the raw stage.
+- **Refinery** — the on-demand tooling that takes raw blobs and produces
+  cleaned, normalized, redacted, reviewed output.
+- **ADP export** — the refinery's final export format (carried over from the
+  Milestone A pipeline).
+- **Ref** — a small JSON record that points at a blob and records what it is
+  (its kind, digest, source path).
+- **Backfill** — scanning existing transcript files already on disk and pulling
+  them into the vault.
+- **Gateway** — the personal-memory API; the only way qratum content reaches
+  personal-memory.
+- **Hook** — a Claude Code callback that fires on an event (here, when a
+  session ends).
+
 ## What Qratum Is
 
-Qratum is the local librarian for AI session data. It captures, preserves,
-normalizes, redacts, and — on demand — reviews and searches every AI session
-across vendors. It is the system of record for **where session data came
-from**: raw history, provenance, and deterministic derivations.
+In one line: Qratum is the local librarian for your AI session data. It saves
+every AI session from every vendor, keeps the originals safe, cleans them up,
+strips secrets, and — only when you ask — lets you review and search them.
+
+Put differently: Qratum is the system of record for **where session data came
+from**. That means three things — the raw history, the provenance, and the
+deterministic derivations of it.
 
 What Qratum is NOT:
 
@@ -30,6 +61,9 @@ What Qratum is NOT:
 - not a corpus product, until a real corpus consumer exists
 
 ## Ecosystem Roles
+
+There are four systems, and each one has a single job. The table below names
+each system and what it owns.
 
 ```txt
 edictum          the company and product: runtime process enforcement for AI
@@ -49,36 +83,50 @@ personal-memory  the living store: cross-agent durable knowledge, serving
                  System of record for what memories are now.
 ```
 
-One home per job. The only bridge between qratum and personal-memory is the
-gateway API, called directly by small scripts or commands holding a
-keychain/env credential. No bundle/importer/receipt protocol between them.
+Each job lives in exactly one home. Qratum and personal-memory connect through
+one channel only: the gateway API. Small scripts or commands call that API
+directly, using a credential held in the keychain or an environment variable.
+There is no bundle/importer/receipt protocol between the two systems.
 
 ## Why This Revision
 
-The adversarial review (see `docs/reviews/2026-06-12-memory-architecture/`)
-established, with repo evidence:
+The short version: only one part of the system is on a clock. That part is the
+vault — wait too long and its data is lost forever. Everything else can be
+added later. The adversarial review proved this with evidence from the repo
+(see `docs/reviews/2026-06-12-memory-architecture/`):
 
-- The vault is the only component with an irreversibility clock: capture
-  currently stores pointers only, covers ~15-20% of real session volume
-  (ductum-only hook), and one captured transcript has already been deleted by
-  Claude Code's 30-day cleanup.
-- The review/lesson machinery had a 0% engagement baseline (18 real capture
-  events, none ever processed; the only full run was a fixture demo).
-- The bundle -> importer -> receipt bridge was a one-party trust protocol with
-  invented counterparty behavior (a `duplicate` outcome the gateway cannot
-  emit, an error vocabulary that doesn't match the gateway's).
-- `internal/` is empty scaffolding; all Milestone A code lives flat in
-  `cmd/qrt` and stores into repo-local `./.qratum/`, not a central workspace.
+- **The vault is the only part that loses data if we wait.** Capture today only
+  stores pointers, not the content itself. It covers just ~15-20% of real
+  session volume (the hook is ductum-only). And one captured transcript has
+  already been deleted by Claude Code's 30-day cleanup.
+- **The review/lesson machinery was never actually used.** Its engagement
+  baseline was 0%: of 18 real capture events, none were ever processed. The
+  only full run was a fixture demo.
+- **The old bridge was a fake handshake.** The bundle -> importer -> receipt
+  bridge was a one-party trust protocol with invented counterparty behavior. It
+  assumed a `duplicate` outcome the gateway cannot emit, and used an error
+  vocabulary that doesn't match the gateway's.
+- **The code was not where the design said it was.** `internal/` was empty
+  scaffolding. All Milestone A code lived flat in `cmd/qrt` and stored into
+  repo-local `./.qratum/`, not a central workspace. That was the state at
+  review time. Since then, some of it has shipped: `internal/{vault,workspace,
+  claude,textdiff}` now exist, and capture/events use central `~/.qratum/`. One
+  gap remains: the **derived refinery artifacts still land repo-local** in
+  `./.qratum/`. Moving them to `~/.qratum/` is tracked as the
+  derived-artifact-location fix (FIX-4 / D11 in `verification-and-trust-gate.md`).
 
 ## The Vault (build first)
 
-Goal: a transcript Claude Code deletes tomorrow is recoverable. Passive value;
-survives abandonment gracefully.
+Plain goal: if Claude Code deletes a transcript tomorrow, you can still get it
+back. The vault delivers value passively, just by running. And it survives
+neglect — even if you stop using everything else, the vault still protects your
+data.
 
 ### Workspace
 
-Central workspace at `~/.qratum/` (migrating off repo-local `./.qratum/`).
-Vault-minimum layout only — do not build the full v2 workspace:
+Everything lives in one central folder, `~/.qratum/` (we are moving off the old
+repo-local `./.qratum/`). Build only the minimum layout the vault needs — do
+NOT build the full v2 workspace:
 
 ```txt
 ~/.qratum/
@@ -89,83 +137,101 @@ Vault-minimum layout only — do not build the full v2 workspace:
   state/vault.json                     last backfill cursor, stats
 ```
 
-`qratum.raw_ref.v1` is reused from the operational model draft as-is. Raw
-kinds gain: `source_export_bundle`, `source_memory`, `vendor_memory_dir`,
-`vendor_insight_report`, `memory_import_receipt` — joining the operational
-model's existing kinds (`main_transcript`, `subagent_transcript`,
-`file_history_snapshot`, `source_insight_report`, `source_metadata`,
-`unknown`). `qrt vault archive` uses the existing `source_metadata` for export
-metadata files such as `projects/*.json` and `users.json`, and
-`memory_import_receipt` for the curated-import receipt (see the companion
-gateway spec) so the record of what curated content left the machine is
-preserved next to the export blob it came from.
+We reuse the existing `qratum.raw_ref.v1` ref format from the operational model
+draft as-is.
+
+Each blob needs a label saying what it is. That label is its "kind." We add new
+raw kinds for the content the vault now handles: `source_export_bundle`,
+`source_memory`, `vendor_memory_dir`, `vendor_insight_report`, and
+`memory_import_receipt`. These join the kinds the operational model already
+defines: `main_transcript`, `subagent_transcript`, `file_history_snapshot`,
+`source_insight_report`, `source_metadata`, and `unknown`.
+
+Two of these kinds get reused for archiving, so the record of what left the
+machine sits right next to the export it came from. The `qrt vault archive`
+command uses the existing `source_metadata` kind for export metadata files
+(such as `projects/*.json` and `users.json`). It uses `memory_import_receipt`
+for the curated-import receipt (see the companion gateway spec).
 
 ### Capture (global, copy-on-capture)
 
-1. Global SessionEnd hook in `~/.claude/settings.json` (not per-project):
-   `qrt hook claude-code`.
-2. The hook reads the hook JSON from stdin, writes one capture event, and
-   **copies the transcript file into the blob store** (stream-hash sha256,
-   skip if blob exists, tmp+rename). A file copy is within the fast-hook rule;
-   parsing, network, and LLM calls remain forbidden.
-3. Degraded cases: missing `transcript_path` -> event recorded with
-   `raw_missing: true`; copy failure -> event recorded, visible in
-   `qrt status` — never silently swallowed.
+Plain idea: the moment any Claude Code session ends, copy its transcript into
+the vault before anything can delete it.
+
+1. Install one global SessionEnd hook in `~/.claude/settings.json` (global, NOT
+   per-project): `qrt hook claude-code`.
+2. When a session ends, the hook does three things. It reads the hook JSON from
+   stdin, writes one capture event, and **copies the transcript file into the
+   blob store**. The copy streams the file and hashes it with sha256, skips the
+   write if that blob already exists, and writes to a temp file before renaming
+   it into place. A plain file copy is allowed under the fast-hook rule.
+   Parsing, network calls, and LLM calls remain forbidden in the hook.
+3. When something goes wrong, record it — never swallow it silently. If
+   `transcript_path` is missing, the event is still recorded, with
+   `raw_missing: true`. If the copy fails, the event is still recorded, and the
+   failure shows up in `qrt status`.
 
 ### Operational ownership
 
-The vault is worthless if installing and running it is manual tribal
-knowledge. Capture, backfill, and backup are first-class commands, not
-post-merge instructions. (Review finding: vault capture was operationally
-unowned — global hook install, doctor, and backup verification were left as
-out-of-band manual steps.)
+Plain problem: a vault nobody knows how to install or run is useless. So
+installing, checking, backfilling, and backing up are real commands you can
+run — not tribal knowledge buried in post-merge instructions. (Review finding:
+vault capture was operationally unowned. Global hook install, doctor, and
+backup verification were all left as out-of-band manual steps.)
 
-- `qrt hook install` — idempotently add the SessionEnd hook to
-  `~/.claude/settings.json` (the GLOBAL settings, not project-local); show the
-  exact diff and confirm; detect and report an existing project-local hook so
-  capture is not double-counted. `qrt hook status` reports whether the global
-  hook is installed.
-- `qrt vault doctor` — one command answering "is preservation actually
-  working right now": global hook installed yes/no, last capture time, last
-  backfill time and staleness, copy-failure count, blob count vs known
-  transcript count drift, backup freshness, and any known machine not reporting.
-- `qrt vault backup --verify` — back up and then prove the backup is
-  restorable (digest-check a sample, or full round-trip for small vaults).
-  A backup that has never been verified is not a backup.
+- `qrt hook install` — adds the SessionEnd hook to `~/.claude/settings.json`
+  (the GLOBAL settings, not project-local). It runs every time without making
+  changes if the hook is already there (idempotent). It shows the exact diff
+  and asks you to confirm before writing. It also detects and reports an
+  existing project-local hook, so capture is not double-counted.
+  `qrt hook status` reports whether the global hook is installed.
+- `qrt vault doctor` — one command that answers "is preservation actually
+  working right now?" It reports: whether the global hook is installed
+  (yes/no), last capture time, last backfill time and whether it is stale,
+  copy-failure count, drift between blob count and known transcript count,
+  backup freshness, and any known machine that is not reporting.
+- `qrt vault backup --verify` — backs up, then proves the backup can actually
+  be restored. It digest-checks a sample, or does a full round-trip for small
+  vaults. A backup that has never been verified is not a backup.
 
 ### Backfill and archiving
 
-- `qrt vault backfill` — idempotent inventory of
-  `~/.claude/projects/**/*.jsonl` (and subagent transcripts) into blobs.
-  Dedup by digest. First run captures the existing local transcripts (~267 at
-  time of writing). Re-runnable; intended to be run periodically, not once
-  (new sessions accrue; cloud/other-machine sessions may need a manual sync
-  in first).
-- `qrt vault archive <path>` — generic archiver for files/folders into blobs
-  with a kind tag. First uses: the Claude.ai data export folder
-  (`source_export_bundle` / `source_memory` / `source_metadata`), vendor
+These commands pull existing files on disk into the vault.
+
+- `qrt vault backfill` — inventories `~/.claude/projects/**/*.jsonl` (and
+  subagent transcripts) into blobs, deduplicating by digest. It runs every time
+  without making changes for files it has already captured (idempotent). The
+  first run captures the existing local transcripts (~267 at time of writing).
+  It is meant to be re-run periodically, not just once: new sessions keep
+  accruing, and cloud or other-machine sessions may first need a manual sync
+  into place.
+- `qrt vault archive <path>` — a generic archiver that pulls any files or
+  folders into blobs with a kind tag. First uses: the Claude.ai data export
+  folder (`source_export_bundle` / `source_memory` / `source_metadata`), vendor
   memory dirs (`~/.claude/projects/*/memory/`, `~/.codex/memories/`), and
-  `/insights` HTML output (`vendor_insight_report`). Vendors do the expensive
-  mining; Qratum preserves their output as input.
-- `qrt vault backup [--verify] <dest>` — wrapper (rclone/restic or plain copy)
-  over `~/.qratum/`. Local-first must not mean single-disk.
+  `/insights` HTML output (`vendor_insight_report`). The vendors do the
+  expensive mining; Qratum just preserves their output as input.
+- `qrt vault backup [--verify] <dest>` — a wrapper (rclone/restic or a plain
+  copy) over `~/.qratum/`. Local-first must not mean single-disk.
 
 ### Multi-machine and cloud scope (stated, not solved)
 
-Capture is a local-machine sensor. Two gaps are real and must be named, not
-silently assumed away:
+Plain limit: capture only sees the machine it runs on. Two gaps are real, and
+we name them rather than pretend they don't exist:
 
 - **Second machine**: the ecosystem already runs agents on more than one host
-  (e.g. a Mac mini running Hermes). Each machine needs its own
-  `qrt hook install` and `qrt vault backfill`; merging two machines' vaults is
-  blob-dedup-clean (content-addressed) but the install is per-machine. A
-  second-machine runbook is a P2 deliverable.
-- **Cloud sessions**: sessions that start and end on vendor infra (Claude Code
-  on the web) never touch a local hook. v1 scope explicitly does NOT capture
-  these; `qrt vault doctor` should state this limitation rather than implying
-  full coverage. A pull-based cloud inventory is future scope.
+  (for example, a Mac mini running Hermes). Each machine needs its own
+  `qrt hook install` and `qrt vault backfill`. Merging two machines' vaults is
+  clean, because blobs are content-addressed and dedupe automatically — but the
+  install itself is per-machine. A second-machine runbook is a P2 deliverable.
+- **Cloud sessions**: sessions that start and end on vendor infrastructure
+  (Claude Code on the web) never touch a local hook. v1 scope explicitly does
+  NOT capture these. `qrt vault doctor` should state this limitation rather
+  than imply full coverage. A pull-based cloud inventory is future scope.
 
 ### Acceptance
+
+These are the conditions the vault must meet.
 
 - Fresh session on any repo -> blob + ref + event exist within seconds of
   session end.
@@ -178,17 +244,37 @@ silently assumed away:
 - `qrt status` shows vault counts, last backfill, and copy failures.
 - No raw content in logs or events (paths and digests only).
 
+> **Acceptance status (2026-06-15):** 7 of these met by shipped code. Two gaps:
+> (1) "Deleting the source transcript does not lose data" holds for the **raw
+> blob** but not for *derived artifacts* — the refinery reads the live
+> `transcript_path`, not the blob (FIX-3/D6a). (2) "`backup --verify` proves
+> restorability" is not actually met: `verifyTree` re-hashes the live source
+> instead of comparing against the recorded `ref.Digest`, and there is no
+> round-trip restore (D8). Both owned by `verification-and-trust-gate.md`.
+
 ## The Refinery (kept, on demand)
 
+Plain idea: the cleanup-and-review tooling stays, but only as something you run
+by hand. It never runs on its own, and it's allowed to sit unused.
+
 The Milestone A pipeline (normalize -> deterministic redaction -> evidence ->
-review -> report -> ADP export) is retained as on-demand tooling reading from
-vault blobs. No daemon obligation, no automatic review, no review queue. It
-runs when explicitly invoked and is allowed to stay unused.
+review -> report -> ADP export) is retained as on-demand tooling that reads
+from vault blobs. There is no daemon obligation, no automatic review, and no
+review queue. It runs only when explicitly invoked, and is allowed to stay
+unused.
+
+> **Not yet wired (2026-06-15):** "reading from vault blobs" is the intended
+> design but is NOT built — the refinery resolves and requires the live
+> `transcript_path` (`daemon.go`). Wiring blob fallback is FIX-3 / D6a in
+> `verification-and-trust-gate.md`.
 
 ## Later, Evidence-Gated (do not build now)
 
+Plain rule: do not build any of these until there is real evidence someone
+needs it. Each has a named trigger.
+
 - **Local search (SQLite FTS)** over redacted/normalized sessions. Trigger:
-  Arnold actually greps the vault twice. Note: this is the repo's first
+  the maintainer actually greps the vault twice. Note: this is the repo's first
   third-party Go dependency (CGO `mattn` vs `modernc.org/sqlite` tree) — an
   explicit supply-chain decision under `docs/supply-chain.md`, not ambient.
 - **Thin claude-ai-export normalizer**: only if summary/conversation mining is
@@ -215,7 +301,8 @@ runs when explicitly invoked and is allowed to stay unused.
 
 ## Spec Hygiene (edits to perform on acceptance)
 
-`operational-model-redesign.md` must be edited in place — not overlaid:
+When this is accepted, edit `operational-model-redesign.md` in place — do not
+overlay it:
 
 1. "Locked Product Decisions": explicitly unlock and rewrite — output priority
    becomes preservation -> lessons-to-memory -> insights-harvest -> search ->
@@ -235,7 +322,7 @@ runs when explicitly invoked and is allowed to stay unused.
 5. Milestones: replace the current P1-P5 ladder with vault-first sequencing
    (P1 = this vault spec; later milestones only on demonstrated pull).
 6. `SPEC.md`: point to this file; current milestone remains
-   P0-SPEC-AND-CONTRACTS until Arnold unlocks vault implementation.
+   P0-SPEC-AND-CONTRACTS until the maintainer unlocks vault implementation.
 7. New ADR 0010: vault-first; no one-person publish ceremony; the store owns
    its own curation; direct gateway calls with a locally-held credential are
    the integration mechanism.

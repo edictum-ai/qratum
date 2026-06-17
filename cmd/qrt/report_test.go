@@ -13,10 +13,11 @@ import (
 func TestReportWritesStaticHTMLFromArtifacts(t *testing.T) {
 	root := t.TempDir()
 	seedUIFixtureArtifacts(t, root)
+	qratumHome := setTestQratumHome(t)
 	t.Chdir(root)
 	var stdout, stderr bytes.Buffer
 
-	code := run([]string{"report", ".qratum/sessions/ses_0001.normalized.json"}, &stdout, &stderr)
+	code := run([]string{"report", "sessions/ses_0001/normalized.json"}, &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
@@ -24,11 +25,12 @@ func TestReportWritesStaticHTMLFromArtifacts(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
-	if got, want := stdout.String(), "wrote .qratum/reports/ses_0001.html\n"; got != want {
+	reportPath := qratumSessionArtifact(qratumHome, "ses_0001", "report.html")
+	if got, want := stdout.String(), "wrote "+filepath.ToSlash(reportPath)+"\n"; got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 
-	report := readTextFile(t, ".qratum/reports/ses_0001.html")
+	report := readTextFile(t, reportPath)
 	for _, want := range []string{
 		"<!doctype html>",
 		"<h2>Session summary</h2>",
@@ -53,8 +55,9 @@ func TestReportWritesStaticHTMLFromArtifacts(t *testing.T) {
 func TestReportEscapesHTMLAndKeepsArtifactHrefsLocal(t *testing.T) {
 	root := t.TempDir()
 	seedUIFixtureArtifacts(t, root)
+	qratumHome := setTestQratumHome(t)
 
-	evidencePath := filepath.Join(root, ".qratum", "evidence", "ses_0001.evidence.json")
+	evidencePath := qratumSessionArtifact(qratumHome, "ses_0001", "evidence.json")
 	var bundle evidenceBundle
 	readJSONFile(t, evidencePath, &bundle)
 	maliciousScript := `<script>alert("x")</script>`
@@ -64,7 +67,7 @@ func TestReportEscapesHTMLAndKeepsArtifactHrefsLocal(t *testing.T) {
 	bundle.Findings[0].Evidence[0].Path = maliciousImage
 	writeJSONFile(t, evidencePath, bundle)
 
-	reviewPath := filepath.Join(root, ".qratum", "reviews", "ses_0001.review.json")
+	reviewPath := qratumSessionArtifact(qratumHome, "ses_0001", "review.json")
 	var card reviewCard
 	readJSONFile(t, reviewPath, &card)
 	card.MainFinding = maliciousScript
@@ -73,12 +76,12 @@ func TestReportEscapesHTMLAndKeepsArtifactHrefsLocal(t *testing.T) {
 
 	t.Chdir(root)
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"report", ".qratum/sessions/ses_0001.normalized.json"}, &stdout, &stderr)
+	code := run([]string{"report", "sessions/ses_0001/normalized.json"}, &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	report := readTextFile(t, ".qratum/reports/ses_0001.html")
+	report := readTextFile(t, qratumSessionArtifact(qratumHome, "ses_0001", "report.html"))
 	assertNoUnsafeReportHTML(t, report)
 	for _, want := range []string{
 		htmlpkg.EscapeString(maliciousScript),
@@ -93,17 +96,18 @@ func TestReportEscapesHTMLAndKeepsArtifactHrefsLocal(t *testing.T) {
 func TestReportDoesNotLeakFixtureSecrets(t *testing.T) {
 	root := t.TempDir()
 	seedSecretReportArtifacts(t, root)
+	qratumHome := setTestQratumHome(t)
 	t.Chdir(root)
 	var stdout, stderr bytes.Buffer
 
-	code := run([]string{"report", ".qratum/sessions/ses_0001.normalized.json"}, &stdout, &stderr)
+	code := run([]string{"report", "sessions/ses_0001/normalized.json"}, &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	report := readTextFile(t, ".qratum/reports/ses_0001.html")
+	report := readTextFile(t, qratumSessionArtifact(qratumHome, "ses_0001", "report.html"))
 	for _, raw := range []string{
-		"sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890",
+		"qratumSECRETtoken1234567890abcdef",
 		"supersecret",
 		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.signature",
 		"/Users/acartagena/project/qratum/.env",
@@ -155,22 +159,22 @@ func TestReportRejectsMissingAndInvalidInput(t *testing.T) {
 		},
 		{
 			name: "missing redacted artifact",
-			args: []string{"report", ".qratum/sessions/ses_0001.normalized.json"},
+			args: []string{"report", "sessions/ses_0001/normalized.json"},
 			setup: func(t *testing.T) {
 				seedUIFixtureArtifacts(t, ".")
-				if err := os.Remove(filepath.Join(".qratum", "redacted", "ses_0001.redacted.json")); err != nil {
+				if err := os.Remove(qratumSessionArtifact(setTestQratumHome(t), "ses_0001", "redacted.json")); err != nil {
 					t.Fatal(err)
 				}
 			},
 			wantCode:  1,
-			wantError: "missing redacted session .qratum/redacted/ses_0001.redacted.json",
+			wantError: "missing redacted session",
 		},
 		{
 			name: "unsupported review verdict",
-			args: []string{"report", ".qratum/sessions/ses_0001.normalized.json"},
+			args: []string{"report", "sessions/ses_0001/normalized.json"},
 			setup: func(t *testing.T) {
 				seedUIFixtureArtifacts(t, ".")
-				reviewPath := filepath.Join(".qratum", "reviews", "ses_0001.review.json")
+				reviewPath := qratumSessionArtifact(setTestQratumHome(t), "ses_0001", "review.json")
 				var card reviewCard
 				readJSONFile(t, reviewPath, &card)
 				card.Verdict = "future_score"
@@ -184,6 +188,7 @@ func TestReportRejectsMissingAndInvalidInput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
+			setTestQratumHome(t)
 			if tt.setup != nil {
 				tt.setup(t)
 			}
@@ -206,6 +211,7 @@ func TestReportRejectsMissingAndInvalidInput(t *testing.T) {
 
 func seedSecretReportArtifacts(t *testing.T, root string) {
 	t.Helper()
+	setTestQratumHome(t)
 	var session qratumSession
 	if err := json.Unmarshal(readRedactionFixture(t, "secret-session.input.json"), &session); err != nil {
 		t.Fatalf("decode secret session fixture: %v", err)
@@ -227,10 +233,10 @@ func seedSecretReportArtifacts(t *testing.T, root string) {
 		t.Fatalf("build secret report review: %v", err)
 	}
 
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Session)), session)
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Redacted)), redacted)
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Evidence)), evidence)
-	writeJSONFile(t, filepath.Join(root, filepath.FromSlash(paths.Review)), review)
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Session), session)
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Redacted), redacted)
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Evidence), evidence)
+	writeJSONFile(t, artifactAbsolutePath(root, paths.Review), review)
 }
 
 func assertNoUnsafeReportHTML(t *testing.T, report string) {

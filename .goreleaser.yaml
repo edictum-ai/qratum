@@ -1,0 +1,70 @@
+version: 2
+
+project_name: qratum
+
+builds:
+  - main: ./cmd/qrt
+    binary: qrt
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+
+release:
+  github:
+    owner: edictum-ai
+    name: qratum
+  draft: false
+  prerelease: auto
+
+# Publish a Homebrew formula to the edictum org tap on each release.
+# `brew install edictum-ai/edictum/qratum` installs the `qrt` binary.
+# Requires HOMEBREW_TAP_TOKEN (a token with write access to
+# edictum-ai/homebrew-edictum) in the release workflow environment.
+#
+# Note: goreleaser warns that `brews` is being phased out in favor of
+# `homebrew_casks`. A formula is a deliberate choice here: it works on Linuxbrew
+# (casks are macOS-only) and avoids macOS Gatekeeper quarantine friction for a
+# CLI binary. Revisit if `brews` is removed in a future goreleaser major.
+brews:
+  - name: qratum
+    repository:
+      owner: edictum-ai
+      name: homebrew-edictum
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://qratum.dev"
+    description: "The local librarian for your AI coding sessions — a local-first vault and refinery."
+    license: "MIT"
+    install: |
+      bin.install "qrt"
+    test: |
+      system "#{bin}/qrt", "--version"
