@@ -11,13 +11,13 @@ GOVULNCHECK_VERSION := v1.3.0
 export GOTOOLCHAIN ?= local
 export GOFLAGS ?= -mod=readonly
 
-.PHONY: build test test-race vet lint security supply-chain verify demo dogfood-demo clean
+.PHONY: build test test-race vet lint security supply-chain history-lint verify demo dogfood-demo clean
 
 build:
 	mkdir -p bin
 	$(GO) build -o $(BIN) ./cmd/qrt
 
-test:
+test: history-lint
 	$(GO) test ./...
 
 test-race:
@@ -36,6 +36,9 @@ security:
 
 supply-chain:
 	sh scripts/check-supply-chain.sh
+
+history-lint:
+	$(GO) test ./cmd/qrt -run 'TestNoSecretInGolden/git-history-known-red' -v
 
 verify: supply-chain vet lint test test-race build demo dogfood-demo security
 
