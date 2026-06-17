@@ -682,14 +682,11 @@ func buildUISessionDetail(context uiSessionContext) uiSessionDetail {
 		AgentModel:    context.redacted.AgentModel,
 		Repo:          buildUIRepoSummary(context.redacted),
 		Time: uiSessionTime{
-			StartedAt:            context.session.StartedAt,
-			EndedAt:              context.session.EndedAt,
 			DurationSeconds:      context.session.BusinessMetrics.DurationSeconds,
 			SourceEventTimestamp: context.redacted.SourceEventTimestamp,
 		},
 		Summary: uiSessionSummary{
 			Status:                    context.evidence.Summary.Status,
-			SourceEventID:             context.redacted.SourceEventID,
 			SourceEventType:           context.redacted.SourceEventType,
 			SourceEventTimestamp:      context.redacted.SourceEventTimestamp,
 			SourceTranscriptSessionID: context.redacted.SourceTranscriptSessionID,
@@ -732,11 +729,6 @@ func buildUIRepoSummary(session qratumSession) uiRepoSummary {
 	}
 	if session.Workspace != nil {
 		repo.CWD = session.Workspace.CWD
-	}
-	if session.Git != nil {
-		repo.GitRemote = session.Git.Remote
-		repo.GitBranch = session.Git.Branch
-		repo.GitHeadSHA = session.Git.HeadSHA
 	}
 	return repo
 }

@@ -335,14 +335,14 @@ func artifactFilesForPaths(projectRoot string, paths daemonArtifactPaths) []daem
 	}
 }
 
-func artifactAbsolutePath(projectRoot string, path string) string {
+func artifactAbsolutePath(_ string, path string) string {
 	resolved := filepath.FromSlash(path)
 	if filepath.IsAbs(resolved) {
 		return filepath.Clean(resolved)
 	}
 	qratumHome, err := workspace.Resolve()
 	if err != nil {
-		return filepath.Join(projectRoot, resolved)
+		panic(fmt.Sprintf("resolve qratum home for artifact path %q: %v", path, err))
 	}
 	return filepath.Join(qratumHome.Root, resolved)
 }

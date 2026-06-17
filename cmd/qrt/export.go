@@ -347,7 +347,7 @@ func sanitizeADPMap(input map[string]any) map[string]any {
 	}
 	output := make(map[string]any, len(input))
 	for key, value := range input {
-		if isQratumOnlyExportKey(key) {
+		if !isAllowedADPKwargKey(key) {
 			continue
 		}
 		output[key] = sanitizeADPValue(value)
@@ -370,13 +370,9 @@ func sanitizeADPValue(value any) any {
 	}
 }
 
-func isQratumOnlyExportKey(key string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(key))
-	if strings.HasPrefix(normalized, "x-qratum-") {
-		return true
-	}
-	switch normalized {
-	case "secret_map", "secret_maps", "provenance", "redaction", "artifact_paths", "pipeline_status":
+func isAllowedADPKwargKey(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "command", "description", "file_path", "path", "pattern", "query", "url", "limit", "offset":
 		return true
 	default:
 		return false

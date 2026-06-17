@@ -28,13 +28,18 @@ func sessions(args []string, stdout io.Writer, stderr io.Writer) int {
 		printUsage(stderr)
 		return 2
 	}
+	repoFilter := ""
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "error: sessions list does not accept arguments")
-		printUsage(stderr)
-		return 2
+		if len(args) == 3 && args[1] == "--repo" {
+			repoFilter = args[2]
+		} else {
+			fmt.Fprintln(stderr, "error: sessions list accepts only optional --repo <repo_id>")
+			printUsage(stderr)
+			return 2
+		}
 	}
 
-	entries, err := listSessions()
+	entries, err := listSessions(repoFilter)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
@@ -45,7 +50,7 @@ func sessions(args []string, stdout io.Writer, stderr io.Writer) int {
 	return 0
 }
 
-func listSessions() ([]sessionListEntry, error) {
+func listSessions(repoFilter string) ([]sessionListEntry, error) {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("resolve current project: %w", err)
@@ -86,6 +91,11 @@ func listSessions() ([]sessionListEntry, error) {
 		var session struct {
 			SchemaVersion string `json:"schema_version"`
 			SessionID     string `json:"session_id"`
+			RepoID        string `json:"repo_id"`
+			Workspace     struct {
+				CWD string `json:"cwd"`
+			} `json:"workspace"`
+			Git *qratumGitInfo `json:"git"`
 		}
 		if err := json.Unmarshal(data, &session); err != nil {
 			return nil, fmt.Errorf("invalid session JSON %s: %w", displayPath(projectRoot, path), err)
@@ -96,10 +106,26 @@ func listSessions() ([]sessionListEntry, error) {
 		if session.SessionID == "" {
 			return nil, fmt.Errorf("session %s is missing session_id", displayPath(projectRoot, path))
 		}
+		if repoFilter != "" && !sessionMatchesRepoFilter(session.RepoID, session.Workspace.CWD, session.Git, repoFilter) {
+			continue
+		}
 		entries = append(entries, sessionListEntry{
 			SessionID: session.SessionID,
 			Path:      displayPath(projectRoot, path),
 		})
 	}
 	return entries, nil
+}
+
+func sessionMatchesRepoFilter(repoID string, cwd string, git *qratumGitInfo, filter string) bool {
+	if filter == "" {
+		return true
+	}
+	if repoID == filter || cwd == filter {
+		return true
+	}
+	if git != nil && (git.Remote == filter || git.Branch == filter || git.HeadSHA == filter) {
+		return true
+	}
+	return false
 }

@@ -101,8 +101,8 @@ func TestBuildUISessionDetailUsesRedactedSourceMetadata(t *testing.T) {
 	if got, want := detail.Time.SourceEventTimestamp, "2026-05-21T11:00:00Z"; got != want {
 		t.Fatalf("time source_event_timestamp = %q, want %q", got, want)
 	}
-	if got, want := detail.Summary.SourceEventID, "redacted-event-id"; got != want {
-		t.Fatalf("summary source_event_id = %q, want %q", got, want)
+	if got := detail.Summary.SourceEventID; got != "" {
+		t.Fatalf("summary source_event_id = %q, want dropped", got)
 	}
 	if got, want := detail.Summary.SourceEventType, "redacted-event-type"; got != want {
 		t.Fatalf("summary source_event_type = %q, want %q", got, want)

@@ -41,6 +41,7 @@ func Resolve() (Paths, error) {
 	if err := os.MkdirAll(clean, 0o700); err != nil {
 		return Paths{}, fmt.Errorf("create qratum home %s: %w", filepath.ToSlash(clean), err)
 	}
+	// #nosec G302 -- qratum home is a directory and must be owner-only traversable.
 	if err := os.Chmod(clean, 0o700); err != nil {
 		return Paths{}, fmt.Errorf("secure qratum home %s: %w", filepath.ToSlash(clean), err)
 	}
