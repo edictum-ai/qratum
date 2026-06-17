@@ -12,7 +12,9 @@ import (
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
-const version = "dev"
+// version is the build version. It defaults to "dev" for local builds and is
+// overridden at release time via -ldflags "-X main.version={{.Version}}".
+var version = "dev"
 
 func main() {
 	os.Exit(runWithIO(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
