@@ -1,5 +1,12 @@
+bytes
 crypto/sha256
+encoding/hex
+encoding/json
 github.com/edictum-ai/qratum/internal/vault
 github.com/edictum-ai/qratum/internal/workspace
 io
 os
+path/filepath
+strconv
+strings
+time

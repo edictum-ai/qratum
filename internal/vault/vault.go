@@ -187,13 +187,23 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 		return ArchiveResult{}, fmt.Errorf("create blob temp directory: %w", err)
 	}
 	// #nosec G304 -- archive targets are explicit local filesystem paths chosen by the user or hook payload.
-	src, err := os.Open(originalPath)
+	src, err := openFileNoFollowRead(originalPath)
 	if err != nil {
 		return ArchiveResult{}, fmt.Errorf("open archive path %s: %w", filepath.ToSlash(originalPath), err)
 	}
 	defer func() {
 		_ = src.Close()
 	}()
+	openedInfo, err := src.Stat()
+	if err != nil {
+		return ArchiveResult{}, fmt.Errorf("inspect opened archive path %s: %w", filepath.ToSlash(originalPath), err)
+	}
+	if !openedInfo.Mode().IsRegular() {
+		return ArchiveResult{}, fmt.Errorf("archive path %s is not a regular file", filepath.ToSlash(originalPath))
+	}
+	if openedInfo.Size() > MaxArchiveFileBytes {
+		return ArchiveResult{}, fmt.Errorf("archive path %s exceeds %d byte capture cap", filepath.ToSlash(originalPath), MaxArchiveFileBytes)
+	}
 
 	tmp, err := os.CreateTemp(s.Paths.RawBlobsTempDir(), ".blob.*.tmp")
 	if err != nil {
@@ -501,7 +511,7 @@ func copyTree(source string, dest string) (int, error) {
 	if !info.IsDir() {
 		return 0, fmt.Errorf("qratum home %s is not a directory", filepath.ToSlash(source))
 	}
-	if err := os.MkdirAll(dest, 0o750); err != nil {
+	if err := os.MkdirAll(dest, 0o700); err != nil {
 		return 0, fmt.Errorf("create backup destination %s: %w", filepath.ToSlash(dest), err)
 	}
 
@@ -516,7 +526,7 @@ func copyTree(source string, dest string) (int, error) {
 		}
 		target := filepath.Join(dest, rel)
 		if d.IsDir() {
-			return os.MkdirAll(target, 0o750)
+			return os.MkdirAll(target, 0o700)
 		}
 		info, err := d.Info()
 		if err != nil {
