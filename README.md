@@ -87,14 +87,21 @@ sensitive data class; deterministic redaction gates export.
 
 ## Status
 
-**Pre-1.0.** Here is what works today and what does not.
+**v0.1.0 — first release.** Here is what works today and what does not.
 
 The vault has shipped. The vault is the part that keeps the permanent private
 copy (P1, the vault-first runtime). These pieces are merged and test-backed: the
 copy-on-capture hook, the content-addressed blob store, `hook install`, the
-`vault backfill/archive/backup --verify/doctor` commands, and `status`. The
-Milestone A refinery (normalize → redact → evidence → review → report → ADP
-export) runs as on-demand tooling.
+`vault backfill/archive/backup --verify/doctor/gc` commands, the tombstone-based
+`vault erase`, the `vault install-schedule` backfill timer, and `status`. The
+refinery (normalize → redact → evidence → review → report → ADP export) runs as
+on-demand tooling.
+
+The verification trust gate has shipped too. `qrt trust` (and `make trust`) runs
+the real CLI against planted-secret and reflection-canary corpora and emits a
+`qratum.trust_scorecard.v1` verdict — `TRUSTED`, `TRUSTED-WITH-NAMED-GAPS`, or
+`NOT-TRUSTED` — with an honest-residual block stating exactly what it does not
+cover. Every emitted object carries a `data_class` and is schema-validated.
 
 Honest boundaries — three limits to know about today:
 
@@ -111,18 +118,30 @@ Honest boundaries — three limits to know about today:
 
 - Source of truth: [`SPEC.md`](SPEC.md) → [`specs/current/operational-model-redesign.md`](specs/current/operational-model-redesign.md)
 - Vault-first (accepted 2026-06-14, [ADR 0010](docs/decisions/0010-vault-first-and-direct-gateway-integration.md)): [`specs/current/qratum-vault-first.md`](specs/current/qratum-vault-first.md)
-- Verification benchmark (proposed 2026-06-15): [`specs/current/verification-and-trust-gate.md`](specs/current/verification-and-trust-gate.md)
+- Verification & trust gate (shipped in v0.1.0): [`specs/current/verification-and-trust-gate.md`](specs/current/verification-and-trust-gate.md)
+
+## Install
+
+```sh
+brew tap edictum-ai/edictum
+brew trust edictum-ai/edictum   # Homebrew gates third-party taps
+brew install qratum             # installs the `qrt` binary
+```
+
+Prebuilt binaries (darwin/linux × amd64/arm64) are also on each
+[release](https://github.com/edictum-ai/qratum/releases). Or build from source
+with `make build`.
 
 ## Quick start
 
 ```sh
-make build
-cat fixtures/claude-code/hook-session-end.json | ./bin/qrt hook claude-code
-./bin/qrt daemon run-once
-./bin/qrt sessions list
+qrt hook install        # capture every future Claude Code session into the vault
+qrt daemon run-once     # refine on demand: normalize → redact → evidence → review → report → export
+qrt sessions list
+qrt trust               # the self-verification scorecard (what's proven, what's a named gap)
 ```
 
-Run the whole vertical slice:
+Run the whole vertical slice from a source checkout:
 
 ```sh
 make demo

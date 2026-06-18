@@ -8,7 +8,7 @@ export const qratum = {
   wordmark: "qratum",
   tagline: "The local librarian for your AI coding sessions.",
   oneLiner:
-    "Qratum is a local-first library, vault, and review pipeline for your AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and searches every session — without ever uploading your raw transcripts.",
+    "Qratum is a local-first library, vault, and refinery for your AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and verifies your Claude Code sessions — without ever uploading your raw transcripts.",
 
   problem: {
     headline: "Your AI coding sessions are ephemeral.",
@@ -59,7 +59,7 @@ export const qratum = {
     { step: "Capture", detail: "A global SessionEnd hook writes one event and copies the transcript into the vault." },
     { step: "Archive safely", detail: "Content-addressed blob store, deduped by digest, local-only by default." },
     { step: "Review", detail: "Deterministic signals become findings inside a review envelope." },
-    { step: "Searchable library", detail: "Sessions, revisions, and metrics, indexed locally for reuse." },
+    { step: "Local library", detail: "Sessions and metrics, listed locally for reuse." },
     { step: "Corpus candidate", detail: "Eligibility-checked export — only on an explicit command." },
   ],
 
@@ -74,13 +74,13 @@ export const qratum = {
   },
 
   roadmap: [
-    { phase: "Milestone A", status: "done" as RoadmapStatus, title: "Vertical slice proven", detail: "Capture, spool, deterministic redaction, evidence, review cards, reports, ADP export." },
-    { phase: "P0", status: "now" as RoadmapStatus, title: "Spec & contracts", detail: "Locking the redesign — schema registry, JSON Schemas, fixtures — before any runtime code." },
-    { phase: "P1", status: "next" as RoadmapStatus, title: "The Vault", detail: "Global capture, content-addressed raw archive, `vault doctor`, `backup --verify`." },
-    { phase: "P2", status: "later" as RoadmapStatus, title: "Import & revisions", detail: "`import --all` wizard, session revisions, jobs, individual retry." },
-    { phase: "P3", status: "later" as RoadmapStatus, title: "Review + local app", detail: "Review envelope, local app shell on 127.0.0.1:9218, report v2." },
-    { phase: "P4", status: "later" as RoadmapStatus, title: "Lessons & insights", detail: "Local and external AI providers behind consent; cross-session insights." },
-    { phase: "P5", status: "later" as RoadmapStatus, title: "Corpus & publish", detail: "Native corpus JSONL, ADP export, local-folder publishing, manual approval." },
+    { phase: "Milestone A", status: "done" as RoadmapStatus, title: "Vertical slice", detail: "Capture, spool, deterministic redaction, evidence, review cards, reports, ADP export." },
+    { phase: "P0", status: "done" as RoadmapStatus, title: "Spec & contracts", detail: "Schema registry, JSON Schemas, ADRs, fixtures." },
+    { phase: "P1", status: "done" as RoadmapStatus, title: "The Vault", detail: "Global capture, content-addressed raw archive, dedup, `vault doctor`, `backup --verify`." },
+    { phase: "P2", status: "done" as RoadmapStatus, title: "Verification trust gate", detail: "`qrt trust` scorecard, reflection-canary redaction proofs, `vault gc`/`erase`/`install-schedule`, data_class lineage, schema conformance." },
+    { phase: "v0.1.0", status: "now" as RoadmapStatus, title: "First release", detail: "`brew install qratum` — single Go binary, darwin + linux." },
+    { phase: "Next", status: "next" as RoadmapStatus, title: "Cross-repo curation", detail: "Consumer-side memory-import receipts, gated on the personal-memory gateway producer." },
+    { phase: "Later", status: "later" as RoadmapStatus, title: "Hardening", detail: "PII/third-party detection, audit-log tamper-evidence, multi-machine merge — named, deferred future work." },
   ],
 
   stats: [
@@ -92,19 +92,19 @@ export const qratum = {
 
   cta: {
     primary: { label: "Read the spec", href: "/SPEC.md" },
-    secondary: { label: "make build", href: "#install" },
+    secondary: { label: "brew install qratum", href: "#install" },
   },
 
   install: [
-    "make build",
-    "qrt hook install       # global SessionEnd capture",
-    "qrt vault doctor       # is preservation actually working?",
-    "qrt vault backfill     # inventory existing transcripts",
+    "brew tap edictum-ai/edictum",
+    "brew install qratum    # the qrt binary",
+    "qrt hook install       # capture every future session",
+    "qrt trust              # the self-verification scorecard",
   ],
 
   honest: [
-    "Deterministic redaction is best-effort alpha.",
-    "Status: pre-1.0 spec phase (P0). The vault-first proposal is under review.",
+    "Redaction is credentials-only and best-effort alpha; PII and third-party content are preserved verbatim. The trust gate names the residual classes that can still leak.",
+    "Capture and refine are Claude-Code-only. Cloud and web sessions are not captured.",
     "Not a knowledge store, not an insights generator, not a publisher between your own tools.",
   ],
 
