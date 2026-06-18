@@ -10,6 +10,30 @@ export const qratum = {
   oneLiner:
     "Qratum is a local-first library, vault, and refinery for your AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and verifies your Claude Code sessions — without ever uploading your raw transcripts.",
 
+  // Single source of release identity + canonical URLs. Everything else (the
+  // page component AND the generated public/llms*.txt) derives from this file.
+  version: "0.1.0",
+  siteUrl: "https://qratum.dev",
+  repoUrl: "https://github.com/edictum-ai/qratum",
+
+  whatItIs:
+    "Qratum is the local librarian for AI session data: the system of record for where session data came from (raw history, provenance, deterministic derivations). The first user is the developer running it on their own machine.",
+
+  // Status, sourced once. `headlineLead`/`headlineMark` feed the roadmap section
+  // title; `summary` feeds its intro; `tag` feeds the footer; `llms` is the
+  // longer plain-text status the LLM/doc files publish.
+  status: {
+    tag: "v0.1.0 · shipped",
+    headlineLead: "v0.1.0. Shipped.",
+    headlineMark: "Honest.",
+    summary:
+      "Status: v0.1.0 shipped — the vault, the on-demand refinery, and the verification trust gate. Capture and refine are Claude-Code-only, and the trust gate's honest-residual block names exactly what is not yet covered.",
+    llms:
+      "v0.1.0 — first release. The vault (capture, content-addressed archive, dedup, doctor, backup --verify, gc, tombstone erase, install-schedule), the on-demand refinery, and the verification trust gate (`qrt trust` → a qratum.trust_scorecard.v1 verdict) have shipped. Capture and refine are Claude-Code-only; other sources are archive-only with no redaction path. Redaction is credentials-only and best-effort alpha — PII/third-party content is preserved verbatim and the trust gate names the residual classes that can still leak.",
+  },
+
+  installHeadline: { lead: "One binary.", mark: "brew install." },
+
   problem: {
     headline: "Your AI coding sessions are ephemeral.",
     body:

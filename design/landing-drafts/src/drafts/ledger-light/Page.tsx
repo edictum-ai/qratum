@@ -548,13 +548,11 @@ export default function DarkLedgerPage() {
                 className="dl-display dl-section-title"
                 variants={reveal}
               >
-                v0.1.0. Shipped. <span className="dl-mark-cyan">Honest.</span>
+                {qratum.status.headlineLead}{" "}
+                <span className="dl-mark-cyan">{qratum.status.headlineMark}</span>
               </motion.h2>
               <motion.p className="dl-section-intro" variants={reveal}>
-                Status: v0.1.0 shipped — the vault, the on-demand refinery, and the
-                verification trust gate. Capture and refine are Claude-Code-only, and
-                the trust gate&rsquo;s honest-residual block names exactly what is not
-                yet covered.
+                {qratum.status.summary}
               </motion.p>
             </motion.div>
 
@@ -612,7 +610,8 @@ export default function DarkLedgerPage() {
                 className="dl-display dl-section-title"
                 variants={reveal}
               >
-                One binary. <span className="dl-mark-yellow">brew install.</span>
+                {qratum.installHeadline.lead}{" "}
+                <span className="dl-mark-yellow">{qratum.installHeadline.mark}</span>
               </motion.h2>
             </motion.div>
 
@@ -714,7 +713,7 @@ export default function DarkLedgerPage() {
                   <a className="dl-footer-eco-name is-link" href="#roadmap">
                     Roadmap
                   </a>
-                  <span className="dl-footer-eco-role">v0.1.0 · shipped</span>
+                  <span className="dl-footer-eco-role">{qratum.status.tag}</span>
                 </li>
                 <li>
                   <a className="dl-footer-eco-name is-link" href={qratum.cta.primary.href}>
