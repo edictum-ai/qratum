@@ -1,6 +1,6 @@
 # Qratum
 
-> Qratum is a local-first library, vault, and review pipeline for AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and searches every session — without ever uploading your raw transcripts. Single Go binary (`qrt`). No cloud, no accounts, no telemetry. Live site: https://qratum.dev
+> Qratum is a local-first library, vault, and refinery for AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and verifies your Claude Code sessions — without ever uploading your raw transcripts. Single Go binary (`qrt`), v0.1.0, install with `brew install qratum`. No cloud, no accounts, no telemetry. Live site: https://qratum.dev
 
 Qratum is the local librarian for AI session data: the system of record for where session data came from (raw history, provenance, deterministic derivations). The first user is the developer running it on their own machine.
 
@@ -16,7 +16,7 @@ AI coding tools delete sessions. Claude Code purges transcripts after ~30 days; 
 Local-first by architecture. Raw never leaves the machine unless explicitly approved. No boundary silently upgrades data class. Deterministic redaction gates export. No raw routes.
 
 ## Status
-Pre-1.0, spec phase (P0). Milestone A (vertical slice) proven. Vault-first proposal under review. Deterministic redaction is best-effort alpha. Nothing beyond Milestone A is promised as shipped.
+v0.1.0 — first release. The vault (capture, content-addressed archive, dedup, doctor, backup --verify, gc, tombstone erase, install-schedule), the on-demand refinery, and the verification trust gate (`qrt trust` → a qratum.trust_scorecard.v1 verdict) have shipped. Capture and refine are Claude-Code-only; other sources are archive-only with no redaction path. Redaction is credentials-only and best-effort alpha — PII/third-party content is preserved verbatim and the trust gate names the residual classes that can still leak.
 
 ## Links
 - Website: https://qratum.dev

@@ -548,12 +548,13 @@ export default function DarkLedgerPage() {
                 className="dl-display dl-section-title"
                 variants={reveal}
               >
-                Pre-1.0. Spec phase. <span className="dl-mark-cyan">Honest.</span>
+                v0.1.0. Shipped. <span className="dl-mark-cyan">Honest.</span>
               </motion.h2>
               <motion.p className="dl-section-intro" variants={reveal}>
-                Status: pre-1.0 spec phase (P0). Milestone A is the only thing proven
-                so far. The vault-first proposal is under review — nothing here is
-                promised as shipped.
+                Status: v0.1.0 shipped — the vault, the on-demand refinery, and the
+                verification trust gate. Capture and refine are Claude-Code-only, and
+                the trust gate&rsquo;s honest-residual block names exactly what is not
+                yet covered.
               </motion.p>
             </motion.div>
 
@@ -611,7 +612,7 @@ export default function DarkLedgerPage() {
                 className="dl-display dl-section-title"
                 variants={reveal}
               >
-                One binary. <span className="dl-mark-yellow">make build.</span>
+                One binary. <span className="dl-mark-yellow">brew install.</span>
               </motion.h2>
             </motion.div>
 
@@ -713,7 +714,7 @@ export default function DarkLedgerPage() {
                   <a className="dl-footer-eco-name is-link" href="#roadmap">
                     Roadmap
                   </a>
-                  <span className="dl-footer-eco-role">Pre-1.0 spec phase</span>
+                  <span className="dl-footer-eco-role">v0.1.0 · shipped</span>
                 </li>
                 <li>
                   <a className="dl-footer-eco-name is-link" href={qratum.cta.primary.href}>

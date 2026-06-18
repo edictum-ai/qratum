@@ -1,6 +1,6 @@
 # Qratum — full
 
-> Qratum is a local-first library, vault, and review pipeline for AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and searches every session — without ever uploading your raw transcripts. Single Go binary (`qrt`). No cloud, no accounts, no telemetry.
+> Qratum is a local-first library, vault, and refinery for AI coding sessions. It captures, preserves, normalizes, redacts, reviews, and verifies your Claude Code sessions — without ever uploading your raw transcripts. Single Go binary (`qrt`), v0.1.0, install with `brew install qratum`. No cloud, no accounts, no telemetry.
 
 Website: https://qratum.dev
 Repository: https://github.com/edictum-ai/qratum
@@ -42,22 +42,26 @@ The system of record for where session data came from.
 - No raw transcript routes in the app shell. No raw content in logs, spans, or metrics — paths and digests only.
 
 ## Status (honest)
-Pre-1.0, spec phase (P0). Milestone A (one local vertical slice) is proven: Claude Code hook capture, filesystem JSON spool, daemon run-once, normalized session output, deterministic redaction, evidence extraction, review cards, UI DTOs, static HTML reports, ADP strict JSONL export. That slice remains as compatibility/debug behavior while the new operational model is specified. The vault-first proposal is under review. Deterministic redaction is best-effort alpha. Nothing beyond Milestone A is promised as shipped.
+v0.1.0 — first release. Shipped: the vault (global Claude Code capture, content-addressed raw archive, sha256 dedup, `vault doctor`, `backup --verify`, `vault gc`, tombstone-based `vault erase`, `vault install-schedule`); the on-demand refinery (normalize → deterministic redaction → evidence → review → report → ADP strict JSONL export); and the verification trust gate (`qrt trust` / `make trust` drives the real CLI against planted-secret and reflection-canary corpora and emits a qratum.trust_scorecard.v1 verdict — TRUSTED / TRUSTED-WITH-NAMED-GAPS / NOT-TRUSTED — with an honest-residual block). Every emitted object carries a data_class and is schema-validated. Capture and refine are Claude-Code-only; non-Claude/vendor blobs are archive-only with no redaction path. Redaction is credentials-only and best-effort alpha — PII and third-party content are preserved verbatim; the trust gate names the residual classes that can still leak.
 
-## Roadmap direction (not all shipped)
-- P0 (now): spec & contracts.
-- P1 (next): the vault — global capture, content-addressed raw archive, `vault doctor`, `backup --verify`.
-- P2: import & revisions.
-- P3: review + local app.
-- P4: lessons & insights.
-- P5: corpus & publish.
+## Roadmap
+- Milestone A — vertical slice (done).
+- P0 — spec & contracts (done).
+- P1 — the vault (done).
+- P2 — verification trust gate (done): `qrt trust` scorecard, reflection-canary redaction proofs, vault gc/erase/install-schedule, data_class lineage, schema conformance.
+- v0.1.0 — first release (now): `brew install qratum`, single Go binary, darwin + linux.
+- Next — cross-repo curation: consumer-side memory-import receipts, gated on the personal-memory gateway producer.
+- Later — hardening: PII/third-party detection, audit-log tamper-evidence, multi-machine merge (named, deferred future work).
 
 ## Quick start
 ```
-make build
-cat fixtures/claude-code/hook-session-end.json | ./bin/qrt hook claude-code
-./bin/qrt daemon run-once
-./bin/qrt sessions list
+brew tap edictum-ai/edictum
+brew trust edictum-ai/edictum
+brew install qratum
+qrt hook install
+qrt daemon run-once
+qrt sessions list
+qrt trust
 ```
 
 ## Ecosystem
