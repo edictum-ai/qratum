@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-vault-state.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.vault_state.v1" },
+    "data_class": { "const": "raw" },
+    "last_capture_at": { "type": "string" },
+    "last_backfill_at": { "type": "string" },
+    "last_archive_at": { "type": "string" },
+    "last_backup_at": { "type": "string" },
+    "last_backup_dest": { "type": "string" },
+    "last_backup_verified_at": { "type": "string" },
+    "last_backup_verified_dest": { "type": "string" },
+    "copy_failure_count": { "type": "integer" },
+    "raw_missing_count": { "type": "integer" }
+  }
+}

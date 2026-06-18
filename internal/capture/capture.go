@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 	"github.com/edictum-ai/qratum/internal/vault"
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
@@ -46,6 +47,7 @@ type ClaudeCodeHookPayload struct {
 // Event is the capture event written to the qratum event spool.
 type Event struct {
 	SchemaVersion   string       `json:"schema_version"`
+	DataClass       string       `json:"data_class"`
 	EventID         string       `json:"event_id"`
 	Source          string       `json:"source"`
 	EventType       string       `json:"event_type"`
@@ -199,12 +201,17 @@ func eventRawForPayload(payload ClaudeCodeHookPayload, store vault.Store, observ
 	if err != nil {
 		return &EventRaw{CopyStatus: "failed", CopyError: err.Error(), Kind: RawKindForTranscriptPath(payload.TranscriptPath)}
 	}
+	minFreeBytes, err := store.ConfiguredDiskFreeMinBytes()
+	if err != nil {
+		return &EventRaw{CopyStatus: "failed", CopyError: err.Error(), Kind: RawKindForTranscriptPath(archivePath)}
+	}
 	result, err := store.ArchiveFile(vault.ArchiveRequest{
 		Source:          vault.SourceClaudeCode,
 		SourceSessionID: payload.SessionID,
 		Kind:            RawKindForTranscriptPath(archivePath),
 		OriginalPath:    archivePath,
 		ObservedAt:      observedAt,
+		MinFreeBytes:    minFreeBytes,
 	})
 	if err != nil {
 		return &EventRaw{CopyStatus: "failed", CopyError: err.Error(), Kind: RawKindForTranscriptPath(archivePath)}
@@ -280,6 +287,7 @@ func newEvent(payload ClaudeCodeHookPayload, eventType string, captureTime strin
 
 	event := Event{
 		SchemaVersion:   EventSchemaVersion,
+		DataClass:       qschema.DataClassRaw,
 		Source:          ClaudeCodeSource,
 		EventType:       eventType,
 		Timestamp:       timestamp,

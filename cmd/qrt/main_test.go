@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -103,21 +104,27 @@ func TestStatusFailsWhenQratumPathIsInvalid(t *testing.T) {
 	}
 }
 
-func TestMissingCommandFailsVisibly(t *testing.T) {
+func TestNoArgsShowsStatusView(t *testing.T) {
+	t.Chdir(t.TempDir())
+	qratumHome := setTestQratumHome(t)
 	var stdout, stderr bytes.Buffer
 
 	code := run(nil, &stdout, &stderr)
 
-	if code != 2 {
-		t.Fatalf("exit code = %d, want 2", code)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr = %q", code, stderr.String())
 	}
-	if stdout.Len() != 0 {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
-	}
-	for _, want := range []string{"usage: qrt", "error: missing command"} {
-		if !strings.Contains(stderr.String(), want) {
-			t.Fatalf("stderr = %q, missing %q", stderr.String(), want)
+	for _, want := range []string{
+		"qratum status\n",
+		"qratum_home: " + filepath.ToSlash(qratumHome) + "\n",
+		"ready: true\n",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, missing %q", stdout.String(), want)
 		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }
 
@@ -626,7 +633,7 @@ func TestRedactRejectsMissingAndInvalidInput(t *testing.T) {
 
 func TestEvidenceVerificationGapFixtureWritesBundle(t *testing.T) {
 	root := t.TempDir()
-	writeEvidenceFixture(t, root, "verification-gap.input.json")
+	writeRedactedEvidenceFixture(t, root, "verification-gap.input.json")
 	t.Chdir(root)
 	qratumHome := setTestQratumHome(t)
 	evidencePath := qratumSessionArtifact(qratumHome, "ses_0001", "evidence.json")
@@ -679,7 +686,7 @@ func TestEvidenceVerificationGapFixtureWritesBundle(t *testing.T) {
 
 func TestReviewVerificationGapEvidenceWritesReviewCard(t *testing.T) {
 	root := t.TempDir()
-	writeEvidenceFixture(t, root, "verification-gap.input.json")
+	writeRedactedEvidenceFixture(t, root, "verification-gap.input.json")
 	t.Chdir(root)
 	qratumHome := setTestQratumHome(t)
 	evidencePath := qratumSessionArtifact(qratumHome, "ses_0001", "evidence.json")
@@ -876,6 +883,32 @@ func TestExportADPStrictRejectsMissingAndInvalidInput(t *testing.T) {
 	}
 }
 
+func TestNonClaudeCodeSessionRejectedByRedactEvidenceAndExport(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	sessionPath := filepath.Join(root, "codex-session.json")
+	data := []byte(`{"schema_version":"qratum.session.v1","data_class":"raw","session_id":"codex-session","source":"codex","turns":[],"tool_calls":[],"file_changes":[],"commands":[],"business_metrics":{"duration_seconds":0,"tool_calls":0,"files_changed":0,"commands_run":0,"tests_run":0},"provenance":{}}`)
+	if err := os.WriteFile(sessionPath, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"redact", sessionPath},
+		{"evidence", sessionPath},
+		{"export", sessionPath, "--profile", "adp-strict"},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run(args, &stdout, &stderr)
+			if code != 1 {
+				t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+			}
+			if !strings.Contains(stderr.String(), `unsupported source "codex"`) {
+				t.Fatalf("stderr = %q, want unsupported source", stderr.String())
+			}
+		})
+	}
+}
+
 func TestEvidenceRejectsMissingAndInvalidInput(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -906,7 +939,7 @@ func TestEvidenceRejectsMissingAndInvalidInput(t *testing.T) {
 			name: "invalid timestamp",
 			args: []string{"evidence", "bad-timestamp.json"},
 			setup: func(t *testing.T) {
-				data := `{"schema_version":"qratum.session.v1","session_id":"ses_bad","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[{"path":"a.go","operation":"edit","timestamp":"not-time"}],"commands":[],"business_metrics":{},"provenance":{}}`
+				data := `{"schema_version":"qratum.session.v1","session_id":"ses_bad","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[{"path":"a.go","operation":"edit","timestamp":"not-time"}],"commands":[],"pipeline_status":"redacted","business_metrics":{},"redaction":{"status":"redacted","findings":[],"secret_placeholders":0,"path_placeholders":0},"provenance":{}}`
 				if err := os.WriteFile("bad-timestamp.json", []byte(data), 0o644); err != nil {
 					t.Fatal(err)
 				}
@@ -918,7 +951,7 @@ func TestEvidenceRejectsMissingAndInvalidInput(t *testing.T) {
 			name: "unsafe session id",
 			args: []string{"evidence", "unsafe-session.json"},
 			setup: func(t *testing.T) {
-				data := `{"schema_version":"qratum.session.v1","session_id":"bad/session","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[],"business_metrics":{},"provenance":{}}`
+				data := `{"schema_version":"qratum.session.v1","session_id":"bad/session","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[],"pipeline_status":"redacted","business_metrics":{},"redaction":{"status":"redacted","findings":[],"secret_placeholders":0,"path_placeholders":0},"provenance":{}}`
 				if err := os.WriteFile("unsafe-session.json", []byte(data), 0o644); err != nil {
 					t.Fatal(err)
 				}
@@ -955,7 +988,7 @@ func TestEvidenceRejectsMissingAndInvalidInput(t *testing.T) {
 func TestEvidenceIgnoresInputArtifactPathsForOutput(t *testing.T) {
 	t.Chdir(t.TempDir())
 	qratumHome := setTestQratumHome(t)
-	data := `{"schema_version":"qratum.session.v1","session_id":"ses_bad","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[],"artifact_paths":{"evidence":"../escape.evidence.json"},"business_metrics":{},"provenance":{}}`
+	data := `{"schema_version":"qratum.session.v1","session_id":"ses_bad","source":"claude-code","turns":[],"tool_calls":[],"file_changes":[],"commands":[],"pipeline_status":"redacted","artifact_paths":{"evidence":"../escape.evidence.json"},"business_metrics":{},"redaction":{"status":"redacted","findings":[],"secret_placeholders":0,"path_placeholders":0},"provenance":{}}`
 	if err := os.WriteFile("repo-local-artifact-path.json", []byte(data), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1768,6 +1801,44 @@ func TestDaemonRunOnceFailsOnMissingTranscriptWithAPIError(t *testing.T) {
 	}
 }
 
+func TestDaemonRunOnceFallsBackToVaultBlobWhenTranscriptDeleted(t *testing.T) {
+	projectRoot := t.TempDir()
+	t.Chdir(projectRoot)
+	qratumHome := setTestQratumHome(t)
+	transcriptPath := filepath.Join(projectRoot, "transcript.jsonl")
+	if err := os.WriteFile(transcriptPath, readFixture(t, "transcript-verification-gap.jsonl"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	input := fmt.Sprintf(`{"session_id":"ses-blob-fallback","transcript_path":%q,"cwd":%q,"hook_event_name":"SessionEnd","timestamp":"2026-05-21T22:10:00Z"}`, filepath.ToSlash(transcriptPath), filepath.ToSlash(projectRoot))
+	var hookStdout, hookStderr bytes.Buffer
+	if code := runWithIO([]string{"hook", "claude-code"}, strings.NewReader(input), &hookStdout, &hookStderr); code != 0 {
+		t.Fatalf("hook exit code = %d, want 0; stderr=%q", code, hookStderr.String())
+	}
+	if err := os.Remove(transcriptPath); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"daemon", "run-once"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("daemon exit code = %d, want 0; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	for _, want := range []string{"processed: 1\n", "skipped: 0\n"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, missing %q", stdout.String(), want)
+		}
+	}
+	normalized := filepath.Join(qratumHome, "sessions", "ses-blob-fallback", "normalized.json")
+	var session qratumSession
+	readJSONFile(t, normalized, &session)
+	if got, want := session.SessionID, "ses-blob-fallback"; got != want {
+		t.Fatalf("session_id = %q, want %q", got, want)
+	}
+	if len(session.Commands) == 0 {
+		t.Fatalf("normalized session has no commands, blob fallback likely did not parse transcript")
+	}
+}
+
 func TestDaemonRunOnceRejectsInvalidEventJSONWithAPIError(t *testing.T) {
 	t.Chdir(t.TempDir())
 	qratumHome := setTestQratumHome(t)
@@ -2030,6 +2101,25 @@ func writeEvidenceFixture(t *testing.T, root string, name string) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, readEvidenceFixture(t, name), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeRedactedEvidenceFixture(t *testing.T, root string, name string) {
+	t.Helper()
+	var session qratumSession
+	if err := json.Unmarshal(readEvidenceFixture(t, name), &session); err != nil {
+		t.Fatalf("decode evidence fixture %s: %v", name, err)
+	}
+	redacted, err := redactQratumSession(session)
+	if err != nil {
+		t.Fatalf("redact evidence fixture %s: %v", name, err)
+	}
+	target := filepath.Join(root, "fixtures", "evidence", name)
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, mustJSON(redacted), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

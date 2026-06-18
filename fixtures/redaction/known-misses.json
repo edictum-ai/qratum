@@ -1,0 +1,29 @@
+{
+  "schema_version": "qratum.redaction_known_misses.v1",
+  "entries": [
+    {
+      "class": "unicode_zero_width",
+      "example_shape": "pass\u200bword hunter2",
+      "status": "xfail",
+      "residual_risk": "Obfuscated credential labels can survive until canonicalization exists."
+    },
+    {
+      "class": "base64_of_secret",
+      "example_shape": "c2stbGl2ZS10b2tlbi12YWx1ZQ==",
+      "status": "xfail",
+      "residual_risk": "Encoded secrets can survive because qratum does not decode arbitrary payloads."
+    },
+    {
+      "class": "bare_aws_access_key_id",
+      "example_shape": "AKIAIOSFODNN7EXAMPLE",
+      "status": "xfail",
+      "residual_risk": "A standalone access-key id is not useful without its secret but can still identify an account."
+    },
+    {
+      "class": "provider_prefix_only",
+      "example_shape": "sk_live_placeholder, pk_live_placeholder, AIza_placeholder, glpat_placeholder, SG.placeholder",
+      "status": "xfail",
+      "residual_risk": "Short provider-shaped prefixes need provider-specific length rules to avoid broad false positives."
+    }
+  ]
+}

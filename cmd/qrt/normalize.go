@@ -10,12 +10,15 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 )
 
 const maxTranscriptLineBytes = 10 << 20
 
 type qratumSession struct {
 	SchemaVersion             string                  `json:"schema_version"`
+	DataClass                 string                  `json:"data_class"`
 	SessionID                 string                  `json:"session_id"`
 	Source                    string                  `json:"source"`
 	AgentModel                string                  `json:"agent_model,omitempty"`
@@ -192,6 +195,7 @@ func normalizeClaudeTranscript(reader io.Reader, context normalizeSessionContext
 func newClaudeTranscriptParser(context normalizeSessionContext) *claudeTranscriptParser {
 	session := qratumSession{
 		SchemaVersion:        qratumSessionSchemaVersion,
+		DataClass:            qschema.DataClassRaw,
 		SessionID:            strings.TrimSpace(context.SessionID),
 		Source:               claudeCodeSource,
 		Turns:                []qratumTurn{},

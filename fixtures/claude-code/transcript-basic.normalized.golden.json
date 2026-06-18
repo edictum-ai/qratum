@@ -1,5 +1,6 @@
 {
   "schema_version": "qratum.session.v1",
+  "data_class": "raw",
   "session_id": "claude-session-0001",
   "source": "claude-code",
   "agent_model": "claude-sonnet-4-6",

@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	htmlpkg "html"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -139,6 +141,229 @@ func TestADPAllowlistDropsUnknownNestedInternalKeys(t *testing.T) {
 	for _, banned := range []string{unknownKey, "must-not-export", "nested-must-not-export", "metadata", "x-qratum-z"} {
 		if strings.Contains(out, banned) {
 			t.Fatalf("ADP allowlist leaked %q:\n%s", banned, out)
+		}
+	}
+}
+
+func TestRedactCheapEvasionClassesAndPrecisionTripwires(t *testing.T) {
+	redactor := newDeterministicRedactor()
+	awsSecret := "abc/DEFghiJKLmnopQRStuvWXyz1234567890"
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	uuid := "123e4567-e89b-12d3-a456-426614174000"
+	digest := "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	input := strings.Join([]string{
+		"AWS_SECRET_ACCESS_KEY=" + awsSecret,
+		"token spacesupersecret",
+		"password hunter2",
+		"read ./config/prod.env",
+		"inspect ~/.aws/credentials",
+		"commit " + sha,
+		"uuid " + uuid,
+		"digest " + digest,
+	}, "\n")
+
+	got := redactor.redactString("fixture", input)
+	for _, raw := range []string{awsSecret, "spacesupersecret", "hunter2", "./config/prod.env", "~/.aws/credentials"} {
+		if strings.Contains(got, raw) {
+			t.Fatalf("redacted output leaked cheap evasion %q:\n%s", raw, got)
+		}
+	}
+	for _, want := range []string{sha, uuid, digest} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("redacted output ate precision tripwire %q:\n%s", want, got)
+		}
+	}
+	if gotSecretPlaceholders := redactor.summary().SecretPlaceholders; gotSecretPlaceholders < 3 {
+		t.Fatalf("secret placeholders = %d, want cheap secrets redacted", gotSecretPlaceholders)
+	}
+	if gotPathPlaceholders := redactor.summary().PathPlaceholders; gotPathPlaceholders != 2 {
+		t.Fatalf("path placeholders = %d, want relative and home credential paths redacted", gotPathPlaceholders)
+	}
+}
+
+func TestRedactAnyRekeysMapSecretsAndFailsClosed(t *testing.T) {
+	redactor := newDeterministicRedactor()
+	redacted, err := redactAny(redactor, "tool_calls[0].input", map[string]any{
+		"TOKEN=mapkeysecret123": "value",
+		"nested": map[string]any{
+			"password hunter2": []any{"token spacesupersecret", true, float64(42)},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := string(mustJSON(redacted))
+	for _, raw := range []string{"mapkeysecret123", "hunter2", "spacesupersecret"} {
+		if strings.Contains(output, raw) {
+			t.Fatalf("redactAny output leaked %q:\n%s", raw, output)
+		}
+	}
+	for _, finding := range redactor.summary().Findings {
+		if strings.Contains(finding.Field, "mapkeysecret123") || strings.Contains(finding.Field, "hunter2") {
+			t.Fatalf("redaction finding leaked raw map key in field name: %#v", finding)
+		}
+	}
+
+	_, err = redactAny(redactor, "tool_calls[0].input.bad", struct{}{})
+	if err == nil {
+		t.Fatal("redactAny unsupported value type error = nil, want fail-closed error")
+	}
+}
+
+func TestEvidenceCommandRejectsRawSecretSession(t *testing.T) {
+	t.Chdir(repoRoot(t))
+	qratumHome := setTestQratumHome(t)
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"evidence", "fixtures/redaction/secret-session.input.json"}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stderr = %q", code, stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), `pipeline_status ""`) || !strings.Contains(stderr.String(), `want "redacted"`) {
+		t.Fatalf("stderr = %q, want redacted-session rejection", stderr.String())
+	}
+	if _, err := os.Stat(qratumSessionArtifact(qratumHome, "ses_0001", "evidence.json")); !os.IsNotExist(err) {
+		t.Fatalf("evidence artifact exists or stat failed: %v", err)
+	}
+}
+
+func TestDaemonSecretTranscriptKeepsShareableArtifactsRedacted(t *testing.T) {
+	root := t.TempDir()
+	writeClaudeFixture(t, root, "transcript-with-secret.jsonl")
+	t.Chdir(root)
+	qratumHome := setTestQratumHome(t)
+	hookInput := fmt.Sprintf(`{"session_id":"claude-session-secret","transcript_path":"fixtures/claude-code/transcript-with-secret.jsonl","cwd":%q,"hook_event_name":"SessionEnd","timestamp":"2026-05-21T21:24:00Z"}`, filepath.ToSlash(root))
+	var stdout, stderr bytes.Buffer
+
+	code := runWithIO([]string{"hook", "claude-code"}, strings.NewReader(hookInput), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("hook exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"daemon", "run-once"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("daemon exit code = %d, want 0; stderr = %q", code, stderr.String())
+	}
+
+	for _, artifact := range []string{"redacted.json", "evidence.json", "review.json", "report.html", "session.adp.jsonl"} {
+		path := qratumSessionArtifact(qratumHome, "claude-session-secret", artifact)
+		data := readTextFile(t, path)
+		assertEncodedLeaksAbsent(t, artifact, data, []string{
+			"qratumSECRETtoken1234567890abcdef",
+			"supersecret",
+			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.signature",
+		})
+	}
+	eventPath := singleGlob(t, filepath.Join(qratumHome, "events", "*.json"))
+	assertEncodedLeaksAbsent(t, filepath.Base(eventPath), readTextFile(t, eventPath), []string{
+		"qratumSECRETtoken1234567890abcdef",
+		"supersecret",
+		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.signature",
+	})
+}
+
+func TestKnownMissLedgerTracked(t *testing.T) {
+	var ledger struct {
+		SchemaVersion string `json:"schema_version"`
+		Entries       []struct {
+			Class        string `json:"class"`
+			ExampleShape string `json:"example_shape"`
+			Status       string `json:"status"`
+			ResidualRisk string `json:"residual_risk"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(readRedactionFixture(t, "known-misses.json"), &ledger); err != nil {
+		t.Fatal(err)
+	}
+	if ledger.SchemaVersion != "qratum.redaction_known_misses.v1" {
+		t.Fatalf("schema_version = %q", ledger.SchemaVersion)
+	}
+	wantClasses := map[string]struct{}{
+		"unicode_zero_width":     {},
+		"base64_of_secret":       {},
+		"bare_aws_access_key_id": {},
+		"provider_prefix_only":   {},
+	}
+	for _, entry := range ledger.Entries {
+		if entry.Status != "xfail" {
+			t.Fatalf("known miss %s status = %q, want xfail", entry.Class, entry.Status)
+		}
+		if strings.TrimSpace(entry.ExampleShape) == "" || strings.TrimSpace(entry.ResidualRisk) == "" {
+			t.Fatalf("known miss %s is missing example or residual risk: %#v", entry.Class, entry)
+		}
+		delete(wantClasses, entry.Class)
+	}
+	if len(wantClasses) > 0 {
+		t.Fatalf("known-miss ledger missing classes: %v", sortedStringSet(wantClasses))
+	}
+}
+
+func sortedStringSet(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func assertEncodedLeaksAbsent(t *testing.T, label string, data string, banned []string) {
+	t.Helper()
+	scanTextForBanned(t, label+" raw", data, banned)
+	scanTextForBanned(t, label+" html-unescaped", htmlpkg.UnescapeString(data), banned)
+	if strings.HasSuffix(label, ".json") {
+		var decoded any
+		if err := json.Unmarshal([]byte(data), &decoded); err == nil {
+			scanDecodedJSONForBanned(t, label+" json", decoded, banned)
+		}
+	}
+	if strings.HasSuffix(label, ".jsonl") {
+		for i, line := range strings.Split(data, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			var decoded any
+			if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+				t.Fatalf("%s line %d is invalid JSON: %v", label, i+1, err)
+			}
+			scanDecodedJSONForBanned(t, fmt.Sprintf("%s jsonl line %d", label, i+1), decoded, banned)
+		}
+	}
+}
+
+func scanDecodedJSONForBanned(t *testing.T, label string, value any, banned []string) {
+	t.Helper()
+	switch v := value.(type) {
+	case string:
+		scanTextForBanned(t, label, v, banned)
+	case []any:
+		for i, item := range v {
+			scanDecodedJSONForBanned(t, fmt.Sprintf("%s[%d]", label, i), item, banned)
+		}
+	case map[string]any:
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			scanTextForBanned(t, label+" key", key, banned)
+			scanDecodedJSONForBanned(t, label+"."+key, v[key], banned)
+		}
+	}
+}
+
+func scanTextForBanned(t *testing.T, label string, text string, banned []string) {
+	t.Helper()
+	for _, raw := range banned {
+		if strings.Contains(text, raw) {
+			t.Fatalf("%s leaked raw secret %q:\n%s", label, raw, text)
 		}
 	}
 }

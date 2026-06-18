@@ -18,8 +18,9 @@
 **Qratum** keeps a permanent, private copy of your AI coding sessions on your own
 machine, so nothing is lost when the tool that made them deletes them. It is a
 local-first library, vault, and review pipeline for AI coding sessions. It
-captures, preserves, normalizes, redacts, reviews, and searches every session —
-**without ever uploading your raw transcripts.** Single Go binary (`qrt`). No
+captures, preserves, normalizes, redacts, and reviews local Claude Code sessions
+**without ever uploading your raw transcripts.** Other sources are archive-only
+today; they do not have a redaction/refinery path. Single Go binary (`qrt`). No
 cloud, no accounts, no telemetry.
 
 Qratum is the system of record for **where session data came from**: raw
@@ -98,14 +99,15 @@ export) runs as on-demand tooling.
 Honest boundaries — three limits to know about today:
 
 - Redaction is not yet airtight. The automatic secret-removal step
-  (deterministic redaction) is **best-effort alpha** and has known gaps where
-  secrets can leak through. Closing those gaps is the proposed verification
-  trust gate work (P2-VERIFY-TRUST-GATE).
-- Re-deriving from a deleted source is not wired up yet. The preserved copy
-  covers the **raw blob** — a transcript the tool deletes is kept — but the
-  refinery currently reads the live transcript. So re-deriving the review/report
-  from a deleted source does not work yet.
-- Only local sessions are captured. Cloud and web sessions are not captured.
+  (deterministic redaction) is **best-effort alpha**. Cheap credential classes
+  are covered by the trust gate, but the known-miss ledger still names residual
+  classes that can leak.
+- Re-deriving from a deleted local Claude Code source is wired through the raw
+  vault blob fallback. The proof is still local-only: cloud/web sessions are not
+  captured, and `transcript_drift` remains a heuristic rather than a correctness
+  gate.
+- Capture and refine are Claude-Code-only. Cloud/web sessions are not captured,
+  and non-Claude/vendor blobs are archive-only with no redaction path.
 
 - Source of truth: [`SPEC.md`](SPEC.md) → [`specs/current/operational-model-redesign.md`](specs/current/operational-model-redesign.md)
 - Vault-first (accepted 2026-06-14, [ADR 0010](docs/decisions/0010-vault-first-and-direct-gateway-integration.md)): [`specs/current/qratum-vault-first.md`](specs/current/qratum-vault-first.md)

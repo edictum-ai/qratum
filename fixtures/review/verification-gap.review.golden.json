@@ -1,5 +1,6 @@
 {
   "schema_version": "qratum.review_card.v1",
+  "data_class": "review",
   "session_id": "ses_0001",
   "verdict": "needs_attention",
   "main_finding": "2 verification command(s) ran in this session and none succeeded.",

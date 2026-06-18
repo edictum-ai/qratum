@@ -118,7 +118,7 @@ func loadReportContext(projectRoot string, sessionPath string, session qratumSes
 	}
 
 	return reportContext{
-		session:     session,
+		session:     redacted,
 		redacted:    redacted,
 		evidence:    evidence,
 		review:      review,

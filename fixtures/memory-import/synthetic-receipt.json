@@ -1,0 +1,16 @@
+{
+  "schema_version": "qratum.memory_import_receipt.v1",
+  "data_class": "redacted",
+  "tool": "memory_store",
+  "decision": "allowed",
+  "outcome": "created",
+  "namespace": "project:sample",
+  "content_class": "coding_context",
+  "memory_ids": ["mem_sample_001"],
+  "supersedes": [],
+  "superseded_memory_ids": [],
+  "embedding_provider": "bedrock",
+  "embedding_model_id": "amazon.titan-embed-text-v2:0",
+  "embedding_dimensions": 1024,
+  "received_at": "2026-06-17T00:00:00Z"
+}

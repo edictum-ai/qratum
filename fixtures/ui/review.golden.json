@@ -1,5 +1,6 @@
 {
   "schema_version": "qratum.ui.review_card.v1",
+  "data_class": "published",
   "session_id": "ses_0001",
   "verdict": "needs_attention",
   "main_finding": "2 verification command(s) ran in this session and none succeeded.",
@@ -27,6 +28,7 @@
   "findings": [
     {
       "schema_version": "qratum.ui.evidence_finding.v1",
+      "data_class": "published",
       "finding_id": "verification.only_failed_verification.0001",
       "type": "verification.only_failed_verification",
       "severity": "high",
@@ -59,6 +61,7 @@
     },
     {
       "schema_version": "qratum.ui.evidence_finding.v1",
+      "data_class": "published",
       "finding_id": "verification.missing_final_verification.0002",
       "type": "verification.missing_final_verification",
       "severity": "high",
@@ -81,6 +84,7 @@
     },
     {
       "schema_version": "qratum.ui.evidence_finding.v1",
+      "data_class": "published",
       "finding_id": "verification.final_edit_after_last_test.0003",
       "type": "verification.final_edit_after_last_test",
       "severity": "medium",
@@ -110,6 +114,7 @@
     },
     {
       "schema_version": "qratum.ui.evidence_finding.v1",
+      "data_class": "published",
       "finding_id": "reliability.repeated_failing_command.0004",
       "type": "reliability.repeated_failing_command",
       "severity": "medium",
@@ -140,6 +145,7 @@
     },
     {
       "schema_version": "qratum.ui.evidence_finding.v1",
+      "data_class": "published",
       "finding_id": "scope.source_changed_without_test_change.0005",
       "type": "scope.source_changed_without_test_change",
       "severity": "medium",
@@ -172,39 +178,43 @@
   "artifacts": [
     {
       "schema_version": "qratum.ui.artifact_link.v1",
+      "data_class": "published",
       "artifact_id": "ses_0001:redacted_session",
       "session_id": "ses_0001",
       "type": "redacted_session",
       "label": "Redacted session",
       "media_type": "application/json",
       "href": "sessions/ses_0001/redacted.json",
-      "digest": "sha256:e8ab237db6d01be4289ba5fed109e842bebf71ab02807b3b4ed3843c0fcfbb8d",
+      "digest": "sha256:e73c2a0127f9c10f204b1af78edce1074df4682672f9cfd85d27fcc00984f055",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
       "schema_version": "qratum.ui.artifact_link.v1",
+      "data_class": "published",
       "artifact_id": "ses_0001:evidence_bundle",
       "session_id": "ses_0001",
       "type": "evidence_bundle",
       "label": "Evidence bundle",
       "media_type": "application/json",
       "href": "sessions/ses_0001/evidence.json",
-      "digest": "sha256:face1bd5f02ddb69657bc36058032a05ad1d7b20accca0ce9b57cbc150f5b011",
+      "digest": "sha256:ff75ffd439380b37a7a4acee90930e06390d4420cd2b57c501d8e0b4502f5a2b",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
       "schema_version": "qratum.ui.artifact_link.v1",
+      "data_class": "published",
       "artifact_id": "ses_0001:review_card",
       "session_id": "ses_0001",
       "type": "review_card",
       "label": "Review card",
       "media_type": "application/json",
       "href": "sessions/ses_0001/review.json",
-      "digest": "sha256:36bc93d61c5f51fa8a7cac01b932727fab81fc5a124485d93fe2dd8cbe5c53ba",
+      "digest": "sha256:702f350c1ffadd8fd48e8833dd769a5315b262840302eaf1aa66706a5b6e5e97",
       "created_at": "2026-05-21T22:10:00Z"
     },
     {
       "schema_version": "qratum.ui.artifact_link.v1",
+      "data_class": "published",
       "artifact_id": "ses_0001:html_report",
       "session_id": "ses_0001",
       "type": "html_report",
@@ -216,13 +226,14 @@
     },
     {
       "schema_version": "qratum.ui.artifact_link.v1",
+      "data_class": "published",
       "artifact_id": "ses_0001:adp_strict_export",
       "session_id": "ses_0001",
       "type": "adp_strict_export",
       "label": "ADP strict export",
       "media_type": "application/jsonl",
       "href": "sessions/ses_0001/session.adp.jsonl",
-      "digest": "sha256:557d1570a922936d2719bd74e6bcb031492101b3895473747842236e2bebddf4",
+      "digest": "sha256:38295973b336ad5c50e5c1702d4e57361d5900f01b16766b33c68a1b8b4d537b",
       "created_at": "2026-05-21T22:10:00Z"
     }
   ]

@@ -73,6 +73,11 @@ func (p Paths) RawRefsDir() string {
 	return filepath.Join(p.RawDir(), "refs")
 }
 
+// RawTombstonesDir returns the raw erasure tombstone directory.
+func (p Paths) RawTombstonesDir() string {
+	return filepath.Join(p.RawDir(), "tombstones")
+}
+
 // StateDir returns the workspace state directory.
 func (p Paths) StateDir() string {
 	return filepath.Join(p.Root, "state")
@@ -100,4 +105,9 @@ func (p Paths) RawRefIDForDigest(digest string) string {
 // RawRefPathForDigest returns the raw-ref file path for a digest.
 func (p Paths) RawRefPathForDigest(digest string) string {
 	return filepath.Join(p.RawRefsDir(), p.RawRefIDForDigest(digest)+".json")
+}
+
+// RawTombstonePathForDigest returns the erasure tombstone path for a digest.
+func (p Paths) RawTombstonePathForDigest(digest string) string {
+	return filepath.Join(p.RawTombstonesDir(), p.RawRefIDForDigest(digest)+".json")
 }

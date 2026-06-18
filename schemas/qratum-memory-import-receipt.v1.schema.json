@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-memory-import-receipt.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "tool", "decision", "namespace", "content_class", "memory_ids", "supersedes", "received_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.memory_import_receipt.v1" },
+    "data_class": { "const": "redacted" },
+    "tool": { "const": "memory_store" },
+    "decision": { "enum": ["allowed", "denied"] },
+    "outcome": { "enum": ["created", "duplicate"] },
+    "error_class": {
+      "enum": [
+        "namespace_escape",
+        "namespace_forbidden",
+        "missing_scope",
+        "content_too_large",
+        "metadata_too_large",
+        "invalid_input",
+        "empty_content",
+        "blocked_secret",
+        "confirmation_required",
+        "invalid_content_class",
+        "duplicate_of_deleted",
+        "duplicate_with_supersedes",
+        "unknown_memory_id",
+        "persistence_unavailable",
+        "tool_failure",
+        "upstream_unavailable"
+      ]
+    },
+    "namespace": { "type": "string" },
+    "content_class": {
+      "enum": [
+        "note",
+        "profile",
+        "preference",
+        "project_context",
+        "coding_context",
+        "workflow_rule",
+        "decision",
+        "relationship",
+        "reference",
+        "project_checkpoint",
+        "connector_test"
+      ]
+    },
+    "memory_ids": { "type": "array", "items": { "type": "string" } },
+    "supersedes": { "type": "array", "items": { "type": "string" } },
+    "superseded_memory_ids": { "type": "array", "items": { "type": "string" } },
+    "embedding_provider": { "type": "string" },
+    "embedding_model_id": { "type": "string" },
+    "embedding_dimensions": { "type": "integer" },
+    "received_at": { "type": "string" }
+  }
+}

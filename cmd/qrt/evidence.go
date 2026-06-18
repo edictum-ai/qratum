@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
@@ -43,6 +44,7 @@ var supportedEvidenceFindingTypes = map[string]struct{}{
 
 type evidenceBundle struct {
 	SchemaVersion   string                `json:"schema_version"`
+	DataClass       string                `json:"data_class"`
 	SessionID       string                `json:"session_id"`
 	Summary         evidenceBundleSummary `json:"summary"`
 	Findings        []evidenceFinding     `json:"findings"`
@@ -102,6 +104,7 @@ type indexedCommand struct {
 
 type reviewCard struct {
 	SchemaVersion      string              `json:"schema_version"`
+	DataClass          string              `json:"data_class"`
 	SessionID          string              `json:"session_id"`
 	Verdict            string              `json:"verdict"`
 	MainFinding        string              `json:"main_finding"`
@@ -143,6 +146,10 @@ func evidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	session, err := readQratumSessionFile(sessionPath, projectRoot)
 	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	if err := requireRedactedSession(session, displayPath(projectRoot, sessionPath)); err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
 	}
@@ -332,6 +339,16 @@ func validateEventArtifactPath(projectRoot string, inputPath string) error {
 	return err
 }
 
+func requireRedactedSession(session qratumSession, label string) error {
+	if strings.TrimSpace(session.PipelineStatus) != redactionStatus {
+		return fmt.Errorf("redacted session %s has pipeline_status %q, want %q", label, session.PipelineStatus, redactionStatus)
+	}
+	if session.Redaction == nil || strings.TrimSpace(session.Redaction.Status) != redactionStatus {
+		return fmt.Errorf("redacted session %s is missing redaction summary", label)
+	}
+	return nil
+}
+
 func buildEvidenceBundle(session qratumSession, paths daemonArtifactPaths) (evidenceBundle, error) {
 	if err := validateQratumSession(session, session.SessionID); err != nil {
 		return evidenceBundle{}, err
@@ -430,6 +447,7 @@ func buildEvidenceBundle(session qratumSession, paths daemonArtifactPaths) (evid
 
 	return evidenceBundle{
 		SchemaVersion:   qratumEvidenceSchemaVersion,
+		DataClass:       qschema.DataClassReview,
 		SessionID:       session.SessionID,
 		Summary:         summary,
 		Findings:        findings,
@@ -1078,6 +1096,7 @@ func buildReviewCard(bundle evidenceBundle) (reviewCard, error) {
 
 	card := reviewCard{
 		SchemaVersion: qratumReviewSchemaVersion,
+		DataClass:     qschema.DataClassReview,
 		SessionID:     bundle.SessionID,
 		Warnings:      append([]string{}, bundle.MissingEvidence...),
 		SourceEventID: bundle.SourceEventID,

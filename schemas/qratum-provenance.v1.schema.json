@@ -2,11 +2,30 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/qratum-provenance.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "canonicalization", "digests", "local_only"],
+  "required": ["schema_version", "data_class", "canonicalization", "digests", "local_only"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.provenance.v1" },
+    "data_class": { "enum": ["raw", "redacted", "review", "corpus", "published"] },
     "canonicalization": { "type": "string" },
-    "digests": { "type": "object" },
-    "local_only": { "type": "object" }
+    "digests": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string" },
+        "redacted": { "type": "string" },
+        "evidence": { "type": "string" },
+        "corpus": { "type": "string" },
+        "schema": { "type": "string" }
+      }
+    },
+    "local_only": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "raw_transcript": { "type": "boolean" },
+        "vault_blob": { "type": "boolean" }
+      }
+    }
   }
 }

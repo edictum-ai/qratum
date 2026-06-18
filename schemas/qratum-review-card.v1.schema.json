@@ -2,15 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/qratum-review-card.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "session_id", "verdict", "main_finding", "evidence", "suggested_next_habit", "warnings"],
+  "required": ["schema_version", "data_class", "session_id", "verdict", "main_finding", "evidence", "suggested_next_habit", "warnings", "artifact_paths"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.review_card.v1" },
+    "data_class": { "const": "review" },
     "session_id": { "type": "string" },
     "verdict": { "enum": ["clean", "needs_attention"] },
     "main_finding": { "type": "string" },
     "evidence": { "type": "array", "items": { "type": "string" } },
     "suggested_next_habit": { "type": "string" },
     "suggested_skill": { "type": "string" },
-    "warnings": { "type": "array" }
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "source_event_id": { "type": "string" },
+    "artifact_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event": { "type": "string" },
+        "session": { "type": "string" },
+        "redacted": { "type": "string" },
+        "evidence": { "type": "string" },
+        "review": { "type": "string" },
+        "report": { "type": "string" },
+        "export": { "type": "string" }
+      }
+    }
   }
 }

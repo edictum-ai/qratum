@@ -1,11 +1,12 @@
 {
   "schema_version": "qratum.evidence.v1",
+  "data_class": "review",
   "session_id": "ses_0001",
   "summary": {
     "status": "complete",
     "source": "claude-code",
-    "started_at": "2026-05-21T21:20:00Z",
-    "ended_at": "2026-05-21T22:10:00Z",
+    "started_at": "[REDACTED_SECRET_001]",
+    "ended_at": "[REDACTED_SECRET_002]",
     "files_changed": 2,
     "commands_run": 2,
     "tests_run": 2,

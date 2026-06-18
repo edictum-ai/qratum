@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-trust-scorecard.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "headline", "dimensions", "gap_count", "known_red", "extended_recall", "honest_residual", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.trust_scorecard.v1" },
+    "data_class": { "const": "published" },
+    "headline": { "enum": ["TRUSTED", "TRUSTED-WITH-NAMED-GAPS", "NOT-TRUSTED"] },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "state", "summary"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "state": { "enum": ["GREEN", "KNOWN-RED", "BLOCKING-RED"] },
+          "summary": { "type": "string" },
+          "evidence": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "gap_count": { "type": "integer" },
+    "known_red": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "note", "owner", "deadline"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "note": { "type": "string" },
+          "owner": { "type": "string" },
+          "deadline": { "type": "string" }
+        }
+      }
+    },
+    "extended_recall": {
+      "type": "object",
+      "required": ["class_count", "baseline_class_count", "recall_percent", "baseline_recall_percent", "covered_corpus_leak_free", "extended_corpus_monotone"],
+      "additionalProperties": false,
+      "properties": {
+        "class_count": { "type": "integer" },
+        "baseline_class_count": { "type": "integer" },
+        "recall_percent": { "type": "number" },
+        "baseline_recall_percent": { "type": "number" },
+        "covered_corpus_leak_free": { "type": "boolean" },
+        "extended_corpus_monotone": { "type": "boolean" }
+      }
+    },
+    "honest_residual": { "type": "array", "items": { "type": "string" } },
+    "provenance": {
+      "type": "object",
+      "required": ["build_commit", "corpus_digest", "schema_digest", "timestamp"],
+      "additionalProperties": false,
+      "properties": {
+        "build_commit": { "type": "string" },
+        "corpus_digest": { "type": "string" },
+        "schema_digest": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    }
+  }
+}

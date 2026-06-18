@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
@@ -23,6 +24,7 @@ const (
 
 type uiSessionListItem struct {
 	SchemaVersion string           `json:"schema_version"`
+	DataClass     string           `json:"data_class"`
 	SessionID     string           `json:"session_id"`
 	Source        string           `json:"source"`
 	AgentModel    string           `json:"agent_model,omitempty"`
@@ -34,6 +36,7 @@ type uiSessionListItem struct {
 
 type uiSessionDetail struct {
 	SchemaVersion string              `json:"schema_version"`
+	DataClass     string              `json:"data_class"`
 	SessionID     string              `json:"session_id"`
 	Source        string              `json:"source"`
 	AgentModel    string              `json:"agent_model,omitempty"`
@@ -95,6 +98,7 @@ type uiSessionSummary struct {
 
 type uiReviewCardDTO struct {
 	SchemaVersion      string              `json:"schema_version"`
+	DataClass          string              `json:"data_class"`
 	SessionID          string              `json:"session_id"`
 	Verdict            string              `json:"verdict"`
 	MainFinding        string              `json:"main_finding"`
@@ -108,6 +112,7 @@ type uiReviewCardDTO struct {
 
 type uiEvidenceFinding struct {
 	SchemaVersion   string           `json:"schema_version"`
+	DataClass       string           `json:"data_class"`
 	FindingID       string           `json:"finding_id"`
 	Type            string           `json:"type"`
 	Severity        string           `json:"severity"`
@@ -132,6 +137,7 @@ type uiEvidenceFact struct {
 
 type uiArtifactLink struct {
 	SchemaVersion string `json:"schema_version"`
+	DataClass     string `json:"data_class"`
 	ArtifactID    string `json:"artifact_id"`
 	SessionID     string `json:"session_id"`
 	Type          string `json:"type"`
@@ -647,6 +653,7 @@ func buildUIArtifactLinks(projectRoot string, sessionID string, createdAt string
 		}
 		links = append(links, uiArtifactLink{
 			SchemaVersion: qratumUIArtifactLinkSchemaVersion,
+			DataClass:     qschema.DataClassPublished,
 			ArtifactID:    fmt.Sprintf("%s:%s", sessionID, spec.linkType),
 			SessionID:     sessionID,
 			Type:          spec.linkType,
@@ -663,6 +670,7 @@ func buildUIArtifactLinks(projectRoot string, sessionID string, createdAt string
 func buildUISessionListItem(context uiSessionContext) uiSessionListItem {
 	return uiSessionListItem{
 		SchemaVersion: qratumUISessionListItemSchemaVersion,
+		DataClass:     qschema.DataClassPublished,
 		SessionID:     context.session.SessionID,
 		Source:        context.session.Source,
 		AgentModel:    context.redacted.AgentModel,
@@ -677,6 +685,7 @@ func buildUISessionDetail(context uiSessionContext) uiSessionDetail {
 	findings := buildUIEvidenceFindings(context.evidence)
 	return uiSessionDetail{
 		SchemaVersion: qratumUISessionDetailSchemaVersion,
+		DataClass:     qschema.DataClassPublished,
 		SessionID:     context.session.SessionID,
 		Source:        context.session.Source,
 		AgentModel:    context.redacted.AgentModel,
@@ -710,6 +719,7 @@ func buildUIReviewCard(context uiSessionContext) uiReviewCardDTO {
 func buildUIReviewCardWithFindings(context uiSessionContext, findings []uiEvidenceFinding) uiReviewCardDTO {
 	return uiReviewCardDTO{
 		SchemaVersion:      qratumUIReviewCardSchemaVersion,
+		DataClass:          qschema.DataClassPublished,
 		SessionID:          context.review.SessionID,
 		Verdict:            context.review.Verdict,
 		MainFinding:        context.review.MainFinding,
@@ -775,6 +785,7 @@ func buildUIEvidenceFindings(bundle evidenceBundle) []uiEvidenceFinding {
 		}
 		findings = append(findings, uiEvidenceFinding{
 			SchemaVersion:   qratumUIEvidenceFindingSchemaVersion,
+			DataClass:       qschema.DataClassPublished,
 			FindingID:       finding.FindingID,
 			Type:            finding.Type,
 			Severity:        presentation.severity,
