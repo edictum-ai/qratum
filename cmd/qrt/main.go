@@ -26,9 +26,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 
 func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		printUsage(stderr)
-		fmt.Fprintln(stderr, "error: missing command")
-		return 2
+		return status(stdout, stderr)
 	}
 
 	switch args[0] {
@@ -71,6 +69,8 @@ func runWithIO(args []string, stdin io.Reader, stdout io.Writer, stderr io.Write
 		return sessions(args[1:], stdout, stderr)
 	case "ui":
 		return ui(args[1:], stdout, stderr)
+	case "trust":
+		return trustCommand(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "error: unsupported command %q\n", args[0])
 		printUsage(stderr)
@@ -123,5 +123,5 @@ func qratumDirState(path string) (string, error) {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | hook install | hook status | vault doctor | vault backfill | vault archive <path> [--kind K] | vault backup [--verify] <dest> | daemon run-once | dogfood import <transcript_path> | dogfood latest | dogfood list | dogfood show <session_id> | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list [--repo <repo_id>] | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
+	fmt.Fprintln(w, "usage: qrt --version | status | hook claude-code | hook install | hook status | vault doctor | vault backfill | vault archive <path> [--kind K] | vault backup [--verify] <dest> | vault install-schedule [--print] | vault uninstall-schedule | trust [--json] | daemon run-once | dogfood import <transcript_path> | dogfood latest | dogfood list | dogfood show <session_id> | normalize <transcript> | redact <session> | evidence <redacted-session> | review <evidence> | report <session> | export <session> --profile adp-strict | sessions list [--repo <repo_id>] | ui sessions --json | ui session <session_id> --json | ui review <session_id> --json")
 }

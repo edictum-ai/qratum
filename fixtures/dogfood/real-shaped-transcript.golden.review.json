@@ -1,5 +1,6 @@
 {
   "schema_version": "qratum.review_card.v1",
+  "data_class": "review",
   "session_id": "dogfood-session-0001",
   "verdict": "needs_attention",
   "main_finding": "2 verification command(s) ran in this session and none succeeded.",

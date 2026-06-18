@@ -2,15 +2,179 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/qratum-session.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "session_id", "source", "turns", "tool_calls", "file_changes", "commands"],
+  "required": ["schema_version", "data_class", "session_id", "source", "turns", "tool_calls", "file_changes", "commands", "business_metrics", "provenance"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.session.v1" },
+    "data_class": { "enum": ["raw", "redacted"] },
     "session_id": { "type": "string" },
-    "source": { "type": "string" },
+    "source": { "const": "claude-code" },
     "agent_model": { "type": "string" },
-    "turns": { "type": "array" },
-    "tool_calls": { "type": "array" },
-    "file_changes": { "type": "array" },
-    "commands": { "type": "array" }
+    "workspace_id": { "type": "string" },
+    "repo_id": { "type": "string" },
+    "started_at": { "type": "string" },
+    "ended_at": { "type": "string" },
+    "turns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "content"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "enum": ["user", "assistant"] },
+          "timestamp": { "type": "string" },
+          "content": { "type": "string" }
+        }
+      }
+    },
+    "tool_calls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tool_call_id", "name", "input"],
+        "additionalProperties": false,
+        "properties": {
+          "tool_call_id": { "type": "string" },
+          "name": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "input": {
+            "type": "object",
+            "additionalProperties": true,
+            "x-qratum-open-map": true
+          },
+          "success": { "type": "boolean" },
+          "result": { "type": "string" },
+          "result_timestamp": { "type": "string" },
+          "source_id": { "type": "string" },
+          "result_source_id": { "type": "string" }
+        }
+      }
+    },
+    "file_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "operation"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "operation": { "type": "string" },
+          "timestamp": { "type": "string" }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command"],
+        "additionalProperties": false,
+        "properties": {
+          "command": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "success": { "type": "boolean" },
+          "output": { "type": "string" }
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "remote": { "type": "string" },
+        "branch": { "type": "string" },
+        "head_sha": { "type": "string" }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["cwd"],
+      "additionalProperties": false,
+      "properties": {
+        "cwd": { "type": "string" }
+      }
+    },
+    "source_event_id": { "type": "string" },
+    "source_event_type": { "enum": ["session_start", "session_end"] },
+    "source_event_timestamp": { "type": "string" },
+    "source_transcript_session_id": { "type": "string" },
+    "transcript_path": { "type": "string" },
+    "pipeline_status": { "enum": ["normalized", "redacted"] },
+    "artifact_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "event": { "type": "string" },
+        "session": { "type": "string" },
+        "redacted": { "type": "string" },
+        "evidence": { "type": "string" },
+        "review": { "type": "string" },
+        "report": { "type": "string" },
+        "export": { "type": "string" }
+      }
+    },
+    "business_metrics": {
+      "type": "object",
+      "required": ["duration_seconds", "tool_calls", "files_changed", "commands_run", "tests_run"],
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": { "type": "integer" },
+        "tool_calls": { "type": "integer" },
+        "files_changed": { "type": "integer" },
+        "commands_run": { "type": "integer" },
+        "tests_run": { "type": "integer" }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "required": ["schema_version", "data_class", "status", "findings", "secret_placeholders", "path_placeholders"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": "qratum.redaction_summary.v1" },
+        "data_class": { "const": "redacted" },
+        "status": { "const": "redacted" },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "field", "replacement_count", "placeholders"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "enum": ["redaction.secret_detected", "redaction.path_redacted"] },
+              "field": { "type": "string" },
+              "replacement_count": { "type": "integer" },
+              "placeholders": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "secret_placeholders": { "type": "integer" },
+        "path_placeholders": { "type": "integer" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "canonicalization": { "type": "string" },
+        "digests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": { "type": "string" },
+            "redacted": { "type": "string" },
+            "evidence": { "type": "string" }
+          }
+        },
+        "local_only": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "raw_transcript": { "type": "boolean" },
+            "vault_blob": { "type": "boolean" }
+          }
+        }
+      }
+    }
   }
 }

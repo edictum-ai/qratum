@@ -2,12 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/ui/api-error.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "error"],
+  "required": ["schema_version", "data_class", "error"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.ui.api_error.v1" },
+    "data_class": { "const": "published" },
     "error": {
       "type": "object",
       "required": ["code", "message"],
+      "additionalProperties": false,
       "properties": {
         "code": { "type": "string" },
         "message": { "type": "string" }

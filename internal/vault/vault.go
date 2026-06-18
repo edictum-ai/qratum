@@ -11,15 +11,20 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
 const (
 	// RawRefSchemaVersion is the schema version stored in raw ref records.
 	RawRefSchemaVersion = "qratum.raw_ref.v1"
+	// RawTombstoneSchemaVersion is the schema version stored in erasure tombstones.
+	RawTombstoneSchemaVersion = "qratum.raw_tombstone.v1"
 	// VaultStateSchemaVersion is the schema version stored in vault state.
 	VaultStateSchemaVersion = "qratum.vault_state.v1"
 
@@ -55,6 +60,9 @@ const (
 	// MaxArchiveFileBytes caps a single raw archive copy. This is a permissions/
 	// containment guard, not at-rest encryption.
 	MaxArchiveFileBytes int64 = 50 << 20
+	// DefaultTempBlobStaleAfter is the grace period before abandoned temp blobs
+	// are considered crash leftovers.
+	DefaultTempBlobStaleAfter = 10 * time.Minute
 )
 
 // Store wraps access to the local vault workspace.
@@ -65,6 +73,7 @@ type Store struct {
 // RawRef records one content-addressed raw archive item.
 type RawRef struct {
 	SchemaVersion   string `json:"schema_version"`
+	DataClass       string `json:"data_class"`
 	RawRefID        string `json:"raw_ref_id"`
 	Source          string `json:"source"`
 	SourceSessionID string `json:"source_session_id,omitempty"`
@@ -80,6 +89,7 @@ type RawRef struct {
 // State stores lightweight operational vault state.
 type State struct {
 	SchemaVersion          string `json:"schema_version"`
+	DataClass              string `json:"data_class"`
 	LastCaptureAt          string `json:"last_capture_at,omitempty"`
 	LastBackfillAt         string `json:"last_backfill_at,omitempty"`
 	LastArchiveAt          string `json:"last_archive_at,omitempty"`
@@ -98,6 +108,7 @@ type ArchiveRequest struct {
 	Kind            string
 	OriginalPath    string
 	ObservedAt      string
+	MinFreeBytes    int64
 }
 
 // ArchiveResult reports what changed while archiving one file.
@@ -121,6 +132,33 @@ type BackupResult struct {
 	Destination string
 	FileCount   int
 	Verified    bool
+	RawEgress   bool
+}
+
+// RawTombstone records an explicit raw blob erasure.
+type RawTombstone struct {
+	SchemaVersion string `json:"schema_version"`
+	DataClass     string `json:"data_class"`
+	RawRefID      string `json:"raw_ref_id"`
+	Digest        string `json:"digest"`
+	Reason        string `json:"reason"`
+	ErasedAt      string `json:"erased_at"`
+	BlobRemoved   bool   `json:"blob_removed"`
+}
+
+// GCResult reports orphan-blob garbage collection.
+type GCResult struct {
+	OrphansRemoved int
+	ReferencedKept int
+	TombstonedKept int
+}
+
+// EraseResult reports one explicit raw erasure.
+type EraseResult struct {
+	Tombstone   RawTombstone
+	BlobPath    string
+	RefPath     string
+	BlobRemoved bool
 }
 
 // New creates a Store for the resolved workspace paths.
@@ -185,6 +223,11 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 
 	if err := os.MkdirAll(s.Paths.RawBlobsTempDir(), 0o700); err != nil {
 		return ArchiveResult{}, fmt.Errorf("create blob temp directory: %w", err)
+	}
+	if req.MinFreeBytes > 0 {
+		if err := CheckMinFreeSpace(s.Paths.RawBlobsTempDir(), req.MinFreeBytes); err != nil {
+			return ArchiveResult{}, err
+		}
 	}
 	// #nosec G304 -- archive targets are explicit local filesystem paths chosen by the user or hook payload.
 	src, err := openFileNoFollowRead(originalPath)
@@ -255,6 +298,7 @@ func (s Store) ArchiveFile(req ArchiveRequest) (ArchiveResult, error) {
 
 	ref := RawRef{
 		SchemaVersion:   RawRefSchemaVersion,
+		DataClass:       qschema.DataClassRaw,
 		RawRefID:        s.Paths.RawRefIDForDigest(digestHex),
 		Source:          defaultSource(req.Source),
 		SourceSessionID: strings.TrimSpace(req.SourceSessionID),
@@ -310,7 +354,7 @@ func (s Store) LoadState() (State, error) {
 	data, err := os.ReadFile(s.Paths.VaultStatePath())
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return State{SchemaVersion: VaultStateSchemaVersion}, nil
+			return State{SchemaVersion: VaultStateSchemaVersion, DataClass: qschema.DataClassRaw}, nil
 		}
 		return State{}, fmt.Errorf("read vault state %s: %w", filepath.ToSlash(s.Paths.VaultStatePath()), err)
 	}
@@ -321,12 +365,16 @@ func (s Store) LoadState() (State, error) {
 	if state.SchemaVersion == "" {
 		state.SchemaVersion = VaultStateSchemaVersion
 	}
+	if state.DataClass == "" {
+		state.DataClass = qschema.DataClassRaw
+	}
 	return state, nil
 }
 
 // SaveState writes the current vault state file atomically.
 func (s Store) SaveState(state State) error {
 	state.SchemaVersion = VaultStateSchemaVersion
+	state.DataClass = qschema.DataClassRaw
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode vault state: %w", err)
@@ -343,12 +391,110 @@ func (s Store) SaveState(state State) error {
 
 // UpdateState loads, mutates, and saves the vault state atomically.
 func (s Store) UpdateState(update func(*State)) error {
-	state, err := s.LoadState()
+	return s.withStateLock(func() error {
+		state, err := s.LoadState()
+		if err != nil {
+			return err
+		}
+		update(&state)
+		return s.SaveState(state)
+	})
+}
+
+func (s Store) withStateLock(fn func() error) error {
+	if err := os.MkdirAll(s.Paths.StateDir(), 0o700); err != nil {
+		return fmt.Errorf("create state directory: %w", err)
+	}
+	lockPath := filepath.Join(s.Paths.StateDir(), ".vault.lock")
+	// #nosec G304 -- the lock path is under the resolved qratum state directory.
+	lock, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("open vault state lock %s: %w", filepath.ToSlash(lockPath), err)
+	}
+	defer func() {
+		_ = lock.Close()
+	}()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("lock vault state %s: %w", filepath.ToSlash(lockPath), err)
+	}
+	defer func() {
+		_ = syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+	}()
+	return fn()
+}
+
+// ConfiguredDiskFreeMinBytes reads the supported worker disk-free guard from
+// config.toml. The parser intentionally supports only the shipped key.
+func (s Store) ConfiguredDiskFreeMinBytes() (int64, error) {
+	path := filepath.Join(s.Paths.Root, "config.toml")
+	// #nosec G304 -- config.toml lives under the resolved qratum workspace root.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("read qratum config %s: %w", filepath.ToSlash(path), err)
+	}
+	return parseDiskFreeMinGB(data)
+}
+
+func parseDiskFreeMinGB(data []byte) (int64, error) {
+	section := ""
+	for lineNumber, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(strings.SplitN(raw, "#", 2)[0])
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "["), "]"))
+			continue
+		}
+		if section != "worker" {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || strings.TrimSpace(key) != "disk_free_min_gb" {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		gb, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || gb < 0 {
+			return 0, fmt.Errorf("invalid config worker.disk_free_min_gb on line %d", lineNumber+1)
+		}
+		const bytesPerGiB int64 = 1024 * 1024 * 1024
+		if gb > (1<<63-1)/bytesPerGiB {
+			return 0, fmt.Errorf("config worker.disk_free_min_gb on line %d is too large", lineNumber+1)
+		}
+		return gb * bytesPerGiB, nil
+	}
+	return 0, nil
+}
+
+// CheckMinFreeSpace fails when path's filesystem has less free space than min.
+func CheckMinFreeSpace(path string, minFreeBytes int64) error {
+	if minFreeBytes <= 0 {
+		return nil
+	}
+	free, err := FreeSpaceBytes(path)
 	if err != nil {
 		return err
 	}
-	update(&state)
-	return s.SaveState(state)
+	// #nosec G115 -- callers pass a validated non-negative byte threshold.
+	required := uint64(minFreeBytes)
+	if free < required {
+		return fmt.Errorf("disk free below configured minimum: available=%d bytes required=%d bytes", free, minFreeBytes)
+	}
+	return nil
+}
+
+// FreeSpaceBytes returns free bytes available to the current user for path.
+func FreeSpaceBytes(path string) (uint64, error) {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(path, &stat); err != nil {
+		return 0, fmt.Errorf("inspect free disk space for %s: %w", filepath.ToSlash(path), err)
+	}
+	blockSize := uint64(stat.Bsize) // #nosec G115 -- a filesystem block size is always non-negative
+	return stat.Bavail * blockSize, nil
 }
 
 // Summary scans the vault workspace and returns high-level counts.
@@ -419,8 +565,214 @@ func (s Store) ListRawRefs() ([]RawRef, error) {
 	return refs, nil
 }
 
+// GarbageCollectOrphanBlobs removes only blobs with no live raw ref.
+func (s Store) GarbageCollectOrphanBlobs() (GCResult, error) {
+	refs, err := s.ListRawRefs()
+	if err != nil {
+		return GCResult{}, err
+	}
+	referenced := map[string]struct{}{}
+	for _, ref := range refs {
+		digestHex := strings.TrimPrefix(ref.Digest, "sha256:")
+		if digestHex != "" {
+			referenced[digestHex] = struct{}{}
+		}
+	}
+	tombstoned, err := s.tombstonedDigests()
+	if err != nil {
+		return GCResult{}, err
+	}
+	result := GCResult{}
+	root := s.Paths.RawBlobsDir()
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		digestHex := filepath.Base(path)
+		if _, ok := referenced[digestHex]; ok {
+			result.ReferencedKept++
+			return nil
+		}
+		if _, ok := tombstoned[digestHex]; ok {
+			result.TombstonedKept++
+			return nil
+		}
+		// #nosec G122 -- WalkDir is constrained to the vault blob root and only removes unreferenced blob paths.
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("remove orphan blob %s: %w", filepath.ToSlash(path), err)
+		}
+		result.OrphansRemoved++
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return result, nil
+		}
+		return GCResult{}, fmt.Errorf("garbage collect raw blobs %s: %w", filepath.ToSlash(root), err)
+	}
+	return result, nil
+}
+
+// EraseRawRef records and performs an explicit raw blob erasure.
+func (s Store) EraseRawRef(rawRefID string, reason string, erasedAt string) (EraseResult, error) {
+	rawRefID = strings.TrimSpace(rawRefID)
+	reason = strings.TrimSpace(reason)
+	if rawRefID == "" {
+		return EraseResult{}, fmt.Errorf("missing raw_ref_id")
+	}
+	if reason == "" {
+		return EraseResult{}, fmt.Errorf("missing erasure reason")
+	}
+	digestHex, ok := strings.CutPrefix(rawRefID, "raw_")
+	if !ok || !isHexDigest(digestHex) {
+		return EraseResult{}, fmt.Errorf("invalid raw_ref_id %q", rawRefID)
+	}
+	refPath := s.Paths.RawRefPathForDigest(digestHex)
+	// #nosec G304 -- raw ref path is derived from a validated raw_ref_id.
+	data, err := os.ReadFile(refPath)
+	if err != nil {
+		return EraseResult{}, fmt.Errorf("read raw ref %s: %w", filepath.ToSlash(refPath), err)
+	}
+	var ref RawRef
+	if err := json.Unmarshal(data, &ref); err != nil {
+		return EraseResult{}, fmt.Errorf("decode raw ref %s: %w", filepath.ToSlash(refPath), err)
+	}
+	if ref.RawRefID != rawRefID {
+		return EraseResult{}, fmt.Errorf("raw ref file %s contains raw_ref_id %q", filepath.ToSlash(refPath), ref.RawRefID)
+	}
+	if erasedAt = strings.TrimSpace(erasedAt); erasedAt == "" {
+		erasedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	tombstone := RawTombstone{
+		SchemaVersion: RawTombstoneSchemaVersion,
+		DataClass:     qschema.DataClassRaw,
+		RawRefID:      rawRefID,
+		Digest:        ref.Digest,
+		Reason:        reason,
+		ErasedAt:      erasedAt,
+		BlobRemoved:   false,
+	}
+	tombstonePath := s.Paths.RawTombstonePathForDigest(digestHex)
+	if err := writeFileAtomic(tombstonePath, mustMarshalTombstone(tombstone), 0o600); err != nil {
+		return EraseResult{}, fmt.Errorf("write raw tombstone %s: %w", filepath.ToSlash(tombstonePath), err)
+	}
+	blobPath := s.Paths.BlobPathForDigest(digestHex)
+	if err := os.Remove(blobPath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return EraseResult{}, fmt.Errorf("remove raw blob %s: %w", filepath.ToSlash(blobPath), err)
+		}
+	} else {
+		tombstone.BlobRemoved = true
+		if err := writeFileAtomic(tombstonePath, mustMarshalTombstone(tombstone), 0o600); err != nil {
+			return EraseResult{}, fmt.Errorf("update raw tombstone %s: %w", filepath.ToSlash(tombstonePath), err)
+		}
+	}
+	return EraseResult{
+		Tombstone:   tombstone,
+		BlobPath:    filepath.ToSlash(blobPath),
+		RefPath:     filepath.ToSlash(refPath),
+		BlobRemoved: tombstone.BlobRemoved,
+	}, nil
+}
+
+func (s Store) tombstonedDigests() (map[string]struct{}, error) {
+	dir := s.Paths.RawTombstonesDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]struct{}{}, nil
+		}
+		return nil, fmt.Errorf("read raw tombstones %s: %w", filepath.ToSlash(dir), err)
+	}
+	result := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		// #nosec G304 -- tombstone paths come from walking the tombstone dir.
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read raw tombstone %s: %w", filepath.ToSlash(path), err)
+		}
+		var tombstone RawTombstone
+		if err := json.Unmarshal(data, &tombstone); err != nil {
+			return nil, fmt.Errorf("decode raw tombstone %s: %w", filepath.ToSlash(path), err)
+		}
+		digestHex := strings.TrimPrefix(tombstone.Digest, "sha256:")
+		if digestHex != "" {
+			result[digestHex] = struct{}{}
+		}
+	}
+	return result, nil
+}
+
+func isHexDigest(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, r := range value {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func mustMarshalTombstone(tombstone RawTombstone) []byte {
+	data, err := json.MarshalIndent(tombstone, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return append(data, '\n')
+}
+
+// SweepStaleTempBlobs removes abandoned temp blobs older than staleAfter.
+func (s Store) SweepStaleTempBlobs(staleAfter time.Duration, now time.Time) (int, error) {
+	dir := s.Paths.RawBlobsTempDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("read blob temp directory %s: %w", filepath.ToSlash(dir), err)
+	}
+	removed := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".tmp") {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			return removed, fmt.Errorf("inspect temp blob %s: %w", filepath.ToSlash(path), err)
+		}
+		if now.Sub(info.ModTime()) < staleAfter {
+			continue
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return removed, fmt.Errorf("remove stale temp blob %s: %w", filepath.ToSlash(path), err)
+		}
+		removed++
+	}
+	return removed, nil
+}
+
 // Backup copies the full vault workspace to a destination directory.
-func (s Store) Backup(dest string, verify bool) (BackupResult, error) {
+func (s Store) Backup(dest string, verify bool, allowRawEgress bool) (BackupResult, error) {
 	dest = strings.TrimSpace(dest)
 	if dest == "" {
 		return BackupResult{}, fmt.Errorf("missing backup destination")
@@ -432,12 +784,24 @@ func (s Store) Backup(dest string, verify bool) (BackupResult, error) {
 	if absDest == s.Paths.Root {
 		return BackupResult{}, fmt.Errorf("backup destination must differ from qratum home")
 	}
+	rawBearing, err := hasFiles(s.Paths.RawDir())
+	if err != nil {
+		return BackupResult{}, err
+	}
+	if rawBearing && !allowRawEgress {
+		return BackupResult{}, fmt.Errorf("backup includes raw vault bytes; rerun with --allow-raw-egress after confirming the destination is approved")
+	}
+	if rawBearing {
+		if err := s.appendRawEgressAudit(absDest); err != nil {
+			return BackupResult{}, err
+		}
+	}
 
 	fileCount, err := copyTree(s.Paths.Root, absDest)
 	if err != nil {
 		return BackupResult{}, err
 	}
-	result := BackupResult{Destination: filepath.ToSlash(absDest), FileCount: fileCount}
+	result := BackupResult{Destination: filepath.ToSlash(absDest), FileCount: fileCount, RawEgress: rawBearing}
 	if verify {
 		if err := verifyTree(s.Paths.Root, absDest); err != nil {
 			return BackupResult{}, err
@@ -445,6 +809,27 @@ func (s Store) Backup(dest string, verify bool) (BackupResult, error) {
 		result.Verified = true
 	}
 	return result, nil
+}
+
+func (s Store) appendRawEgressAudit(dest string) error {
+	path := filepath.Join(s.Paths.StateDir(), "raw-egress-audit.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("create raw egress audit directory: %w", err)
+	}
+	line := fmt.Sprintf("{\"event\":\"raw_egress_ack\",\"destination\":%q,\"observed_at\":%q}\n", filepath.ToSlash(dest), time.Now().UTC().Format(time.RFC3339Nano))
+	// #nosec G304 -- the audit path is under the resolved qratum state directory.
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return fmt.Errorf("open raw egress audit %s: %w", filepath.ToSlash(path), err)
+	}
+	if _, err := file.WriteString(line); err != nil {
+		_ = file.Close()
+		return fmt.Errorf("write raw egress audit %s: %w", filepath.ToSlash(path), err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close raw egress audit %s: %w", filepath.ToSlash(path), err)
+	}
+	return nil
 }
 
 // DetectSource infers a source label from a local filesystem path.
@@ -503,6 +888,31 @@ func countFiles(root string) (int, error) {
 	return count, nil
 }
 
+func hasFiles(root string) (bool, error) {
+	info, err := os.Stat(root)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("inspect directory %s: %w", filepath.ToSlash(root), err)
+	}
+	if !info.IsDir() {
+		return false, fmt.Errorf("path %s is not a directory", filepath.ToSlash(root))
+	}
+	found := false
+	err = filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.Type().IsRegular() {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found, err
+}
+
 func copyTree(source string, dest string) (int, error) {
 	info, err := os.Stat(source)
 	if err != nil {
@@ -520,6 +930,12 @@ func copyTree(source string, dest string) (int, error) {
 		if err != nil {
 			return err
 		}
+		if isPathWithin(path, filepath.Join(source, "raw", "blobs", ".tmp")) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		rel, err := filepath.Rel(source, path)
 		if err != nil {
 			return err
@@ -535,12 +951,7 @@ func copyTree(source string, dest string) (int, error) {
 		if !info.Mode().IsRegular() {
 			return nil
 		}
-		// #nosec G304,G122 -- backup copy paths come from walking the local workspace tree inside the vault root.
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if err := writeFileAtomic(target, data, info.Mode().Perm()); err != nil {
+		if err := copyFileAtomic(path, target, info.Mode().Perm()); err != nil {
 			return err
 		}
 		count++
@@ -553,9 +964,19 @@ func copyTree(source string, dest string) (int, error) {
 }
 
 func verifyTree(source string, dest string) error {
+	blobDigests, err := rawRefBlobDigests(filepath.Join(source, "raw", "refs"), source)
+	if err != nil {
+		return err
+	}
 	return filepath.WalkDir(source, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if isPathWithin(path, filepath.Join(source, "raw", "blobs", ".tmp")) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if d.IsDir() {
 			return nil
@@ -572,11 +993,17 @@ func verifyTree(source string, dest string) error {
 			return err
 		}
 		target := filepath.Join(dest, rel)
-		sourceHash, err := fileHash(path)
+		destHash, err := fileHash(target)
 		if err != nil {
 			return err
 		}
-		destHash, err := fileHash(target)
+		if digest, ok := blobDigests[filepath.ToSlash(rel)]; ok {
+			if "sha256:"+destHash != digest {
+				return fmt.Errorf("backup verify mismatch for %s against recorded digest", filepath.ToSlash(rel))
+			}
+			return nil
+		}
+		sourceHash, err := fileHash(path)
 		if err != nil {
 			return err
 		}
@@ -587,14 +1014,101 @@ func verifyTree(source string, dest string) error {
 	})
 }
 
+func rawRefBlobDigests(refsDir string, sourceRoot string) (map[string]string, error) {
+	digests := map[string]string{}
+	paths, err := filepath.Glob(filepath.Join(refsDir, "*.json"))
+	if err != nil {
+		return nil, fmt.Errorf("list raw refs %s: %w", filepath.ToSlash(refsDir), err)
+	}
+	for _, path := range paths {
+		// #nosec G304 -- raw refs are inside the walked vault root.
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read raw ref %s: %w", filepath.ToSlash(path), err)
+		}
+		var ref RawRef
+		if err := json.Unmarshal(data, &ref); err != nil {
+			return nil, fmt.Errorf("decode raw ref %s: %w", filepath.ToSlash(path), err)
+		}
+		rel, err := filepath.Rel(sourceRoot, filepath.FromSlash(ref.ArchivedPath))
+		if err != nil || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+			digestHex := strings.TrimPrefix(ref.Digest, "sha256:")
+			if len(digestHex) < 2 {
+				return nil, fmt.Errorf("raw ref %s has invalid digest %q", ref.RawRefID, ref.Digest)
+			}
+			rel, err = filepath.Rel(sourceRoot, filepath.Join(sourceRoot, "raw", "blobs", "sha256", digestHex[:2], digestHex))
+			if err != nil {
+				return nil, fmt.Errorf("resolve blob path for raw ref %s: %w", ref.RawRefID, err)
+			}
+		}
+		digests[filepath.ToSlash(rel)] = ref.Digest
+	}
+	return digests, nil
+}
+
 func fileHash(path string) (string, error) {
 	// #nosec G304 -- verification paths come from walking the local workspace tree.
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
-		return "", fmt.Errorf("read %s: %w", filepath.ToSlash(path), err)
+		return "", fmt.Errorf("open %s: %w", filepath.ToSlash(path), err)
 	}
-	sum := sha256.Sum256(data)
-	return fmt.Sprintf("%x", sum[:]), nil
+	defer func() {
+		_ = file.Close()
+	}()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", fmt.Errorf("hash %s: %w", filepath.ToSlash(path), err)
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+func copyFileAtomic(source string, target string, perm os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		return err
+	}
+	// #nosec G304 -- backup source paths come from walking the local vault root.
+	src, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = src.Close()
+	}()
+	tmp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	removeTmp := true
+	defer func() {
+		if removeTmp {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if _, err := io.Copy(tmp, src); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, target); err != nil {
+		return err
+	}
+	removeTmp = false
+	return nil
+}
+
+func isPathWithin(path string, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (!strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel))
 }
 
 func writeFileAtomic(path string, data []byte, perm os.FileMode) error {

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-config.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "raw", "sources", "ai", "backend", "app", "observability", "worker", "publish"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.config.v1" },
+    "data_class": { "const": "raw" },
+    "raw": {
+      "type": "object",
+      "required": ["archive", "retention"],
+      "additionalProperties": false,
+      "properties": {
+        "archive": { "type": "boolean" },
+        "retention": { "type": "string" }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "required": ["claude_code"],
+      "additionalProperties": false,
+      "properties": {
+        "claude_code": { "type": "boolean" }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "required": ["local", "external", "local_config", "openrouter"],
+      "additionalProperties": false,
+      "properties": {
+        "local": { "type": "boolean" },
+        "external": { "enum": ["ask", "never", "always"] },
+        "local_config": {
+          "type": "object",
+          "required": ["endpoint", "model"],
+          "additionalProperties": false,
+          "properties": {
+            "endpoint": { "type": "string" },
+            "model": { "type": "string" }
+          }
+        },
+        "openrouter": {
+          "type": "object",
+          "required": ["enabled", "model", "api_key_env"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "model": { "type": "string" },
+            "api_key_env": { "type": "string" }
+          }
+        }
+      }
+    },
+    "backend": {
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["none", "sqlite"] }
+      }
+    },
+    "app": {
+      "type": "object",
+      "required": ["host", "port", "idle_timeout", "raw_routes"],
+      "additionalProperties": false,
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer" },
+        "idle_timeout": { "type": "string" },
+        "raw_routes": { "type": "boolean" }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "required": ["enabled", "exporter", "otlp"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "exporter": { "enum": ["local", "otlp", "none"] },
+        "otlp": {
+          "type": "object",
+          "required": ["enabled", "endpoint"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "endpoint": { "type": "string" }
+          }
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "required": ["max_jobs", "max_ai_jobs", "disk_free_min_gb"],
+      "additionalProperties": false,
+      "properties": {
+        "max_jobs": { "type": "integer" },
+        "max_ai_jobs": { "type": "integer" },
+        "disk_free_min_gb": { "type": "integer" }
+      }
+    },
+    "publish": {
+      "type": "object",
+      "required": ["mode", "local_folder"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["manual", "disabled", "automatic"] },
+        "local_folder": {
+          "type": "object",
+          "required": ["path"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

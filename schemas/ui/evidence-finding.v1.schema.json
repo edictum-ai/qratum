@@ -2,22 +2,48 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/ui/evidence-finding.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "finding_id", "type", "severity", "confidence", "title", "summary", "evidence", "missing_evidence"],
+  "required": ["schema_version", "data_class", "finding_id", "type", "severity", "confidence", "title", "summary", "evidence", "missing_evidence"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.ui.evidence_finding.v1" },
+    "data_class": { "const": "published" },
     "finding_id": { "type": "string" },
     "type": {
       "enum": [
         "verification.final_edit_after_last_test",
         "verification.missing_final_verification",
-        "reliability.repeated_failing_command"
+        "verification.final_verification_failed",
+        "verification.only_failed_verification",
+        "reliability.repeated_failing_command",
+        "tool_risk.destructive_command",
+        "tool_risk.network_call_without_need",
+        "scope.source_changed_without_test_change",
+        "scope.broad_file_change"
       ]
     },
     "severity": { "enum": ["low", "medium", "high"] },
-    "confidence": { "enum": ["high"] },
+    "confidence": { "enum": ["medium", "high"] },
     "title": { "type": "string" },
     "summary": { "type": "string" },
-    "evidence": { "type": "array", "items": { "type": "object" } },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "kind", "display"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "kind": { "enum": ["file_change", "command"] },
+          "display": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "path": { "type": "string" },
+          "operation": { "type": "string" },
+          "command": { "type": "string" },
+          "success": { "type": "boolean" },
+          "output_excerpt": { "type": "string" }
+        }
+      }
+    },
     "missing_evidence": { "type": "array", "items": { "type": "string" } }
   }
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	claudecfg "github.com/edictum-ai/qratum/internal/claude"
+	"github.com/edictum-ai/qratum/internal/schedule"
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 	"github.com/edictum-ai/qratum/internal/vault"
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
@@ -36,6 +39,14 @@ func vaultCommand(args []string, stdout io.Writer, stderr io.Writer) int {
 		return vaultArchive(args[1:], stdout, stderr)
 	case "backup":
 		return vaultBackup(args[1:], stdout, stderr)
+	case "gc":
+		return vaultGC(args[1:], stdout, stderr)
+	case "erase":
+		return vaultErase(args[1:], stdout, stderr)
+	case "install-schedule":
+		return vaultInstallSchedule(args[1:], stdout, stderr)
+	case "uninstall-schedule":
+		return vaultUninstallSchedule(args[1:], stdout, stderr)
 	default:
 		printUsage(stderr)
 		fmt.Fprintf(stderr, "error: unsupported vault command %q\n", args[0])
@@ -61,6 +72,11 @@ func vaultDoctor(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 	store := vault.New(qratumHome)
+	swept, err := store.SweepStaleTempBlobs(vault.DefaultTempBlobStaleAfter, time.Now())
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
 	summary, err := store.Summary()
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
@@ -71,12 +87,22 @@ func vaultDoctor(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
 	}
+	scheduleInstalled, err := schedule.IsInstalled(schedule.Options{})
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
 	refs, err := store.ListRawRefs()
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
 	}
-	transcripts, err := claudecfg.ListTranscriptFiles()
+	minFreeBytes, err := store.ConfiguredDiskFreeMinBytes()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	expectedCapturedTranscripts, err := countCapturedTranscriptEvents(qratumHome.EventsDir())
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
@@ -94,6 +120,9 @@ func vaultDoctor(args []string, stdout io.Writer, stderr io.Writer) int {
 	if !hookStatus.GlobalInstalled {
 		warnings = append(warnings, "global SessionEnd hook is not installed")
 	}
+	if !scheduleInstalled {
+		warnings = append(warnings, "preservation freshness depends on a schedule that is not installed")
+	}
 	backfillStatus := "ok"
 	if stale(summary.LastState.LastBackfillAt, backfillStaleAfter) {
 		backfillStatus = "stale"
@@ -110,19 +139,30 @@ func vaultDoctor(args []string, stdout io.Writer, stderr io.Writer) int {
 	if summary.LastState.CopyFailureCount > 0 {
 		warnings = append(warnings, fmt.Sprintf("copy failures recorded: %d", summary.LastState.CopyFailureCount))
 	}
-	driftStatus := "unavailable"
-	driftValue := 0
-	if transcripts != nil {
-		driftValue = len(transcripts) - transcriptRefCount
-		driftStatus = fmt.Sprintf("%+d (known=%d archived=%d)", driftValue, len(transcripts), transcriptRefCount)
-		if driftValue != 0 {
-			warnings = append(warnings, "blob-vs-known-transcript drift detected")
+	diskFreeStatus := "unconfigured"
+	if minFreeBytes > 0 {
+		freeBytes, err := vault.FreeSpaceBytes(qratumHome.Root)
+		switch {
+		case err != nil:
+			diskFreeStatus = "unknown"
+			warnings = append(warnings, err.Error())
+		case freeBytes < uint64(minFreeBytes):
+			diskFreeStatus = "low"
+			warnings = append(warnings, fmt.Sprintf("disk free below configured minimum: available=%d bytes required=%d bytes", freeBytes, minFreeBytes))
+		default:
+			diskFreeStatus = "ok"
 		}
+	}
+	driftValue := expectedCapturedTranscripts - transcriptRefCount
+	driftStatus := fmt.Sprintf("%+d (expected=%d archived=%d)", driftValue, expectedCapturedTranscripts, transcriptRefCount)
+	if driftValue > 0 {
+		warnings = append(warnings, "transcript drift heuristic indicates captured transcripts without refs")
 	}
 
 	fmt.Fprintln(stdout, "qratum vault doctor")
 	fmt.Fprintf(stdout, "qratum_home: %s\n", summary.Root)
 	fmt.Fprintf(stdout, "hook_installed: %s\n", yesNo(hookStatus.GlobalInstalled))
+	fmt.Fprintf(stdout, "schedule_installed: %s\n", yesNo(scheduleInstalled))
 	fmt.Fprintf(stdout, "last_capture_at: %s\n", dashIfEmpty(summary.LastState.LastCaptureAt))
 	fmt.Fprintf(stdout, "last_backfill_at: %s\n", dashIfEmpty(summary.LastState.LastBackfillAt))
 	fmt.Fprintf(stdout, "backfill_status: %s\n", backfillStatus)
@@ -130,7 +170,9 @@ func vaultDoctor(args []string, stdout io.Writer, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "raw_missing: %d\n", summary.LastState.RawMissingCount)
 	fmt.Fprintf(stdout, "blob_count: %d\n", summary.BlobCount)
 	fmt.Fprintf(stdout, "raw_ref_count: %d\n", summary.RefCount)
-	fmt.Fprintf(stdout, "transcript_drift: %s\n", driftStatus)
+	fmt.Fprintf(stdout, "stale_temp_blobs_swept: %d\n", swept)
+	fmt.Fprintf(stdout, "disk_free_status: %s\n", diskFreeStatus)
+	fmt.Fprintf(stdout, "transcript_drift (heuristic): %s\n", driftStatus)
 	fmt.Fprintf(stdout, "backup_verified_at: %s\n", dashIfEmpty(summary.LastState.LastBackupVerifiedAt))
 	fmt.Fprintf(stdout, "backup_status: %s\n", backupStatus)
 	fmt.Fprintln(stdout, "cloud_sessions: sessions that start and end on vendor infra are not captured in vault v1")
@@ -157,6 +199,15 @@ func vaultBackfill(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 	store := vault.New(qratumHome)
+	if _, err := store.SweepStaleTempBlobs(vault.DefaultTempBlobStaleAfter, time.Now()); err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	minFreeBytes, err := store.ConfiguredDiskFreeMinBytes()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
 	transcripts, err := claudecfg.ListTranscriptFiles()
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
@@ -174,6 +225,7 @@ func vaultBackfill(args []string, stdout io.Writer, stderr io.Writer) int {
 			Kind:         transcript.Kind,
 			OriginalPath: transcript.Path,
 			ObservedAt:   currentTimestamp(),
+			MinFreeBytes: minFreeBytes,
 		})
 		if err != nil {
 			failed++
@@ -221,6 +273,11 @@ func vaultArchive(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 	store := vault.New(qratumHome)
+	minFreeBytes, err := store.ConfiguredDiskFreeMinBytes()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
 	paths, err := collectArchivePaths(target)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
@@ -229,11 +286,20 @@ func vaultArchive(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	archived, deduped := 0, 0
 	for _, path := range paths {
+		if kind == vault.KindMemoryImport {
+			if err := validateMemoryImportReceipt(path); err != nil {
+				fmt.Fprintf(stderr, "error: archive %s: %v\n", filepath.ToSlash(path), err)
+				return 1
+			}
+		} else if kind == vault.KindSourceMetadata && looksMemoryImportReceipt(path) {
+			fmt.Fprintln(stderr, "warning: receipt-shaped input archived as source_metadata; rerun with --kind memory_import_receipt to pin the kind")
+		}
 		result, err := store.ArchiveFile(vault.ArchiveRequest{
 			Source:       vault.DetectSource(path),
 			Kind:         kind,
 			OriginalPath: path,
 			ObservedAt:   currentTimestamp(),
+			MinFreeBytes: minFreeBytes,
 		})
 		if err != nil {
 			fmt.Fprintf(stderr, "error: archive %s: %v\n", filepath.ToSlash(path), err)
@@ -260,18 +326,155 @@ func vaultArchive(args []string, stdout io.Writer, stderr io.Writer) int {
 	return 0
 }
 
+func vaultGC(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) != 0 {
+		printUsage(stderr)
+		fmt.Fprintln(stderr, "error: vault gc does not accept arguments")
+		return 2
+	}
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	result, err := vault.New(qratumHome).GarbageCollectOrphanBlobs()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, "qratum vault gc")
+	fmt.Fprintf(stdout, "orphans_removed: %d\n", result.OrphansRemoved)
+	fmt.Fprintf(stdout, "referenced_kept: %d\n", result.ReferencedKept)
+	fmt.Fprintf(stdout, "tombstoned_kept: %d\n", result.TombstonedKept)
+	return 0
+}
+
+func vaultErase(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("vault erase", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	reason := fs.String("reason", "", "")
+	if err := fs.Parse(args); err != nil {
+		printUsage(stderr)
+		fmt.Fprintln(stderr, "error: vault erase usage: vault erase --reason <reason> <raw_ref_id>")
+		return 2
+	}
+	if fs.NArg() != 1 || strings.TrimSpace(*reason) == "" {
+		printUsage(stderr)
+		fmt.Fprintln(stderr, "error: vault erase usage: vault erase --reason <reason> <raw_ref_id>")
+		return 2
+	}
+	qratumHome, err := workspace.Resolve()
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	result, err := vault.New(qratumHome).EraseRawRef(fs.Arg(0), *reason, currentTimestamp())
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, "qratum vault erase")
+	fmt.Fprintf(stdout, "raw_ref_id: %s\n", result.Tombstone.RawRefID)
+	fmt.Fprintf(stdout, "blob_removed: %s\n", yesNo(result.BlobRemoved))
+	fmt.Fprintf(stdout, "tombstone: %s\n", filepath.ToSlash(qratumHome.RawTombstonePathForDigest(strings.TrimPrefix(result.Tombstone.RawRefID, "raw_"))))
+	return 0
+}
+
+func vaultInstallSchedule(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("vault install-schedule", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	printOnly := fs.Bool("print", false, "")
+	platform := fs.String("platform", "", "")
+	if err := fs.Parse(args); err != nil {
+		printUsage(stderr)
+		fmt.Fprintln(stderr, "error: vault install-schedule usage: vault install-schedule [--print]")
+		return 2
+	}
+	if fs.NArg() != 0 {
+		printUsage(stderr)
+		fmt.Fprintln(stderr, "error: vault install-schedule does not accept arguments")
+		return 2
+	}
+	options := schedule.Options{Platform: *platform}
+	if *printOnly {
+		plan, err := schedule.BuildPlan(options)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		printScheduleInstall(stdout, plan, true, false)
+		return 0
+	}
+	result, err := schedule.Install(options)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	printScheduleInstall(stdout, result.Plan, false, result.Changed)
+	return 0
+}
+
+func vaultUninstallSchedule(args []string, stdout io.Writer, stderr io.Writer) int {
+	fs := flag.NewFlagSet("vault uninstall-schedule", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	platform := fs.String("platform", "", "")
+	if err := fs.Parse(args); err != nil {
+		printUsage(stderr)
+		fmt.Fprintln(stderr, "error: vault uninstall-schedule usage: vault uninstall-schedule")
+		return 2
+	}
+	if fs.NArg() != 0 {
+		printUsage(stderr)
+		fmt.Fprintln(stderr, "error: vault uninstall-schedule does not accept arguments")
+		return 2
+	}
+	result, err := schedule.Uninstall(schedule.Options{Platform: *platform})
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, "qratum vault uninstall-schedule")
+	fmt.Fprintf(stdout, "removed: %d\n", result.Removed)
+	if result.Removed == 0 {
+		fmt.Fprintln(stdout, "nothing_to_remove: yes")
+	} else {
+		fmt.Fprintln(stdout, "nothing_to_remove: no")
+	}
+	for _, path := range result.Paths {
+		fmt.Fprintf(stdout, "path: %s\n", filepath.ToSlash(path))
+	}
+	return 0
+}
+
+func printScheduleInstall(stdout io.Writer, plan schedule.Plan, dryRun bool, changed bool) {
+	fmt.Fprintln(stdout, "qratum vault install-schedule")
+	fmt.Fprintf(stdout, "platform: %s\n", plan.Platform)
+	fmt.Fprintf(stdout, "dry_run: %s\n", yesNo(dryRun))
+	fmt.Fprintf(stdout, "changed: %s\n", yesNo(changed))
+	if !changed && !dryRun {
+		fmt.Fprintln(stdout, "already_installed: yes")
+	}
+	fmt.Fprintf(stdout, "command: %s\n", strings.Join(plan.Command, " "))
+	for _, file := range plan.Files {
+		fmt.Fprintf(stdout, "write: %s\n", filepath.ToSlash(file.Path))
+		fmt.Fprintf(stdout, "--- %s ---\n", filepath.Base(file.Path))
+		fmt.Fprint(stdout, string(file.Content))
+	}
+}
+
 func vaultBackup(args []string, stdout io.Writer, stderr io.Writer) int {
 	fs := flag.NewFlagSet("vault backup", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	verify := fs.Bool("verify", false, "")
+	allowRawEgress := fs.Bool("allow-raw-egress", false, "")
 	if err := fs.Parse(args); err != nil {
 		printUsage(stderr)
-		fmt.Fprintln(stderr, "error: vault backup usage: vault backup [--verify] <dest>")
+		fmt.Fprintln(stderr, "error: vault backup usage: vault backup [--verify] [--allow-raw-egress] <dest>")
 		return 2
 	}
 	if fs.NArg() != 1 {
 		printUsage(stderr)
-		fmt.Fprintln(stderr, "error: vault backup usage: vault backup [--verify] <dest>")
+		fmt.Fprintln(stderr, "error: vault backup usage: vault backup [--verify] [--allow-raw-egress] <dest>")
 		return 2
 	}
 
@@ -281,7 +484,7 @@ func vaultBackup(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 	store := vault.New(qratumHome)
-	result, err := store.Backup(fs.Arg(0), *verify)
+	result, err := store.Backup(fs.Arg(0), *verify, *allowRawEgress)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
@@ -303,6 +506,9 @@ func vaultBackup(args []string, stdout io.Writer, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "destination: %s\n", result.Destination)
 	fmt.Fprintf(stdout, "files_copied: %d\n", result.FileCount)
 	fmt.Fprintf(stdout, "verified: %s\n", yesNo(result.Verified))
+	if result.RawEgress {
+		fmt.Fprintln(stdout, "raw_egress_ack: raw vault bytes copied by explicit operator request")
+	}
 	return 0
 }
 
@@ -336,6 +542,64 @@ func parseArchiveArgs(args []string) (string, string, error) {
 		return "", "", fmt.Errorf("unsupported raw kind %q", kind)
 	}
 	return kind, target, nil
+}
+
+func validateMemoryImportReceipt(path string) error {
+	// #nosec G304 -- receipt paths are explicit operator archive inputs.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read memory import receipt: %w", err)
+	}
+	schemaData, err := readSchemaFile("qratum-memory-import-receipt.v1.schema.json")
+	if err != nil {
+		return err
+	}
+	if err := qschema.Validate(schemaData, data); err != nil {
+		return fmt.Errorf("invalid memory import receipt: %w", err)
+	}
+	var receipt map[string]any
+	if err := json.Unmarshal(data, &receipt); err != nil {
+		return fmt.Errorf("decode memory import receipt: %w", err)
+	}
+	if receipt["error_class"] == "namespace_forbidden" {
+		return fmt.Errorf("memory import receipt has namespace_forbidden and is not archived")
+	}
+	return nil
+}
+
+func looksMemoryImportReceipt(path string) bool {
+	// #nosec G304 -- receipt sniffing reads an explicit operator archive input.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return false
+	}
+	return doc["schema_version"] == "qratum.memory_import_receipt.v1"
+}
+
+func readSchemaFile(name string) ([]byte, error) {
+	candidates := []string{}
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(wd, "schemas", name))
+	}
+	if exe, err := os.Executable(); err == nil {
+		candidates = append(candidates, filepath.Join(filepath.Dir(exe), "schemas", name))
+		candidates = append(candidates, filepath.Join(filepath.Dir(exe), "..", "schemas", name))
+	}
+	for _, candidate := range candidates {
+		// #nosec G304 -- schema candidates are under the repo or qrt install directory.
+		data, err := os.ReadFile(candidate)
+		if err == nil {
+			return data, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("read schema %s: %w", filepath.ToSlash(candidate), err)
+		}
+	}
+	return nil, fmt.Errorf("schema %s not found; run from the qratum repo or install schemas beside qrt", name)
 }
 
 func collectArchivePaths(root string) ([]string, error) {
@@ -383,7 +647,41 @@ func stale(timestamp string, limit time.Duration) bool {
 	if err != nil {
 		return true
 	}
-	return time.Since(parsed) > limit
+	return nowUTC().Sub(parsed) > limit
+}
+
+func countCapturedTranscriptEvents(eventsDir string) (int, error) {
+	entries, err := os.ReadDir(eventsDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("read capture events %s: %w", filepath.ToSlash(eventsDir), err)
+	}
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		path := filepath.Join(eventsDir, entry.Name())
+		// #nosec G304 -- event files come from the resolved qratum event spool.
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return 0, fmt.Errorf("read capture event %s: %w", filepath.ToSlash(path), err)
+		}
+		var event captureEvent
+		if err := json.Unmarshal(data, &event); err != nil {
+			return 0, fmt.Errorf("decode capture event %s: %w", filepath.ToSlash(path), err)
+		}
+		if event.EventType != "session_end" || event.Raw == nil {
+			continue
+		}
+		switch event.Raw.CopyStatus {
+		case "copied", "deduped":
+			count++
+		}
+	}
+	return count, nil
 }
 
 func yesNo(value bool) string {

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-redaction-summary.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "status", "findings", "secret_placeholders", "path_placeholders"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.redaction_summary.v1" },
+    "data_class": { "const": "redacted" },
+    "status": { "const": "redacted" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "field", "replacement_count", "placeholders"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "enum": ["redaction.secret_detected", "redaction.path_redacted"] },
+          "field": { "type": "string" },
+          "replacement_count": { "type": "integer" },
+          "placeholders": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "secret_placeholders": { "type": "integer" },
+    "path_placeholders": { "type": "integer" }
+  }
+}

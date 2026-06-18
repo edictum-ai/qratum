@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-adp-strict.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "id", "content", "details"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.1.0" },
+    "data_class": { "const": "corpus" },
+    "id": { "type": "string" },
+    "content": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["class_"],
+        "additionalProperties": false,
+        "properties": {
+          "class_": { "enum": ["TextObservation", "ApiAction", "CodeAction"] },
+          "source": { "enum": ["user", "agent", "environment"] },
+          "content": { "type": "string" },
+          "function": { "type": "string" },
+          "kwargs": {
+            "type": "object",
+            "additionalProperties": true,
+            "x-qratum-open-map": true
+          },
+          "language": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      }
+    },
+    "details": {
+      "type": "object",
+      "required": ["source"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "const": "claude-code" }
+      }
+    }
+  }
+}

@@ -2,16 +2,59 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/qratum-event.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "event_id", "source", "event_type", "timestamp", "session_ref", "workspace"],
+  "required": ["schema_version", "data_class", "event_id", "source", "event_type", "timestamp", "session_ref", "workspace"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.event.v1" },
+    "data_class": { "const": "raw" },
     "event_id": { "type": "string" },
-    "source": { "enum": ["claude-code"] },
+    "source": { "const": "claude-code" },
     "event_type": { "enum": ["session_start", "session_end"] },
     "timestamp": { "type": "string" },
     "timestamp_source": { "enum": ["hook_payload", "capture_time", "transcript_end"] },
-    "session_ref": { "type": "object" },
-    "workspace": { "type": "object" },
-    "raw": { "type": "object" }
+    "session_ref": {
+      "type": "object",
+      "required": ["session_id"],
+      "additionalProperties": false,
+      "properties": {
+        "session_id": { "type": "string" },
+        "transcript_path": { "type": "string" }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["cwd"],
+      "additionalProperties": false,
+      "properties": {
+        "cwd": { "type": "string" }
+      }
+    },
+    "raw": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "raw_missing": { "type": "boolean" },
+        "copy_status": { "enum": ["missing", "failed", "copied", "deduped"] },
+        "raw_ref_id": { "type": "string" },
+        "digest": { "type": "string" },
+        "kind": {
+          "enum": [
+            "main_transcript",
+            "subagent_transcript",
+            "file_history_snapshot",
+            "source_insight_report",
+            "source_metadata",
+            "source_export_bundle",
+            "source_memory",
+            "vendor_memory_dir",
+            "vendor_insight_report",
+            "memory_import_receipt",
+            "unknown"
+          ]
+        },
+        "size_bytes": { "type": "integer" },
+        "copy_error": { "type": "string" }
+      }
+    }
   }
 }

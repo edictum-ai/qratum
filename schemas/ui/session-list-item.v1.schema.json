@@ -2,15 +2,71 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/ui/session-list-item.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "session_id", "source", "repo", "review", "metrics", "artifacts"],
+  "required": ["schema_version", "data_class", "session_id", "source", "repo", "review", "metrics", "artifacts"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.ui.session_list_item.v1" },
+    "data_class": { "const": "published" },
     "session_id": { "type": "string" },
     "source": { "type": "string" },
     "agent_model": { "type": "string" },
-    "repo": { "type": "object" },
-    "review": { "type": "object" },
-    "metrics": { "type": "object" },
-    "artifacts": { "type": "array", "items": { "type": "object" } }
+    "repo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workspace_id": { "type": "string" },
+        "repo_id": { "type": "string" },
+        "cwd": { "type": "string" },
+        "git_remote": { "type": "string" },
+        "git_branch": { "type": "string" },
+        "git_head_sha": { "type": "string" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["verdict", "main_finding", "warnings", "findings_count", "evidence_count"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "enum": ["clean", "needs_attention"] },
+        "main_finding": { "type": "string" },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "findings_count": { "type": "integer" },
+        "evidence_count": { "type": "integer" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["duration_seconds", "tool_calls", "files_changed", "commands_run", "tests_run", "findings", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": { "type": "integer" },
+        "tool_calls": { "type": "integer" },
+        "files_changed": { "type": "integer" },
+        "commands_run": { "type": "integer" },
+        "tests_run": { "type": "integer" },
+        "findings": { "type": "integer" },
+        "warnings": { "type": "integer" }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["schema_version", "data_class", "artifact_id", "session_id", "type", "label", "media_type", "href", "digest", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": { "const": "qratum.ui.artifact_link.v1" },
+          "data_class": { "const": "published" },
+          "artifact_id": { "type": "string" },
+          "session_id": { "type": "string" },
+          "type": { "enum": ["html_report", "adp_strict_export", "redacted_session", "evidence_bundle", "review_card", "share_card"] },
+          "label": { "type": "string" },
+          "media_type": { "type": "string" },
+          "href": { "type": "string" },
+          "digest": { "type": "string" },
+          "created_at": { "type": "string" }
+        }
+      }
+    }
   }
 }

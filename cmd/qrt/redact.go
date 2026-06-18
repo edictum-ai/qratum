@@ -11,24 +11,33 @@ import (
 	"sort"
 	"strings"
 
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
-const redactionStatus = "redacted"
+const (
+	redactionStatus               = "redacted"
+	qratumRedactionSummaryVersion = "qratum.redaction_summary.v1"
+)
 
 var (
-	privateKeyBlockPattern  = regexp.MustCompile(`(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----`)
-	credentialURLPattern    = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://[^\s\"'<>@:/]+:[^\s\"'<>@]+@[^\s\"'<>]+`)
-	jwtLikePattern          = regexp.MustCompile(`\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}\b`)
-	apiKeyPattern           = regexp.MustCompile(`\b(?:sk-[A-Za-z0-9][A-Za-z0-9_-]{20,}|(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b`)
-	sshRemotePattern        = regexp.MustCompile(`\bgit@[A-Za-z0-9._-]+:[A-Za-z0-9._~/%+-]+(?:\.git)?\b`)
-	secretAssignmentPattern = regexp.MustCompile(`(?i)\b((?:[A-Z0-9_]*(?:API[_-]?KEY|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|TOKEN|SECRET|PASSWORD|PASSWD|JWT)[A-Z0-9_]*)\s*(?:[:=]\s*)+(?:>\s*)?)([^\s\"',;]+)`)
-	highEntropyPattern      = regexp.MustCompile(`\b[A-Za-z0-9+/=_-]{32,}\b`)
-	posixLocalPathPattern   = regexp.MustCompile(`/(?:Users|home|tmp|private|var|opt|Volumes)(?:/[A-Za-z0-9._@%+=:,~-]+)+`)
-	windowsLocalPathPattern = regexp.MustCompile(`[A-Za-z]:\\(?:Users|Temp|tmp|Windows|ProgramData)(?:\\[^\s\"'<>|;]+)+`)
+	privateKeyBlockPattern    = regexp.MustCompile(`(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----`)
+	credentialURLPattern      = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://[^\s\"'<>@:/]+:[^\s\"'<>@]+@[^\s\"'<>]+`)
+	jwtLikePattern            = regexp.MustCompile(`\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{6,}\b`)
+	apiKeyPattern             = regexp.MustCompile(`\b(?:sk-[A-Za-z0-9][A-Za-z0-9_-]{20,}|(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b`)
+	sshRemotePattern          = regexp.MustCompile(`\bgit@[A-Za-z0-9._-]+:[A-Za-z0-9._~/%+-]+(?:\.git)?\b`)
+	secretAssignmentPattern   = regexp.MustCompile(`(?i)\b((?:[A-Z0-9_]*(?:API[_-]?KEY|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|TOKEN|SECRET|PASSWORD|PASSWD|JWT)[A-Z0-9_]*)\s*(?:[:=]\s*)+(?:>\s*)?)([^\s\"',;]+)`)
+	secretSpacePattern        = regexp.MustCompile(`(?i)\b((?:API[_-]?KEY|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|TOKEN|PASSWORD|PASSWD|JWT)\s+)([^\s\"',;]+)`)
+	highEntropyPattern        = regexp.MustCompile(`\b[A-Za-z0-9+/=_-]{32,}\b`)
+	posixLocalPathPattern     = regexp.MustCompile(`/(?:Users|home|tmp|private|var|opt|Volumes)(?:/[A-Za-z0-9._@%+=:,~-]+)+`)
+	relativeSecretPathPattern = regexp.MustCompile(`(?:~|\.)/[A-Za-z0-9._@%+=:,\-/]*(?:\.env|credentials?|secrets?|secret|token|key)[A-Za-z0-9._@%+=:,\-/]*`)
+	windowsLocalPathPattern   = regexp.MustCompile(`[A-Za-z]:\\(?:Users|Temp|tmp|Windows|ProgramData)(?:\\[^\s\"'<>|;]+)+`)
+	uuidPattern               = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 )
 
 type qratumRedactionSummary struct {
+	SchemaVersion      string                   `json:"schema_version"`
+	DataClass          string                   `json:"data_class"`
 	Status             string                   `json:"status"`
 	Findings           []qratumRedactionFinding `json:"findings"`
 	SecretPlaceholders int                      `json:"secret_placeholders"`
@@ -269,6 +278,7 @@ func redactQratumSession(session qratumSession) (qratumSession, error) {
 	}
 	redactor := newDeterministicRedactor()
 	redacted := session
+	redacted.DataClass = qschema.DataClassRedacted
 	redacted.PipelineStatus = redactionStatus
 	redacted.Redaction = nil
 
@@ -292,7 +302,15 @@ func redactQratumSession(session qratumSession) (qratumSession, error) {
 	redacted.ToolCalls = make([]qratumToolCall, len(session.ToolCalls))
 	for i, toolCall := range session.ToolCalls {
 		redacted.ToolCalls[i] = toolCall
-		redacted.ToolCalls[i].Input = redactAny(redactor, fmt.Sprintf("tool_calls[%d].input", i), toolCall.Input).(map[string]any)
+		input, err := redactAny(redactor, fmt.Sprintf("tool_calls[%d].input", i), toolCall.Input)
+		if err != nil {
+			return qratumSession{}, err
+		}
+		redactedInput, ok := input.(map[string]any)
+		if !ok {
+			return qratumSession{}, fmt.Errorf("tool_calls[%d].input redacted to %T, want object", i, input)
+		}
+		redacted.ToolCalls[i].Input = redactedInput
 		redacted.ToolCalls[i].Result = redactor.redactString(fmt.Sprintf("tool_calls[%d].result", i), toolCall.Result)
 	}
 
@@ -321,7 +339,15 @@ func redactQratumSession(session qratumSession) (qratumSession, error) {
 		redacted.Git = &git
 	}
 	if session.Provenance != nil {
-		redacted.Provenance = redactAny(redactor, "provenance", session.Provenance).(map[string]any)
+		provenance, err := redactAny(redactor, "provenance", session.Provenance)
+		if err != nil {
+			return qratumSession{}, err
+		}
+		redactedProvenance, ok := provenance.(map[string]any)
+		if !ok {
+			return qratumSession{}, fmt.Errorf("provenance redacted to %T, want object", provenance)
+		}
+		redacted.Provenance = redactedProvenance
 	}
 
 	summary := redactor.summary()
@@ -336,10 +362,10 @@ func newDeterministicRedactor() *deterministicRedactor {
 	}
 }
 
-func redactAny(redactor *deterministicRedactor, field string, value any) any {
+func redactAny(redactor *deterministicRedactor, field string, value any) (any, error) {
 	switch v := value.(type) {
 	case string:
-		return redactor.redactString(field, v)
+		return redactor.redactString(field, v), nil
 	case map[string]any:
 		out := make(map[string]any, len(v))
 		keys := make([]string, 0, len(v))
@@ -347,19 +373,59 @@ func redactAny(redactor *deterministicRedactor, field string, value any) any {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		for _, key := range keys {
-			out[key] = redactAny(redactor, field+"."+key, v[key])
+		for i, key := range keys {
+			keyField := fmt.Sprintf("%s.[key_%03d]", field, i+1)
+			redactedKey := redactor.redactString(keyField, key)
+			if _, exists := out[redactedKey]; exists {
+				return nil, fmt.Errorf("%s redacts to duplicate key %q", keyField, redactedKey)
+			}
+			childField := redactionMapChildField(field, key, redactedKey, i)
+			redactedValue, err := redactAny(redactor, childField, v[key])
+			if err != nil {
+				return nil, err
+			}
+			out[redactedKey] = redactedValue
 		}
-		return out
+		return out, nil
 	case []any:
 		out := make([]any, len(v))
 		for i, item := range v {
-			out[i] = redactAny(redactor, fmt.Sprintf("%s[%d]", field, i), item)
+			redactedValue, err := redactAny(redactor, fmt.Sprintf("%s[%d]", field, i), item)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = redactedValue
 		}
-		return out
+		return out, nil
+	case nil, bool, float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return v, nil
 	default:
-		return v
+		return nil, fmt.Errorf("%s has unsupported redaction value type %T", field, value)
 	}
+}
+
+func redactionMapChildField(field string, key string, redactedKey string, index int) string {
+	if key == redactedKey && isSafeRedactionFieldKey(key) {
+		return field + "." + key
+	}
+	return fmt.Sprintf("%s.[key_%03d]", field, index+1)
+}
+
+func isSafeRedactionFieldKey(key string) bool {
+	if key == "" || len(key) > 80 {
+		return false
+	}
+	for _, r := range key {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '_' || r == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func (r *deterministicRedactor) redactString(field string, value string) string {
@@ -378,8 +444,10 @@ func (r *deterministicRedactor) redactString(field string, value string) string 
 	redacted = r.replacePattern(redacted, apiKeyPattern, "secret", &tracker)
 	redacted = r.replacePattern(redacted, sshRemotePattern, "secret", &tracker)
 	redacted = r.replaceSecretAssignments(redacted, &tracker)
+	redacted = r.replaceSecretSpaceAssignments(redacted, &tracker)
 	redacted = r.replaceHighEntropy(redacted, &tracker)
 	redacted = r.replacePattern(redacted, posixLocalPathPattern, "path", &tracker)
+	redacted = r.replacePattern(redacted, relativeSecretPathPattern, "path", &tracker)
 	redacted = r.replacePattern(redacted, windowsLocalPathPattern, "path", &tracker)
 
 	r.recordFindings(field, tracker)
@@ -388,7 +456,7 @@ func (r *deterministicRedactor) redactString(field string, value string) string 
 
 func (r *deterministicRedactor) redactSensitiveMetadata(field string, value string) string {
 	redacted := r.redactString(field, value)
-	if redacted != value || shouldSkipCandidate(value) {
+	if redacted != value || isAlreadyRedactedCandidate(value) || strings.TrimSpace(value) == "" {
 		return redacted
 	}
 	tracker := fieldRedactionTracker{
@@ -414,7 +482,15 @@ func (r *deterministicRedactor) replacePattern(value string, pattern *regexp.Reg
 }
 
 func (r *deterministicRedactor) replaceSecretAssignments(value string, tracker *fieldRedactionTracker) string {
-	matches := secretAssignmentPattern.FindAllStringSubmatchIndex(value, -1)
+	return r.replaceSecretPattern(value, secretAssignmentPattern, tracker)
+}
+
+func (r *deterministicRedactor) replaceSecretSpaceAssignments(value string, tracker *fieldRedactionTracker) string {
+	return r.replaceSecretPattern(value, secretSpacePattern, tracker)
+}
+
+func (r *deterministicRedactor) replaceSecretPattern(value string, pattern *regexp.Regexp, tracker *fieldRedactionTracker) string {
+	matches := pattern.FindAllStringSubmatchIndex(value, -1)
 	if len(matches) == 0 {
 		return value
 	}
@@ -507,6 +583,8 @@ func (r *deterministicRedactor) summary() qratumRedactionSummary {
 	findings := make([]qratumRedactionFinding, len(r.findings))
 	copy(findings, r.findings)
 	return qratumRedactionSummary{
+		SchemaVersion:      qratumRedactionSummaryVersion,
+		DataClass:          qschema.DataClassRedacted,
 		Status:             redactionStatus,
 		Findings:           findings,
 		SecretPlaceholders: len(r.secretOrder),
@@ -528,7 +606,29 @@ func shouldSkipCandidate(candidate string) bool {
 	if candidate == "" {
 		return true
 	}
-	return strings.Contains(candidate, "[REDACTED_") || strings.Contains(candidate, "REDACTED_SECRET_") || strings.Contains(candidate, "REDACTED_PATH_")
+	return isAlreadyRedactedCandidate(candidate) ||
+		isHexDigestCandidate(candidate) ||
+		uuidPattern.MatchString(candidate)
+}
+
+func isAlreadyRedactedCandidate(candidate string) bool {
+	return strings.Contains(candidate, "[REDACTED_") ||
+		strings.Contains(candidate, "REDACTED_SECRET_") ||
+		strings.Contains(candidate, "REDACTED_PATH_")
+}
+
+func isHexDigestCandidate(candidate string) bool {
+	switch len(candidate) {
+	case 40, 64:
+	default:
+		return false
+	}
+	for _, r := range candidate {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 func splitTrailingPunctuation(candidate string) (string, string) {
@@ -540,7 +640,10 @@ func looksHighEntropy(candidate string) bool {
 	if len(candidate) < 32 {
 		return false
 	}
-	if strings.Contains(candidate, "/") || strings.Contains(candidate, "\\") {
+	if strings.Contains(candidate, "\\") {
+		return false
+	}
+	if strings.Count(candidate, "/") >= 2 || strings.Contains(candidate, "/.") || strings.Contains(candidate, "./") {
 		return false
 	}
 	classes := 0

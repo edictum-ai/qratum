@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 	"github.com/edictum-ai/qratum/internal/workspace"
 )
 
@@ -56,6 +58,7 @@ type daemonArtifactFile struct {
 
 type apiErrorResponse struct {
 	SchemaVersion string       `json:"schema_version"`
+	DataClass     string       `json:"data_class"`
 	Error         apiErrorBody `json:"error"`
 }
 
@@ -156,15 +159,12 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			continue
 		}
 
-		transcriptPath, err := resolveTranscriptPath(projectRoot, event.SessionRef.TranscriptPath)
+		transcript, transcriptLabel, err := openTranscriptForEvent(projectRoot, qratumHome, event)
 		if err != nil {
-			return summary, fmt.Errorf("event %s has invalid transcript_path: %w", event.EventID, err)
-		}
-		if err := requireTranscriptFile(transcriptPath, projectRoot, event.SessionRef.TranscriptPath); err != nil {
 			return summary, fmt.Errorf("event %s: %w", event.EventID, err)
 		}
 
-		session, err := normalizeClaudeTranscriptFile(transcriptPath, normalizeSessionContext{
+		session, err := normalizeClaudeTranscript(transcript, normalizeSessionContext{
 			SessionID:            event.SessionRef.SessionID,
 			TranscriptPath:       event.SessionRef.TranscriptPath,
 			Workspace:            &event.Workspace,
@@ -174,8 +174,12 @@ func runDaemonOnce() (daemonRunSummary, error) {
 			ArtifactPaths:        &artifacts,
 			PipelineStatus:       "normalized",
 		})
+		closeErr := transcript.Close()
 		if err != nil {
-			return summary, fmt.Errorf("event %s normalize transcript %s: %w", event.EventID, displayPath(projectRoot, transcriptPath), err)
+			return summary, fmt.Errorf("event %s normalize transcript %s: %w", event.EventID, transcriptLabel, err)
+		}
+		if closeErr != nil {
+			return summary, fmt.Errorf("event %s close transcript %s: %w", event.EventID, transcriptLabel, closeErr)
 		}
 		if applySourceEventTimestampFallback(&event, session) {
 			eventPath := artifactAbsolutePath(projectRoot, artifacts.Event)
@@ -192,6 +196,68 @@ func runDaemonOnce() (daemonRunSummary, error) {
 	}
 
 	return summary, nil
+}
+
+func openTranscriptForEvent(projectRoot string, qratumHome workspace.Paths, event captureEvent) (io.ReadCloser, string, error) {
+	transcriptPath, err := resolveTranscriptPath(projectRoot, event.SessionRef.TranscriptPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("invalid transcript_path: %w", err)
+	}
+	liveErr := requireTranscriptFile(transcriptPath, projectRoot, event.SessionRef.TranscriptPath)
+	liveOK := liveErr == nil
+	if liveOK && event.Raw != nil && strings.HasPrefix(event.Raw.Digest, "sha256:") {
+		liveDigest, err := fileSHA256Digest(transcriptPath)
+		if err != nil {
+			return nil, "", err
+		}
+		if liveDigest == event.Raw.Digest {
+			// #nosec G304 -- path was already resolved and validated by requireTranscriptFile.
+			file, err := os.Open(transcriptPath)
+			if err != nil {
+				return nil, "", fmt.Errorf("open transcript %s: %w", displayPath(projectRoot, transcriptPath), err)
+			}
+			return file, displayPath(projectRoot, transcriptPath), nil
+		}
+	}
+	if liveOK && (event.Raw == nil || strings.TrimSpace(event.Raw.Digest) == "") {
+		// #nosec G304 -- path was already resolved and validated by requireTranscriptFile.
+		file, err := os.Open(transcriptPath)
+		if err != nil {
+			return nil, "", fmt.Errorf("open transcript %s: %w", displayPath(projectRoot, transcriptPath), err)
+		}
+		return file, displayPath(projectRoot, transcriptPath), nil
+	}
+	if event.Raw == nil || !strings.HasPrefix(event.Raw.Digest, "sha256:") {
+		if liveErr != nil {
+			return nil, "", liveErr
+		}
+		return nil, "", fmt.Errorf("live transcript unavailable and event has no vault blob digest")
+	}
+	digestHex := strings.TrimPrefix(event.Raw.Digest, "sha256:")
+	if len(digestHex) < 2 {
+		return nil, "", fmt.Errorf("event raw digest %q is invalid", event.Raw.Digest)
+	}
+	blobPath := qratumHome.BlobPathForDigest(digestHex)
+	// #nosec G304 -- blob path is derived from the captured digest and qratum home.
+	file, err := os.Open(blobPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("open vaulted transcript blob %s: %w", displayPath(projectRoot, blobPath), err)
+	}
+	return file, displayPath(projectRoot, blobPath), nil
+}
+
+func fileSHA256Digest(path string) (string, error) {
+	// #nosec G304 -- caller validates path confinement before hashing.
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("open transcript %s: %w", filepath.ToSlash(path), err)
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", fmt.Errorf("hash transcript %s: %w", filepath.ToSlash(path), err)
+	}
+	return "sha256:" + fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 func listEventFiles(eventsDir string, projectRoot string) ([]string, error) {
@@ -444,13 +510,13 @@ func writePipelineArtifacts(projectRoot string, paths daemonArtifactPaths, sessi
 	}
 
 	reportData, err := buildReportDocument(projectRoot, reportContext{
-		session:     session,
+		session:     redactedSession,
 		redacted:    redactedSession,
 		evidence:    evidenceBundle,
 		review:      reviewCard,
 		paths:       paths,
 		sessionPath: paths.Session,
-		artifactsAt: uiArtifactCreatedAt(session, evidenceBundle),
+		artifactsAt: uiArtifactCreatedAt(redactedSession, evidenceBundle),
 	})
 	if err != nil {
 		return fmt.Errorf("build report for session %s: %w", session.SessionID, err)
@@ -507,6 +573,7 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 func writeAPIError(w io.Writer, code string, message string) {
 	response := apiErrorResponse{
 		SchemaVersion: qratumAPIErrorSchemaVersion,
+		DataClass:     qschema.DataClassPublished,
 		Error: apiErrorBody{
 			Code:    code,
 			Message: message,

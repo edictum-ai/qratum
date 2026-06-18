@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	qschema "github.com/edictum-ai/qratum/internal/schema"
 )
 
 const (
@@ -18,6 +20,7 @@ const (
 
 type adpStrictTrajectory struct {
 	SchemaVersion string           `json:"schema_version"`
+	DataClass     string           `json:"data_class"`
 	ID            string           `json:"id"`
 	Content       []any            `json:"content"`
 	Details       adpStrictDetails `json:"details"`
@@ -168,6 +171,7 @@ func buildADPStrictTrajectory(session qratumSession) (adpStrictTrajectory, error
 
 	return adpStrictTrajectory{
 		SchemaVersion: adpStrictSchemaVersion,
+		DataClass:     qschema.DataClassCorpus,
 		ID:            session.SessionID,
 		Content:       content,
 		Details: adpStrictDetails{

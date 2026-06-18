@@ -2,9 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/ui/artifact-link.v1.schema.json",
   "type": "object",
-  "required": ["schema_version", "artifact_id", "session_id", "type", "label", "media_type", "href", "digest", "created_at"],
+  "required": ["schema_version", "data_class", "artifact_id", "session_id", "type", "label", "media_type", "href", "digest", "created_at"],
+  "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.ui.artifact_link.v1" },
+    "data_class": { "const": "published" },
     "artifact_id": { "type": "string" },
     "session_id": { "type": "string" },
     "type": {
