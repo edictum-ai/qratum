@@ -493,7 +493,7 @@ func FreeSpaceBytes(path string) (uint64, error) {
 	if err := syscall.Statfs(path, &stat); err != nil {
 		return 0, fmt.Errorf("inspect free disk space for %s: %w", filepath.ToSlash(path), err)
 	}
-	blockSize := uint64(stat.Bsize)
+	blockSize := uint64(stat.Bsize) // #nosec G115 -- a filesystem block size is always non-negative
 	return stat.Bavail * blockSize, nil
 }
 

@@ -7,10 +7,12 @@ builds:
     binary: qrt
     env:
       - CGO_ENABLED=0
+    # Unix-only: the vault uses syscall.Flock (capture lock) and syscall.Statfs
+    # (disk-free guard), which have no Windows equivalents. Windows support would
+    # need build-tagged platform implementations — deferred.
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
@@ -20,9 +22,6 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
-      - goos: windows
-        formats: [zip]
 
 checksum:
   name_template: "checksums.txt"
