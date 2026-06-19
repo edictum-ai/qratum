@@ -22,7 +22,15 @@ A few terms recur below. Plain meaning first; the term is kept for accuracy.
 
 When you are unsure what's authoritative, start here. `SPEC.md` wins.
 
-Follow `SPEC.md` first. It points to the canonical operational model:
+For onboarding and the public `qrt` command contract, the following spec is
+authoritative:
+
+```txt
+specs/current/ui-first-onboarding.md
+```
+
+It wins wherever it conflicts with the older base model. The base model remains
+architecture background, not the current onboarding contract:
 
 ```txt
 specs/current/operational-model-redesign.md
@@ -65,30 +73,33 @@ you may change it (carefully). It includes:
 
 - central workspace at `~/.qratum/` (`QRATUM_HOME` override)
 - copy-on-capture hook + content-addressed blob store
-- `qrt hook install` / `hook status`
-- `qrt vault backfill` / `archive` / `backup [--verify]` / `doctor`
+- `qrt hook install` / `hook status` — shipped P1 commands replaced by the
+  UI-first surface as it lands
+- `qrt vault backfill` / `archive` / `backup [--verify]` / `doctor` — shipped P1
+  commands replaced by `qrt init`, `qrt status`, `qrt doctor`, `qrt import`, and
+  the local app as they land
 - `qrt status`
-- the Milestone A refinery, as on-demand tooling
+- the Milestone A refinery, as on-demand tooling scheduled to leave the public
+  `qrt` surface as UI-first replacements land
 
 When changing this shipped runtime, treat it as live code: fixture/golden tests
 remain the contract; do not regress the demo.
 
 ## Still not built (genuine non-goals)
 
-These do not exist yet, on purpose. Do not build any of them unless an accepted
-milestone unlocks it:
+These are not part of the accepted onboarding slice. Do not build them unless a
+later accepted contract unlocks them:
 
-- setup wizard behavior
-- import wizard implementation
-- session revision worker
-- local app
+- import wizard implementation beyond `qrt import <file-or-folder>` with an
+  explicit plan
+- session revision worker beyond the prepare-from-preserved-raw bridge
 - SQLite projection behavior
 - AI providers
 - lesson or insight generation
 - corpus export changes
 - publisher behavior
-- a standing/resident daemon or review queue (refine is a one-shot; daemon vs
-  no-daemon is an open decision per verification-and-trust-gate.md §5)
+- a standing/resident daemon or review queue; background preservation should use
+  a source hook or OS schedule first unless a later contract accepts a daemon
 - new source adapters beyond accepted schema fixtures
 
 ## Runtime
@@ -100,13 +111,13 @@ binary named `qrt`.
 
 ## Compatibility Rules
 
-Old Milestone A commands can stick around for compatibility/debug, but the hook
-must stay tiny and fast.
+Old Milestone A public commands are removed from the `qrt` user surface as their
+UI-first replacements land. Do not keep hidden aliases or debug entrypoints just
+to preserve the old public command shape.
 
-Milestone A commands and artifacts may remain as compatibility/debug behavior
-while the new operational model is implemented.
+Underlying package code may remain only when the new use cases call it.
 
-If you touch existing Milestone A runtime paths:
+If you touch existing capture hook paths while they still exist:
 
 - `qrt hook claude-code` must stay fast.
 - The hook only reads JSON from stdin, writes a capture event, and exits.

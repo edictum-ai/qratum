@@ -1,0 +1,1072 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Qratum Onboarding Flow</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #171717;
+      --muted: #625f58;
+      --paper: #f7f1e5;
+      --panel: #fffaf0;
+      --line: #171717;
+      --raw: #f3d69b;
+      --raw-deep: #9a620c;
+      --safe: #dcefd9;
+      --safe-deep: #266d49;
+      --ui: #d8eaf5;
+      --ui-deep: #245c87;
+      --warn: #f1cbc6;
+      --warn-deep: #a63232;
+      --shadow: 5px 5px 0 var(--line);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(23, 23, 23, 0.05) 1px, transparent 1px),
+        linear-gradient(rgba(23, 23, 23, 0.05) 1px, transparent 1px),
+        var(--paper);
+      background-size: 28px 28px;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    code {
+      display: inline-block;
+      border: 1px solid rgba(23, 23, 23, 0.25);
+      border-radius: 4px;
+      padding: 1px 5px;
+      background: rgba(255, 255, 255, 0.72);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .shell {
+      width: min(1540px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 370px;
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 16px;
+    }
+
+    .hero,
+    .port-card,
+    .stage-panel,
+    .app,
+    .rules {
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 240, 0.92);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 18px 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(34px, 6vw, 76px);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .lede {
+      max-width: 920px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    .port-card {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      align-content: start;
+    }
+
+    .port-card strong {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .port {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: var(--ui);
+      padding: 7px 12px;
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: 3px 3px 0 var(--line);
+    }
+
+    .port-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(104px, 1fr));
+      gap: 10px;
+      margin: 20px 0 16px;
+    }
+
+    .step {
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      min-height: 88px;
+      padding: 10px;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--line);
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .step:hover,
+    .step:focus-visible,
+    .step.active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0 var(--line);
+      outline: none;
+    }
+
+    .step.active {
+      background: var(--ui);
+    }
+
+    .step small {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .step b {
+      display: block;
+      font-size: 17px;
+      line-height: 1.1;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(420px, 0.9fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .stage-panel {
+      position: relative;
+      min-height: 640px;
+      padding: 18px;
+      overflow: hidden;
+    }
+
+    .stage-title {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    .stage-title h2 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .stage-title p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      min-height: 32px;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .badge.raw {
+      background: var(--raw);
+    }
+
+    .badge.safe {
+      background: var(--safe);
+    }
+
+    .badge.ui {
+      background: var(--ui);
+    }
+
+    .flow-canvas {
+      position: relative;
+      min-height: 500px;
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: #fffdf8;
+      overflow: hidden;
+    }
+
+    .flow-grid {
+      position: absolute;
+      inset: 18px;
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr) 190px;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 14px;
+      z-index: 2;
+    }
+
+    .bucket {
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 12px;
+      min-height: 128px;
+      box-shadow: 3px 3px 0 var(--line);
+    }
+
+    .bucket.raw {
+      background: var(--raw);
+    }
+
+    .bucket.safe {
+      background: var(--safe);
+    }
+
+    .bucket.ui {
+      background: var(--ui);
+    }
+
+    .bucket.warn {
+      background: var(--warn);
+    }
+
+    .bucket h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .bucket p {
+      margin: 0;
+      color: #36332f;
+      font-size: 13px;
+      line-height: 1.36;
+    }
+
+    .rail {
+      position: absolute;
+      left: 100px;
+      right: 100px;
+      height: 5px;
+      background: var(--line);
+      opacity: 0.18;
+      z-index: 1;
+    }
+
+    .rail.raw {
+      top: 139px;
+    }
+
+    .rail.safe {
+      top: 303px;
+    }
+
+    .rail.ui {
+      top: 398px;
+    }
+
+    .packet {
+      position: absolute;
+      top: -9px;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--line);
+      border-radius: 5px;
+      background: var(--raw-deep);
+      animation: movePacket 6s ease-in-out infinite;
+      box-shadow: 2px 2px 0 var(--line);
+    }
+
+    .rail.safe .packet {
+      background: var(--safe-deep);
+      animation-delay: 1.2s;
+    }
+
+    .rail.ui .packet {
+      background: var(--ui-deep);
+      animation-delay: 2.4s;
+    }
+
+    @keyframes movePacket {
+      0% { left: 0; opacity: 0; transform: scale(0.7); }
+      12% { opacity: 1; transform: scale(1); }
+      78% { opacity: 1; }
+      100% { left: calc(100% - 22px); opacity: 0; transform: scale(0.85); }
+    }
+
+    .state-card {
+      grid-column: 2;
+      grid-row: 1 / span 3;
+      align-self: center;
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 240, 0.94);
+      box-shadow: 5px 5px 0 var(--line);
+      padding: 18px;
+      z-index: 3;
+    }
+
+    .state-card h3 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .state-card p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .state-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .state-list li {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      border: 1px solid rgba(23, 23, 23, 0.2);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 8px;
+      line-height: 1.32;
+    }
+
+    .dot {
+      flex: 0 0 auto;
+      width: 11px;
+      height: 11px;
+      margin-top: 4px;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: var(--ui-deep);
+    }
+
+    .dot.raw {
+      background: var(--raw-deep);
+    }
+
+    .dot.safe {
+      background: var(--safe-deep);
+    }
+
+    .dot.warn {
+      background: var(--warn-deep);
+    }
+
+    .app {
+      overflow: hidden;
+      background: #fffaf0;
+    }
+
+    .app-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 2px solid var(--line);
+      padding: 12px 14px;
+      background: var(--ui);
+    }
+
+    .app-top h2 {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .app-body {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      min-height: 560px;
+    }
+
+    .sidebar {
+      border-right: 2px solid var(--line);
+      background: #fff;
+      padding: 12px;
+    }
+
+    .nav-item {
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      padding: 9px;
+      margin-bottom: 8px;
+      font-weight: 900;
+      background: var(--panel);
+    }
+
+    .nav-item.active {
+      background: var(--safe);
+    }
+
+    .content {
+      padding: 14px;
+    }
+
+    .health-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 10px;
+      min-height: 84px;
+      box-shadow: 2px 2px 0 var(--line);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .action {
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px 10px;
+      font-weight: 900;
+      box-shadow: 2px 2px 0 var(--line);
+    }
+
+    .action.primary {
+      background: var(--safe);
+    }
+
+    .queue {
+      display: grid;
+      gap: 10px;
+    }
+
+    .session {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .session.raw {
+      background: var(--raw);
+    }
+
+    .session.safe {
+      background: var(--safe);
+    }
+
+    .session h3 {
+      margin: 0 0 5px;
+      font-size: 17px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .session p {
+      margin: 0;
+      color: #34312d;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .status {
+      align-self: start;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .rules {
+      grid-column: 1 / -1;
+      margin-top: 18px;
+      padding: 16px;
+    }
+
+    .rules h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .rule-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .rule {
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 10px;
+      min-height: 110px;
+    }
+
+    .rule strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .rule span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .foot {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1180px) {
+      header,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .steps {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .app-body {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 2px solid var(--line);
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .nav-item {
+        margin-bottom: 0;
+      }
+
+      .rule-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(100vw - 20px, 1540px);
+        padding-top: 14px;
+      }
+
+      .steps,
+      .health-row,
+      .rule-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stage-title,
+      .app-top {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-canvas {
+        min-height: 820px;
+      }
+
+      .flow-grid {
+        position: relative;
+        inset: auto;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        padding: 12px;
+      }
+
+      .state-card {
+        grid-column: auto;
+        grid-row: auto;
+      }
+
+      .rail {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <section class="hero">
+        <h1>Qratum Onboarding Flow</h1>
+        <p class="lede">The product should move through one honest first-run path: uninitialized, found, preserved, prepared, open. CLI bootstraps the app; the app explains state and safe next actions.</p>
+      </section>
+      <aside class="port-card">
+        <strong>Target entrypoint</strong>
+        <span class="port">127.0.0.1:9473</span>
+        <p><code>qrt open</code> should open Qratum here. The CLI starts the local app and prints recovery commands, but the onboarding happens in the UI.</p>
+      </aside>
+    </header>
+
+    <nav class="steps" aria-label="Flow stages">
+      <button class="step active" type="button" data-stage="onboard">
+        <small>1. Init</small>
+        <b>Uninitialized</b>
+      </button>
+      <button class="step" type="button" data-stage="find">
+        <small>2. Find</small>
+        <b>Read-only inventory</b>
+      </button>
+      <button class="step" type="button" data-stage="preserve">
+        <small>3. Preserve</small>
+        <b>Raw copy only</b>
+      </button>
+      <button class="step" type="button" data-stage="prepare">
+        <small>4. Prepare</small>
+        <b>Prepare selected</b>
+      </button>
+      <button class="step" type="button" data-stage="browse">
+        <small>5. Browse</small>
+        <b>Session library</b>
+      </button>
+      <button class="step" type="button" data-stage="export">
+        <small>6. Export</small>
+        <b>Explicit egress</b>
+      </button>
+      <button class="step" type="button" data-stage="background">
+        <small>7. Keep fresh</small>
+        <b>Background preserve</b>
+      </button>
+    </nav>
+
+    <section class="main-grid">
+      <section class="stage-panel" aria-live="polite">
+        <div class="stage-title">
+          <div>
+            <h2 id="stage-heading">Start with one state machine.</h2>
+            <p id="stage-copy">The path is uninitialized to found to preserved to prepared to open. <code>qrt init</code> runs the first bounded setup; <code>qrt open</code> shows the app.</p>
+          </div>
+          <span class="badge ui" id="stage-badge">UI first</span>
+        </div>
+
+        <div class="flow-canvas">
+          <div class="rail raw"><span class="packet"></span></div>
+          <div class="rail safe"><span class="packet"></span></div>
+          <div class="rail ui"><span class="packet"></span></div>
+
+          <div class="flow-grid">
+            <div class="bucket warn" style="grid-column: 1; grid-row: 1;">
+              <h3>Local sources</h3>
+              <p>Claude Code transcripts exist on disk. Cloud/web sessions need a vendor export, then Import.</p>
+            </div>
+            <div class="bucket raw" style="grid-column: 1; grid-row: 2;">
+              <h3>Raw vault</h3>
+              <p>Preserve copies raw, unredacted transcript bytes into <code>QRATUM_HOME</code>.</p>
+            </div>
+            <div class="bucket safe" style="grid-column: 1; grid-row: 3;">
+              <h3>Prepared views</h3>
+              <p>Selected sessions become redacted artifacts, findings, review cards, and reports.</p>
+            </div>
+
+            <article class="state-card">
+              <h3 id="state-title">Do not ask users to understand backfill.</h3>
+              <p id="state-body">The first screen should say which state Qratum is in and what is safe to do next.</p>
+              <ul class="state-list" id="state-list">
+                <li><span class="dot"></span><span>Use <code>qrt init</code> for first-run setup and <code>qrt open</code> for the app.</span></li>
+                <li><span class="dot warn"></span><span>Do not keep legacy commands as hidden aliases.</span></li>
+                <li><span class="dot safe"></span><span>Show the difference between preserved raw sessions and browseable prepared sessions.</span></li>
+              </ul>
+            </article>
+
+            <div class="bucket ui" style="grid-column: 3; grid-row: 1;">
+              <h3>Qratum app</h3>
+              <p>The product center: sessions, raw queue, checks, and onboarding actions.</p>
+            </div>
+            <div class="bucket safe" style="grid-column: 3; grid-row: 2;">
+              <h3>Safe default</h3>
+              <p>No raw transcript preview. No surprise preparation. No upload.</p>
+            </div>
+            <div class="bucket raw" style="grid-column: 3; grid-row: 3;">
+              <h3>Background preserve</h3>
+              <p>A boring scheduler/service keeps raw preservation fresh. It does not review everything.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="app" aria-label="Qratum UI mock">
+        <div class="app-top">
+          <h2>Qratum Sessions</h2>
+          <span class="badge ui">127.0.0.1:9473</span>
+        </div>
+        <div class="app-body">
+          <aside class="sidebar">
+            <div class="nav-item active">Sessions</div>
+            <div class="nav-item">Raw Queue</div>
+            <div class="nav-item">Checks</div>
+            <div class="nav-item">Settings</div>
+          </aside>
+          <section class="content">
+            <div class="health-row">
+              <div class="metric">
+                <strong id="metric-found">184</strong>
+                <span>found locally</span>
+              </div>
+              <div class="metric">
+                <strong id="metric-preserved">0</strong>
+                <span>preserved raw</span>
+              </div>
+              <div class="metric">
+                <strong id="metric-prepared">0</strong>
+                <span>prepared to view</span>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button class="action primary" type="button" id="primary-action">Find existing sessions</button>
+              <button class="action" type="button">Run doctor</button>
+              <button class="action" type="button">Import export/file...</button>
+            </div>
+
+            <div class="queue" id="session-queue">
+              <article class="session raw">
+                <div>
+                  <h3>Claude Code history found</h3>
+                  <p>184 local transcripts, 0 copied. Nothing has been written yet.</p>
+                </div>
+                <span class="status">read-only</span>
+              </article>
+              <article class="session">
+                <div>
+                  <h3>Capture is off</h3>
+                  <p>Future local sessions are not captured until you enable capture.</p>
+                </div>
+                <span class="status">off</span>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="rules">
+        <h2>Rules The Flow Must Make Obvious</h2>
+        <div class="rule-grid">
+          <div class="rule">
+            <strong>Onboard is not preserve</strong>
+            <span>Onboarding is the UI explaining state and choices. It should not mutate files by default.</span>
+          </div>
+          <div class="rule">
+            <strong>Preserve is not prepare</strong>
+            <span>Preserve stores raw, unredacted copies. Preparation creates browseable redacted artifacts later.</span>
+          </div>
+          <div class="rule">
+            <strong>Background is preserve-only</strong>
+            <span>A source hook or OS schedule keeps raw capture fresh. It does not review, export, upload, or prepare all history.</span>
+          </div>
+          <div class="rule">
+            <strong>Open is the product</strong>
+            <span><code>qrt open</code> should open Qratum, not qratum.dev, not a JSON dump, and not a static pipeline map.</span>
+          </div>
+          <div class="rule">
+            <strong>Delete legacy commands</strong>
+            <span>The public surface is <code>init</code>, <code>open</code>, <code>status</code>, <code>doctor</code>, <code>import</code>, <code>sessions</code>, <code>session</code>, and <code>export</code>.</span>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <p class="foot">Design artifact only. It does not change the shipped <code>qrt</code> binary. Proposed local app port: <code>9473</code>.</p>
+  </main>
+
+  <script>
+    const stages = {
+      onboard: {
+        badge: "UI first",
+        badgeClass: "badge ui",
+        heading: "Start with one state machine.",
+        copy: "The path is uninitialized to found to preserved to prepared to open. qrt init runs the first bounded setup; qrt open shows the app.",
+        title: "Do not ask users to understand backfill.",
+        body: "The first screen should say which state Qratum is in and what is safe to do next.",
+        metrics: ["184", "0", "0"],
+        action: "Run qrt init",
+        rows: [
+          ["raw", "Claude Code history found", "184 local transcripts, 0 copied. Nothing has been written yet.", "read-only"],
+          ["", "Capture is off", "Future local sessions are not captured until you enable capture.", "off"]
+        ],
+        bullets: [
+          ["", "Use qrt init for first-run setup and qrt open for the app."],
+          ["warn", "Do not keep legacy commands as hidden aliases."],
+          ["safe", "Show the difference between preserved raw sessions and browseable prepared sessions."]
+        ]
+      },
+      find: {
+        badge: "Read-only",
+        badgeClass: "badge ui",
+        heading: "Find sessions without touching anything.",
+        copy: "The UI action is Find existing sessions. CLI can call it scan, but the product wording should be find. It counts roots, bytes, dates, and support level.",
+        title: "Find answers: what exists?",
+        body: "No files copied. No settings changed. No transcript body rendered.",
+        metrics: ["184", "0", "0"],
+        action: "Preserve existing sessions",
+        rows: [
+          ["raw", "Claude Code local transcripts", "184 found, 92 MB, oldest May 19, newest today.", "found"],
+          ["", "Cloud/web sessions", "Not visible to local hooks or local scan. Export from the vendor, then import the file or folder.", "gap"]
+        ],
+        bullets: [
+          ["", "Show roots scanned and roots skipped."],
+          ["raw", "Show count, size, oldest/newest, and source support."],
+          ["warn", "Do not parse full transcript content unless the user asks to prepare sessions."]
+        ]
+      },
+      preserve: {
+        badge: "Raw copy",
+        badgeClass: "badge raw",
+        heading: "Preserve makes old sessions durable.",
+        copy: "Preserve copies raw, unredacted local transcripts into the content-addressed vault. It does not review or make them browseable yet.",
+        title: "Preserve answers: what is safe?",
+        body: "This is the boring durability step: copy, hash, dedupe, record refs, report failures.",
+        metrics: ["184", "184", "0"],
+        action: "Prepare latest 10",
+        rows: [
+          ["raw", "184 sessions preserved", "Raw bytes copied to QRATUM_HOME/raw/blobs/sha256 with owner-only files.", "raw"],
+          ["raw", "0 sessions prepared", "Preserved sessions still need preparation before normal browsing.", "queued"]
+        ],
+        bullets: [
+          ["raw", "Output must say raw and unredacted."],
+          ["safe", "No upload. No network. No raw egress."],
+          ["warn", "PII and third-party content remain verbatim."]
+        ]
+      },
+      prepare: {
+        badge: "Selected only",
+        badgeClass: "badge safe",
+        heading: "Prepare turns selected sessions into views.",
+        copy: "The UI should say Prepare latest 10 or Prepare selected. This deterministic pass normalizes, redacts credentials, builds evidence, review cards, and safe DTOs without calling AI.",
+        title: "Prepare answers: what is browseable?",
+        body: "Do not auto-prepare all history. Start with a bounded set and show exactly what will be written.",
+        metrics: ["184", "184", "10"],
+        action: "Open prepared sessions",
+        rows: [
+          ["safe", "10 prepared sessions", "Redacted artifacts, findings, review cards, reports, and exports exist.", "viewable"],
+          ["raw", "174 raw preserved sessions", "Still safe in the vault, waiting for user-selected preparation.", "queued"]
+        ],
+        bullets: [
+          ["safe", "Show selected sessions before first bulk run."],
+          ["safe", "Write browseable artifacts under QRATUM_HOME/sessions."],
+          ["warn", "Redaction is credentials-only best-effort alpha, not a PII guarantee."]
+        ]
+      },
+      browse: {
+        badge: "Library",
+        badgeClass: "badge ui",
+        heading: "Browse the library without raw transcript exposure.",
+        copy: "Qratum shows prepared sessions first and a raw queue second. If zero sessions are prepared, it still shows preserved raw sessions and the next action.",
+        title: "Open answers: show me.",
+        body: "The app is the center: list, filters, findings, artifacts, checks, explicit exports, and safe one-click actions.",
+        metrics: ["184", "184", "10"],
+        action: "Prepare selected",
+        rows: [
+          ["safe", "Fix redaction bug", "needs_attention, 2 files changed, no final successful verification.", "review"],
+          ["raw", "Claude Code session from repo x", "Preserved raw. Not prepared yet. No raw preview.", "raw"]
+        ],
+        bullets: [
+          ["", "Show newest prepared sessions first."],
+          ["raw", "Show raw preserved queue with safe metadata only."],
+          ["safe", "Open report/review/export links after preparation."]
+        ]
+      },
+      export: {
+        badge: "Egress",
+        badgeClass: "badge warn",
+        heading: "Export is explicit egress.",
+        copy: "Qratum can make the big export, but it must show scope, destination, data classes, item counts, and confirmation before anything leaves QRATUM_HOME.",
+        title: "Export answers: what leaves?",
+        body: "Default export excludes raw transcripts. Raw, external destinations, and AI-derived data need visible approval. Redaction is best-effort alpha, not a privacy guarantee.",
+        metrics: ["184", "184", "10"],
+        action: "Create export plan",
+        rows: [
+          ["safe", "Export plan", "10 prepared sessions, redacted review data, destination not selected.", "planned"],
+          ["raw", "Raw transcripts", "Excluded from this plan. A raw export needs a separate explicit plan.", "off"]
+        ],
+        bullets: [
+          ["warn", "Show data classes before export."],
+          ["safe", "Record export provenance."],
+          ["raw", "No silent raw egress."]
+        ]
+      },
+      background: {
+        badge: "Preserve-only",
+        badgeClass: "badge raw",
+        heading: "Background work keeps preservation fresh.",
+        copy: "Use a source hook or OS schedule for preservation freshness. A local service is optional later. Background work must not automatically review everything, export data, upload data, or render raw transcripts.",
+        title: "Background answers: will I lose future history?",
+        body: "The safe background path is boring: scan, capture, copy, hash, record, warn.",
+        metrics: ["184", "184", "10"],
+        action: "Enable background preserve",
+        rows: [
+          ["raw", "Background preservation", "Off. Recommended after the user trusts the local flow.", "off"],
+          ["", "Future capture", "Off. Can be enabled separately with a visible settings diff.", "off"]
+        ],
+        bullets: [
+          ["raw", "Source hook or OS schedule preserves raw local transcripts only."],
+          ["warn", "No automatic preparation of all history."],
+          ["safe", "Hook remains a fast path, not the only safety net."]
+        ]
+      }
+    };
+
+    const stepButtons = document.querySelectorAll("[data-stage]");
+    const stageHeading = document.getElementById("stage-heading");
+    const stageCopy = document.getElementById("stage-copy");
+    const stageBadge = document.getElementById("stage-badge");
+    const stateTitle = document.getElementById("state-title");
+    const stateBody = document.getElementById("state-body");
+    const stateList = document.getElementById("state-list");
+    const found = document.getElementById("metric-found");
+    const preserved = document.getElementById("metric-preserved");
+    const prepared = document.getElementById("metric-prepared");
+    const primaryAction = document.getElementById("primary-action");
+    const queue = document.getElementById("session-queue");
+    let activeStage = "onboard";
+    let timer = null;
+
+    function renderStage(name) {
+      const data = stages[name];
+      if (!data) return;
+      activeStage = name;
+      stepButtons.forEach((button) => button.classList.toggle("active", button.dataset.stage === name));
+      stageHeading.textContent = data.heading;
+      stageCopy.innerHTML = data.copy.replace("qrt open", "<code>qrt open</code>").replace("9473", "<code>9473</code>");
+      stageBadge.textContent = data.badge;
+      stageBadge.className = data.badgeClass;
+      stateTitle.textContent = data.title;
+      stateBody.textContent = data.body;
+      found.textContent = data.metrics[0];
+      preserved.textContent = data.metrics[1];
+      prepared.textContent = data.metrics[2];
+      primaryAction.textContent = data.action;
+
+      stateList.replaceChildren(...data.bullets.map(([kind, text]) => {
+        const li = document.createElement("li");
+        const dot = document.createElement("span");
+        dot.className = kind ? `dot ${kind}` : "dot";
+        const body = document.createElement("span");
+        body.textContent = text;
+        li.append(dot, body);
+        return li;
+      }));
+
+      queue.replaceChildren(...data.rows.map(([kind, title, text, status]) => {
+        const article = document.createElement("article");
+        article.className = kind ? `session ${kind}` : "session";
+        const left = document.createElement("div");
+        const h3 = document.createElement("h3");
+        h3.textContent = title;
+        const p = document.createElement("p");
+        p.textContent = text;
+        left.append(h3, p);
+        const state = document.createElement("span");
+        state.className = "status";
+        state.textContent = status;
+        article.append(left, state);
+        return article;
+      }));
+    }
+
+    stepButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        window.clearInterval(timer);
+        timer = null;
+        renderStage(button.dataset.stage);
+      });
+    });
+
+    const stageOrder = Object.keys(stages);
+    timer = window.setInterval(() => {
+      const next = stageOrder[(stageOrder.indexOf(activeStage) + 1) % stageOrder.length];
+      renderStage(next);
+    }, 7200);
+  </script>
+</body>
+</html>
