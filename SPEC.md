@@ -12,27 +12,26 @@ This is a short index. It points to the real specs and records what has shipped,
 
 ## Source Of Truth
 
-Start here. These are the specs that currently define Qratum, so read them first.
+Start here. These are the specs that currently define Qratum, so read them
+first. For onboarding and the public `qrt` command contract,
+`specs/current/ui-first-onboarding.md` wins wherever it conflicts with older
+docs.
 
 ```txt
-specs/current/operational-model-redesign.md  (base operational model; keep it
-                                             aligned with the accepted
-                                             vault-first edits)
+specs/current/ui-first-onboarding.md         (accepted product direction;
+                                             authoritative for onboarding and
+                                             the public command contract;
+                                             runtime implementation not shipped)
+specs/current/operational-model-redesign.md  (base architecture background;
+                                             superseded for onboarding and the
+                                             public command contract wherever it
+                                             conflicts with ui-first)
 specs/current/qratum-vault-first.md          (accepted 2026-06-14 vault-first
                                              revision and sequencing contract)
+specs/current/verification-and-trust-gate.md (accepted 2026-06-16;
+                                             P2-VERIFY-TRUST-GATE)
 specs/current/memory-curation-pipeline.md    (SUPERSEDED 2026-06-12;
                                              historical only)
-```
-
-One more spec exists, but the maintainer has not signed it off yet. It changes nothing on this page until he accepts it.
-
-Proposed (not yet accepted):
-
-```txt
-specs/current/verification-and-trust-gate.md (proposed 2026-06-15;
-                                             P2-VERIFY-TRUST-GATE; awaiting
-                                             the maintainer's acceptance — does not
-                                             change this milestone until then)
 ```
 
 The accepted review spine and dispatch context live under:
@@ -41,7 +40,10 @@ The accepted review spine and dispatch context live under:
 docs/reviews/2026-06-12-memory-architecture/
 ```
 
-Milestone A is an earlier product model. It is finished and kept only for history. Its code, commands, fixtures, and generated artifacts may stay around as compatibility/debug behavior, but Milestone A is no longer the product model.
+Milestone A is an earlier product model. It is finished and kept only for
+history. Its fixtures and generated artifacts may stay as test/reference
+material, but its public command surface is not the product model and should be
+removed as UI-first onboarding replacements land.
 
 Historical Milestone A notes live under:
 
@@ -76,7 +78,10 @@ This is what already works today. These features are built, registered in the `q
 - vault maintenance: `qrt vault backfill` / `archive` / `backup [--verify]` / `doctor`
 - a status view (`qrt status`) showing vault counts, last backfill, and copy failures
 
-The Milestone A refinery still ships too, but only as tooling you invoke by hand: `normalize`/`redact`/`evidence`/`review`/`report`/`export`, plus `daemon run-once` and `dogfood`.
+The Milestone A refinery still ships too, but only as tooling you invoke by hand:
+`normalize`/`redact`/`evidence`/`review`/`report`/`export`, plus `daemon
+run-once` and `dogfood`. These are shipped reality, not the future public
+surface; the UI-first contract removes them from `qrt` as replacements land.
 
 ## Known P0 gaps (still contracts/docs work)
 
@@ -85,18 +90,37 @@ Two pieces promised in the spec-and-contracts phase (P0-SPEC-AND-CONTRACTS) are 
 - the config schema (`config.schema.json`) is advertised but **not yet delivered**
 - the JSON schemas (`schemas/*.json`) have two problems: they do not set `additionalProperties`, and no Go test checks them. For now, golden/fixture tests (which compare output against a saved, known-good file) enforce the contract instead.
 
+## Accepted Next Direction
+
+The onboarding direction is now UI-first:
+
+- `qrt init` explains what Qratum found, then preserves existing local sessions
+  and prepares the latest 10 for viewing after confirmation.
+- `qrt open` opens the local Qratum app at `127.0.0.1:9473`.
+- `qrt status`, `qrt doctor`, `qrt import <file-or-folder>`, `qrt sessions`,
+  `qrt session <session_id>`, and `qrt export` are public operator commands.
+- `qrt export` is explicit egress: it must show scope, destination, data class,
+  and confirmation before data leaves Qratum.
+- The old pipeline-shaped public commands are removed as the onboarding surface
+  lands; do not keep hidden compatibility aliases by default.
+
+Details: `specs/current/ui-first-onboarding.md`.
+
 ## Still not built (genuine non-goals)
 
-These are left out on purpose. Do not build them as part of the current model:
+These are not shipped yet. Do not build unrelated future behavior as part of
+the onboarding work:
 
-- setup wizard behavior
-- import wizard implementation
-- session revision worker
-- local app
+- import wizard implementation beyond the explicit onboarding contract
+- session revision worker beyond the prepare-from-preserved-raw bridge
+- SQLite projection behavior
 - AI providers
 - lesson/insight generation
 - corpus export changes
-- a standing/resident daemon or review queue — refine is a one-shot you invoke; whether to add a daemon is still an open decision (see verification-and-trust-gate.md §5)
+- publisher behavior
+- a standing/resident daemon or review queue; background preservation should use
+  a source hook or OS schedule first unless a later contract accepts a daemon
+- new source adapters beyond accepted schema fixtures
 
 ## Standing Constraints
 
@@ -111,10 +135,11 @@ These rules always hold, regardless of milestone:
 - Fixture/golden tests remain the contract where practical.
 - Supply-chain rules in `docs/supply-chain.md` still apply.
 
-> **Honest boundary — deterministic redaction is best-effort alpha.** Redaction here means automatically stripping secrets, and it is not a guarantee. The shipped redactor only matches a fixed, enumerated set of secret classes, so it has known leak gaps. The known gaps are: a `=>` assignment edge case; the fields `git.branch` / `git.head_sha` / `started_at` / `ended_at` / `source_event_id` are not redacted; and SSH-style git remotes are not caught. A committed golden file currently ships some of these unredacted. Closing these gaps is the proposed verify/trust-gate work (P2-VERIFY-TRUST-GATE). Do not describe redaction as a guarantee.
+> **Honest boundary — deterministic redaction is best-effort alpha.** Redaction here means automatically stripping secrets, and it is not a guarantee. The shipped redactor only matches a fixed, enumerated set of secret classes, so it has known leak gaps. The known gaps are: a `=>` assignment edge case; the fields `git.branch` / `git.head_sha` / `started_at` / `ended_at` / `source_event_id` are not redacted; and SSH-style git remotes are not caught. Do not describe redaction as a guarantee.
 
 ## Compatibility
 
-Old commands keep working for now. Milestone A commands can stay available as hidden or debug compatibility aliases while the new public model is designed and implemented.
-
-Current compatibility behavior should keep working unless an accepted P0/P1+ contract intentionally replaces it.
+Old commands keep working only until their replacement lands. The UI-first
+onboarding contract intentionally replaces the old pipeline-shaped public
+surface. Remove those old public command paths; do not keep hidden aliases or
+debug entrypoints just to preserve Milestone A behavior.
