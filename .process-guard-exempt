@@ -1,0 +1,11 @@
+# process-guard: stage-artifact exemption
+#
+# This repo predates the Engineering OS artifact pipeline. While this marker
+# exists, the process-guard `stage-artifact` check is disabled: src changes do
+# NOT yet require a frozen acceptance suite on the base branch.
+#
+# freeze-hash and mixed-diff still run. Remove this marker when the first frozen
+# acceptance suite (test/acceptance/acceptance.manifest.json) lands.
+#
+# Its presence is a named gap in every Engineering OS audit — exemption is
+# visible, never silent. See https://github.com/acartag7/engineering-os

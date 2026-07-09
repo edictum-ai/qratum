@@ -84,3 +84,17 @@ jobs:
         run: make supply-chain
       - name: Vulnerability scan
         run: make security
+
+  process-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # merge-base needs full history
+      - uses: acartag7/engineering-os/process-guard@b483fa418ffa8122588fdfa87c36f40f6908c06f # main @ 2026-07-09
+        with:
+          base-ref: origin/${{ github.base_ref }}
+          src-paths: internal/,cmd/
+          contract-paths: SPEC.md,AGENTS.md
