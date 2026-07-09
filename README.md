@@ -172,6 +172,21 @@ make security
 
 `make verify` mirrors the full CI pipeline locally.
 
+### Process-guard hook (optional)
+
+This repo is governed by the [Engineering OS](https://github.com/acartag7/engineering-os).
+CI runs a `process-guard` job on every PR. To mirror it locally, enable the
+committed pre-commit hook once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook is best-effort: it prints a warning and exits 0 when `node` or an
+`engineering-os` checkout is absent (this repo has no Node toolchain), so it never
+blocks a commit on missing optional tooling. Set `ENGINEERING_OS_HOME=<path>` if
+the checkout is not a sibling directory. CI enforces the guard regardless.
+
 ## Scope
 
 Follow [`SPEC.md`](SPEC.md) for executable scope. Files under `docs/architecture/`
