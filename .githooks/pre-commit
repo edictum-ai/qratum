@@ -1,0 +1,47 @@
+#!/bin/sh
+# Engineering OS process-guard — local pre-commit mirror of the CI check.
+#
+# CI is the real wall (.github/workflows/ci.yml: `process-guard` job). This hook
+# is only a fast local preview so a freeze-hash / mixed-diff violation is caught
+# before you push. It MUST NEVER hard-block on missing optional tooling: this is
+# a Go repo with no Node toolchain, so a hook that fails closed on absent `node`
+# would be worse than no hook. Every missing-prereq path warns and exits 0.
+set -eu
+
+# 1. node is optional here. Absent -> warn, pass. CI still enforces the guard.
+if ! command -v node >/dev/null 2>&1; then
+  printf '%s\n' "process-guard: node not found — skipping local guard check (CI still enforces it)." >&2
+  exit 0
+fi
+
+# 2. Locate an engineering-os checkout: explicit env var first, then siblings.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+EOS="${ENGINEERING_OS_HOME:-}"
+if [ -z "$EOS" ]; then
+  for cand in "$REPO_ROOT/../engineering-os" "$HOME/project/engineering-os"; do
+    if [ -f "$cand/process-guard/scripts/check.mjs" ]; then
+      EOS="$cand"
+      break
+    fi
+  done
+fi
+CHECK="${EOS:+$EOS/process-guard/scripts/check.mjs}"
+if [ -z "$CHECK" ] || [ ! -f "$CHECK" ]; then
+  printf '%s\n' "process-guard: engineering-os checkout not found — skipping local guard check (set ENGINEERING_OS_HOME; CI still enforces it)." >&2
+  exit 0
+fi
+
+# 3. The check diffs against a base ref. If it isn't present locally (never
+#    fetched), skip rather than crash. CI runs with fetch-depth:0.
+BASE_REF="${PG_BASE_REF:-origin/main}"
+if ! git rev-parse --verify --quiet "$BASE_REF" >/dev/null; then
+  printf '%s\n' "process-guard: base ref '$BASE_REF' not found locally — skipping (run: git fetch origin; CI still enforces it)." >&2
+  exit 0
+fi
+
+# 4. Run the same checks CI runs. Inputs mirror the process-guard CI job.
+PG_BASE_REF="$BASE_REF" \
+PG_ACCEPTANCE_DIR="${PG_ACCEPTANCE_DIR:-test/acceptance}" \
+PG_SRC_PATHS="${PG_SRC_PATHS:-internal/,cmd/}" \
+PG_CONTRACT_PATHS="${PG_CONTRACT_PATHS:-SPEC.md,AGENTS.md}" \
+  node "$CHECK"
