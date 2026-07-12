@@ -11,6 +11,7 @@ import (
 
 	"github.com/edictum-ai/qratum/internal/capture"
 	qschema "github.com/edictum-ai/qratum/internal/schema"
+	qsource "github.com/edictum-ai/qratum/internal/source"
 	"github.com/edictum-ai/qratum/internal/trust"
 	"github.com/edictum-ai/qratum/internal/vault"
 )
@@ -21,14 +22,20 @@ func TestEmittedStructSchemasMatchJSONTags(t *testing.T) {
 		typ     reflect.Type
 	}{
 		{version: "1.1.0", typ: reflect.TypeOf(adpStrictTrajectory{})},
+		{version: qsource.CaptureEventSchemaVersion, typ: reflect.TypeOf(qsource.CaptureEvent{})},
+		{version: qsource.CaptureStateSchemaVersion, typ: reflect.TypeOf(qsource.CaptureState{})},
 		{version: "qratum.event.v1", typ: reflect.TypeOf(capture.Event{})},
 		{version: "qratum.evidence.v1", typ: reflect.TypeOf(evidenceBundle{})},
 		{version: "qratum.raw_ref.v1", typ: reflect.TypeOf(vault.RawRef{})},
 		{version: "qratum.raw_tombstone.v1", typ: reflect.TypeOf(vault.RawTombstone{})},
+		{version: qsource.PriceCatalogManifestSchemaVersion, typ: reflect.TypeOf(qsource.PriceCatalogManifest{})},
 		{version: "qratum.redaction_summary.v1", typ: reflect.TypeOf(qratumRedactionSummary{})},
 		{version: "qratum.review_card.v1", typ: reflect.TypeOf(reviewCard{})},
+		{version: qsource.SessionRevisionSchemaVersion, typ: reflect.TypeOf(qsource.SessionRevision{})},
+		{version: qsource.SessionTombstoneSchemaVersion, typ: reflect.TypeOf(qsource.SessionTombstone{})},
 		{version: "qratum.session.v1", typ: reflect.TypeOf(qratumSession{})},
 		{version: "qratum.trust_scorecard.v1", typ: reflect.TypeOf(trust.Scorecard{})},
+		{version: qsource.UsageRecordSchemaVersion, typ: reflect.TypeOf(qsource.UsageRecord{})},
 		{version: "qratum.vault_state.v1", typ: reflect.TypeOf(vault.State{})},
 		{version: "qratum.ui.artifact_link.v1", typ: reflect.TypeOf(uiArtifactLink{})},
 		{version: "qratum.ui.evidence_finding.v1", typ: reflect.TypeOf(uiEvidenceFinding{})},

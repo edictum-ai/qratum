@@ -238,6 +238,12 @@ func TestCommittedFixturesValidateAgainstSchemas(t *testing.T) {
 	validateFile(t, root, "qratum.review_card.v1", "fixtures/review/verification-gap.review.golden.json")
 	validateFile(t, root, "qratum.raw_ref.v1", "fixtures/vault/raw-ref.source-metadata.golden.json.tmpl")
 	validateFile(t, root, "qratum.memory_import_receipt.v1", "fixtures/memory-import/synthetic-receipt.json")
+	validateFile(t, root, "qratum.capture_event.v2", "fixtures/wave1/contracts/capture-event.v2.json")
+	validateFile(t, root, "qratum.capture_state.v1", "fixtures/wave1/contracts/capture-state.v1.json")
+	validateFile(t, root, "qratum.price_catalog_manifest.v1", "fixtures/wave1/contracts/price-catalog-manifest.v1.json")
+	validateFile(t, root, "qratum.session_revision.v1", "fixtures/wave1/contracts/session-revision.v1.json")
+	validateFile(t, root, "qratum.session_tombstone.v1", "fixtures/wave1/contracts/session-tombstone.v1.json")
+	validateFile(t, root, "qratum.usage_record.v1", "fixtures/wave1/contracts/usage-record.v1.json")
 	validateFile(t, root, "1.1.0", "fixtures/adp/session.adp-strict.golden.jsonl")
 	validateFile(t, root, "qratum.ui.session_detail.v1", "fixtures/ui/session-detail.golden.json")
 	validateFile(t, root, "qratum.ui.review_card.v1", "fixtures/ui/review.golden.json")
@@ -289,7 +295,7 @@ func TestSchemasRejectInjectedFixtureKeys(t *testing.T) {
 
 func TestRuntimeSchemaVersionLiteralsAreRegistered(t *testing.T) {
 	root := repoRoot(t)
-	versionRE := regexp.MustCompile(`"((?:qratum\.[a-z0-9_\.]+\.v1)|(?:1\.1\.0))"`)
+	versionRE := regexp.MustCompile(`"((?:qratum\.[a-z0-9_\.]+\.v[0-9]+)|(?:1\.1\.0))"`)
 	for _, dir := range []string{"cmd", "internal"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d os.DirEntry, err error) error {
 			if err != nil {

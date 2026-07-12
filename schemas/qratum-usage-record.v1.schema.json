@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-usage-record.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "usage_id", "source", "source_version", "root_session_id", "stream_id", "source_event_id", "model", "provider", "tokens", "total_basis", "occurred_at", "time_basis", "semantics", "reliability", "evidence_revision_digest", "duplicate_status", "reconciliation_status", "counter_epoch"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.usage_record.v1" },
+    "data_class": { "const": "raw" },
+    "usage_id": { "type": "string" },
+    "source": { "enum": ["claude-code", "codex"] },
+    "source_version": { "type": "string" },
+    "root_session_id": { "type": "string" },
+    "stream_id": { "type": "string" },
+    "source_event_id": { "type": "string" },
+    "turn_id": { "type": "string" },
+    "message_id": { "type": "string" },
+    "model": { "type": "string" },
+    "provider": { "type": "string" },
+    "tokens": {
+      "type": "object",
+      "required": ["input", "output", "cache_read", "cache_creation", "cache_creation_5m", "cache_creation_1h", "reasoning_output", "total"],
+      "additionalProperties": false,
+      "properties": {
+        "input": { "type": "integer" },
+        "output": { "type": "integer" },
+        "cache_read": { "type": "integer" },
+        "cache_creation": { "type": "integer" },
+        "cache_creation_5m": { "type": "integer" },
+        "cache_creation_1h": { "type": "integer" },
+        "reasoning_output": { "type": "integer" },
+        "total": { "type": "integer" }
+      }
+    },
+    "total_basis": { "enum": ["source_reported", "derived_sum"] },
+    "occurred_at": { "type": "string" },
+    "time_basis": { "enum": ["source_reported", "observed"] },
+    "semantics": { "enum": ["per_message", "incremental"] },
+    "reliability": { "enum": ["exact_source_reported", "derived", "unknown"] },
+    "evidence_revision_digest": { "type": "string" },
+    "duplicate_status": { "enum": ["accepted", "duplicate"] },
+    "reconciliation_status": { "enum": ["matched", "pending", "mismatch", "not_applicable"] },
+    "counter_epoch": { "type": "integer" }
+  }
+}

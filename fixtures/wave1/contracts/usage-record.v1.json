@@ -1,0 +1,32 @@
+{
+  "schema_version": "qratum.usage_record.v1",
+  "data_class": "raw",
+  "usage_id": "codex:22222222-2222-4222-8222-222222222222:main:1:sha256-example",
+  "source": "codex",
+  "source_version": "0.144.1",
+  "root_session_id": "22222222-2222-4222-8222-222222222222",
+  "stream_id": "main",
+  "source_event_id": "1:sha256-example",
+  "turn_id": "33333333-3333-4333-8333-333333333333",
+  "model": "gpt-5.4",
+  "provider": "openai",
+  "tokens": {
+    "input": 120,
+    "output": 30,
+    "cache_read": 80,
+    "cache_creation": 0,
+    "cache_creation_5m": 0,
+    "cache_creation_1h": 0,
+    "reasoning_output": 12,
+    "total": 150
+  },
+  "total_basis": "source_reported",
+  "occurred_at": "2026-07-12T10:00:03Z",
+  "time_basis": "source_reported",
+  "semantics": "incremental",
+  "reliability": "exact_source_reported",
+  "evidence_revision_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "duplicate_status": "accepted",
+  "reconciliation_status": "matched",
+  "counter_epoch": 0
+}

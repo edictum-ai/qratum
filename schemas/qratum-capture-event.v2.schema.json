@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-capture-event.v2.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "event_id", "source", "source_version", "event_type", "root_session_id", "transcript_kind", "transcript_path", "cwd", "observed_at", "git", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.capture_event.v2" },
+    "data_class": { "const": "raw" },
+    "event_id": { "type": "string" },
+    "source": { "enum": ["claude-code", "codex"] },
+    "source_version": { "type": "string" },
+    "event_type": { "enum": ["SessionStart", "Stop", "StopFailure", "SessionEnd", "CwdChanged", "SubagentStop"] },
+    "root_session_id": { "type": "string" },
+    "agent_id": { "type": "string" },
+    "agent_type": { "type": "string" },
+    "transcript_kind": { "enum": ["main", "child"] },
+    "transcript_path": { "type": "string" },
+    "cwd": { "type": "string" },
+    "model": { "type": "string" },
+    "event_time": { "type": "string" },
+    "observed_at": { "type": "string" },
+    "git": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["observed", "not_git", "failed", "timed_out"] },
+        "repository_root": { "type": "string" },
+        "common_directory": { "type": "string" },
+        "branch": { "type": "string" },
+        "head_commit": { "type": "string" },
+        "sanitized_remote": { "type": "string" },
+        "failure_reason": { "type": "string" }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "required": ["name", "version", "run_id", "observed_at"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "run_id": { "type": "string" },
+        "observed_at": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["adapter", "adapter_version"],
+      "additionalProperties": false,
+      "properties": {
+        "adapter": { "type": "string" },
+        "adapter_version": { "type": "string" }
+      }
+    }
+  }
+}
