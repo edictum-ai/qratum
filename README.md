@@ -15,13 +15,15 @@
 
 ---
 
-**Qratum** keeps a permanent, private copy of your AI coding sessions on your own
-machine, so nothing is lost when the tool that made them deletes them. It is a
-local-first library, vault, and review pipeline for AI coding sessions. It
-captures, preserves, normalizes, redacts, and reviews local Claude Code sessions
-**without ever uploading your raw transcripts.** Other sources are archive-only
-today; they do not have a redaction/refinery path. Single Go binary (`qrt`). No
-cloud, no accounts, no telemetry.
+The accepted direction for **Qratum** is a private, searchable memory of Claude
+and Codex work: a clean local UI for finding, reading, understanding, and when
+useful continuing exact session history. That product direction was accepted on
+2026-07-11; its implementation is tranche-gated and has not shipped.
+
+The published `v0.1.0` artifact is the earlier vault-first baseline. It captures,
+preserves, normalizes, redacts, and reviews local Claude Code sessions through a
+pipeline-shaped CLI. Other sources are archive-only in that release. Single Go
+binary (`qrt`). No cloud, no accounts, no telemetry.
 
 Qratum is the system of record for **where session data came from**: raw
 history, provenance, and deterministic derivations. The first user is the
@@ -51,7 +53,9 @@ A few terms used below, in plain words:
 - **Local-first** — your data stays on your machine. Raw transcripts never leave it unless you explicitly approve. No cloud, no accounts, no telemetry.
 - **Single Go binary** — one file to install. `qrt`, cross-platform.
 - **Trust boundaries** — nothing leaks out by accident. No silent data-class upgrades; deterministic redaction gates export; no raw routes.
-- **Content-addressed** — files can't be silently changed or lost. Every blob is sha256-addressed and immutable; tombstones (removal is recorded), never silent deletion.
+- **Content-addressed** — every blob is sha256-addressed so mutation can be
+  detected and identical content can be deduplicated. This is an integrity
+  foundation, not by itself a backup or no-loss guarantee.
 
 ## Why
 
@@ -61,25 +65,18 @@ trajectories vanish, and nothing records where the data came from (its
 provenance). Qratum fixes both: it preserves your sessions, and it remembers
 where the data came from.
 
-## Three pillars
+## Accepted product pillars
 
-Qratum is built on three parts:
+The accepted product direction is built on three parts:
 
-- **The Vault** — keeps a permanent, private copy of every session so nothing is
-  lost. It copies each transcript on capture and archives it by content hash, so
-  a transcript the tool deletes tomorrow is still recoverable. Identical files
-  are stored once (dedup by sha256), and `backup --verify` confirms the copy is
-  intact.
-- **The Refinery** — turns a raw session into a safe, reviewed export, but only
-  when you ask. On demand it runs each session through these steps: normalize →
-  deterministic redaction (remove secrets) → evidence → review → report →
-  corpus. It runs only when you ask (`qrt daemon run-once`): there is no standing
-  daemon and no background queue.
-- **Provenance** — records where every piece of data came from and how it
-  changed. Every object carries its `schema_version`, the producer that made it,
-  and the transform version that shaped it. Each one moves through a recorded
-  data-class lineage (`raw → redacted → review → corpus → published`), and
-  removal is always recorded as a tombstone — never a silent deletion.
+- **Exact local history** — owner-only session history remains readable even
+  when a source tool no longer keeps its copy.
+- **Search and continuity** — passage-level lexical and semantic retrieval,
+  confirmed continuations, related work, and optional source-native continue
+  actions.
+- **Provenance and control** — exact, deterministic, and generated information
+  stay distinct; export, deletion, external processing, and cost are explicit
+  and truthful.
 
 Local-first is the architecture, not a feature: raw never leaves the machine
 unless explicitly approved; no boundary may silently upgrade to a more
@@ -87,21 +84,14 @@ sensitive data class; deterministic redaction gates export.
 
 ## Status
 
-**v0.1.0 — first release.** Here is what works today and what does not.
+**v0.1.0 — published baseline.** It contains the vault-first runtime, the old
+pipeline-shaped CLI, and the P2 trust-gate implementation. It does **not**
+contain `qrt init` or `qrt open`.
 
-The vault has shipped. The vault is the part that keeps the permanent private
-copy (P1, the vault-first runtime). These pieces are merged and test-backed: the
-copy-on-capture hook, the content-addressed blob store, `hook install`, the
-`vault backfill/archive/backup --verify/doctor/gc` commands, the tombstone-based
-`vault erase`, the `vault install-schedule` backfill timer, and `status`. The
-refinery (normalize → redact → evidence → review → report → ADP export) runs as
-on-demand tooling.
-
-The verification trust gate has shipped too. `qrt trust` (and `make trust`) runs
-the real CLI against planted-secret and reflection-canary corpora and emits a
-`qratum.trust_scorecard.v1` verdict — `TRUSTED`, `TRUSTED-WITH-NAMED-GAPS`, or
-`NOT-TRUSTED` — with an honest-residual block stating exactly what it does not
-cover. Every emitted object carries a `data_class` and is schema-validated.
+The current development worktree contains a later UI-first CLI/API candidate,
+but that candidate is not published and its old product contract has been
+superseded. Existing candidate code is donor material for the accepted tranches,
+not proof that the product direction already works.
 
 Honest boundaries — three limits to know about today:
 
@@ -116,9 +106,11 @@ Honest boundaries — three limits to know about today:
 - Capture and refine are Claude-Code-only. Cloud/web sessions are not captured,
   and non-Claude/vendor blobs are archive-only with no redaction path.
 
-- Source of truth: [`SPEC.md`](SPEC.md) → [`specs/current/operational-model-redesign.md`](specs/current/operational-model-redesign.md)
+- Source of truth: [`SPEC.md`](SPEC.md) → [`specs/current/product-direction.md`](specs/current/product-direction.md)
+- Accepted user stories: [`docs/reviews/2026-07-10-product-user-stories.md`](docs/reviews/2026-07-10-product-user-stories.md)
+- Accepted Project Intelligence extension: [`docs/reviews/2026-07-12-project-intelligence-user-stories.md`](docs/reviews/2026-07-12-project-intelligence-user-stories.md) and [`docs/reviews/2026-07-12-project-intelligence-owner-decisions.md`](docs/reviews/2026-07-12-project-intelligence-owner-decisions.md)
 - Vault-first (accepted 2026-06-14, [ADR 0010](docs/decisions/0010-vault-first-and-direct-gateway-integration.md)): [`specs/current/qratum-vault-first.md`](specs/current/qratum-vault-first.md)
-- Verification & trust gate (shipped in v0.1.0): [`specs/current/verification-and-trust-gate.md`](specs/current/verification-and-trust-gate.md)
+- Verification & trust gate (published v0.1.0 baseline): [`specs/current/verification-and-trust-gate.md`](specs/current/verification-and-trust-gate.md)
 
 ## Install
 
@@ -135,11 +127,14 @@ with `make build`.
 ## Quick start
 
 ```sh
-qrt hook install        # capture every future Claude Code session into the vault
-qrt daemon run-once     # refine on demand: normalize → redact → evidence → review → report → export
+qrt status
+qrt vault doctor
+qrt vault backfill
 qrt sessions list
-qrt trust               # the self-verification scorecard (what's proven, what's a named gap)
+qrt trust
 ```
+
+These are `v0.1.0` commands, not the accepted future public surface.
 
 Run the whole vertical slice from a source checkout:
 
@@ -147,9 +142,9 @@ Run the whole vertical slice from a source checkout:
 make demo
 ```
 
-## Dogfood on a local transcript
+## Process a local Claude Code transcript in v0.1.0
 
-Process a local Claude Code JSONL transcript without uploading it:
+Run the published on-demand refinery without uploading the transcript:
 
 ```sh
 qrt dogfood import /path/to/transcript.jsonl

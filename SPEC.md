@@ -1,145 +1,175 @@
 # Qratum SPEC
 
-This is a short index. It points to the real specs and records what has shipped, what is proposed, and what is deliberately not built. The detailed design lives in the files this page links to.
-
-## Plain-language glossary
-
-- **vault**: the central workspace where captured transcripts and processed artifacts live (on disk at `~/.qratum/`).
-- **blob store**: a file store that names each file by its content, so identical content is stored once (content-addressed).
-- **idempotent**: an operation you can run repeatedly and it makes no further change after the first run.
-- **redaction**: automatically removing secrets (tokens, keys, etc.) from text before it is shown or shared.
-- **golden / fixture test**: a test that compares output against a saved, known-good file; the saved file is the contract.
+This is the source-of-truth index. It separates accepted product direction,
+published history, local candidate code, and future technical contracts.
 
 ## Source Of Truth
 
-Start here. These are the specs that currently define Qratum, so read them
-first. For onboarding and the public `qrt` command contract,
-`specs/current/ui-first-onboarding.md` wins wherever it conflicts with older
-docs.
+Read these in order:
 
 ```txt
-specs/current/ui-first-onboarding.md         (accepted product direction;
-                                             authoritative for onboarding and
-                                             the public command contract;
-                                             runtime implementation not shipped)
-specs/current/operational-model-redesign.md  (base architecture background;
-                                             superseded for onboarding and the
-                                             public command contract wherever it
-                                             conflicts with ui-first)
-specs/current/qratum-vault-first.md          (accepted 2026-06-14 vault-first
-                                             revision and sequencing contract)
-specs/current/verification-and-trust-gate.md (accepted 2026-06-16;
-                                             P2-VERIFY-TRUST-GATE)
-specs/current/memory-curation-pipeline.md    (SUPERSEDED 2026-06-12;
-                                             historical only)
+specs/current/product-direction.md
+  Canonical accepted product authority, including the Project Intelligence
+  extension accepted 2026-07-12. Governs product
+  intent, user journeys, user-facing language, release tranches, supersession,
+  and the minimum session-reference contract.
+
+docs/reviews/2026-07-10-product-user-stories.md
+docs/reviews/2026-07-12-project-intelligence-user-stories.md
+docs/reviews/2026-07-12-project-intelligence-owner-decisions.md
+  Complete product-owner-reviewed user stories and Project decisions,
+  incorporated by reference by the canonical product-direction spec.
+
+specs/current/qratum-vault-first.md
+  Published v0.1.0 preservation-baseline design and historical evidence.
+
+specs/current/verification-and-trust-gate.md
+  Published v0.1.0 P2 trust-gate design and security findings. It does not
+  prove later commits or future product claims without re-execution.
+
+specs/current/ui-first-onboarding.md
+  Superseded product contract. Retained as evidence for the local UI-first
+  CLI/API candidate and loopback security design.
+
+specs/current/operational-model-redesign.md
+  Superseded product model. Retained as architecture background and donor
+  design where the canonical product direction does not conflict.
 ```
 
-The accepted review spine and dispatch context live under:
+Files under `specs/current/milestone-a/` and
+`specs/current/memory-curation-pipeline.md` are historical only.
+
+Schemas under `schemas/`, accepted decisions under `docs/decisions/`, and
+fixtures/goldens remain executable contracts for the behavior they describe.
+They do not override the accepted product direction.
+
+## Current Reality
+
+| Layer | State | What it means |
+| --- | --- | --- |
+| Published `v0.1.0` (`f7e21dc`) | published baseline | Vault-first runtime, old pipeline-shaped CLI, and P2 trust-gate implementation. |
+| Remote `main` at the 2026-07-10 audit | no UI-first runtime | Published baseline plus UI-first documentation; not the candidate runtime. |
+| Current worktree candidate | local, not shipped | Contains a UI-first CLI/API shell and prepare-from-preserved-blob work with correctness and trust gaps. |
+| Product direction | accepted 2026-07-11; Project extension 2026-07-12 | Private searchable memory for Claude and Codex work, with exact local reading, hybrid search, continuity, context, repository/Project organization, and truthful usage accounting. |
+| Tranche 0 | complete 2026-07-11 | Authority, supersession, truthful status, and the minimum session-reference contract. No runtime feature work. |
+| Tranches 1-6, including 2.5 | blocked | Require separately accepted technical contracts before implementation. |
+
+The old statement `UI-FIRST-ONBOARDING-RUNTIME — SHIPPED WITH NAMED
+RESIDUALS` is retracted. Candidate code existing in a branch is not a published
+or accepted product capability.
+
+## Accepted Product Thesis
+
+Qratum is not backup software.
+
+> Qratum is the private, searchable memory of my AI work. It continuously
+> gathers my Claude and Codex sessions and their associated context, keeps the
+> exact history available locally, and helps me find and understand past work
+> through a clean UI. When useful, it also gives me a direct path to continue
+> that work in its source tool.
+
+The complete accepted shape and user stories are in the canonical direction and
+the three incorporated review documents listed above.
+
+## Accepted Release Order
 
 ```txt
-docs/reviews/2026-06-12-memory-architecture/
+Tranche 0  product truth
+Tranche 1  source correctness for Claude Code and Codex
+Tranche 2  daily UI, exact reader, lexical search, repository awareness,
+           continuation, deletion, exact export, honest cost, and health
+Tranche 2.5 deterministic Projects, project-scoped search, usage/cost, and export
+Tranche 3  semantic retrieval
+Tranche 4  source context, personal-memory handoff, and vendor imports
+Tranche 5  optional session enrichment and share-oriented export
+Tranche 6  acceptance-gated Project intelligence
 ```
 
-Milestone A is an earlier product model. It is finished and kept only for
-history. Its fixtures and generated artifacts may stay as test/reference
-material, but its public command surface is not the product model and should be
-removed as UI-first onboarding replacements land.
+This ordering is a dependency graph, not a commitment to implement all
+tranches in one release. A later tranche starts only after the prior tranche's
+technical contract is accepted and its proof runs.
 
-Historical Milestone A notes live under:
+## Contract Readiness
+
+The product direction and Tranche 0 are accepted and complete. Existing
+candidate code does not make Tranches 1-6, including 2.5,
+implementation-ready.
+
+Before implementation, each tranche must resolve its blocking decisions and
+define:
+
+- source and storage contracts;
+- UI DTOs and user-visible failure/recovery behavior;
+- privacy, local-raw, egress, and deletion boundaries;
+- fixture-driven acceptance tests;
+- an installed-artifact user flow for the behavior; and
+- the exact session reference fields it stores and displays.
+
+The minimum session reference is normative:
 
 ```txt
-specs/current/milestone-a/
+specs/current/product-direction.md#minimum-session-reference
 ```
 
-## Current Milestone
+Missing session information reports `unknown` or `unsupported`, never a
+fabricated value. A unit-test pass alone is not evidence that a user-facing
+capability shipped.
 
-Where things stand right now, in one line: the vault-first phase (P1-VAULT-FIRST) has shipped, and the verify/trust-gate phase (P2-VERIFY-TRUST-GATE) is now accepted and unlocked for implementation.
+## Superseded Product Rules
 
-```txt
-P1-VAULT-FIRST — SHIPPED (merged, test-backed)
-P2-VERIFY-TRUST-GATE — ACCEPTED / UNLOCKED 2026-06-16
-                       (specs/current/verification-and-trust-gate.md;
-                       dispatchable via the ductum package)
-```
+The canonical product direction supersedes older rules for:
 
-The vault-first phase (P1-VAULT-FIRST) has shipped. It is merged, it runs from the `qrt` binary, and it is test-backed. The binary self-reports `milestone: vault-first` (Details: `specs/current/qratum-vault-first.md`).
-
-The earlier spec-and-contracts phase (P0-SPEC-AND-CONTRACTS — schemas, ADRs, source-of-truth cleanup) is substantially complete. Its remaining gaps are tracked under "Known P0 gaps" below.
-
-The verify/trust-gate phase (P2-VERIFY-TRUST-GATE) is now accepted and unlocked: the verification benchmark plus the confirmed-defect fixes (Details: `specs/current/verification-and-trust-gate.md`). It is delivered as the ductum spec package under `docs/reviews/2026-06-15-verification-benchmark/ductum-specs/qratum-verify-trust-gate/`.
-
-## Shipped runtime (vault-first P1)
-
-This is what already works today. These features are built, registered in the `qrt` binary, and test-backed. They are no longer "do not implement" items:
-
-- the central workspace, the vault, at `~/.qratum/` (override with `QRATUM_HOME`)
-- a hook that copies each transcript as it is captured (`qrt hook claude-code`), plus a content-addressed blob store (a file store that names each file by its content, so identical content is stored once)
-- hook setup and status (`qrt hook install` / `qrt hook status`) — these edit global settings and can be run repeatedly without making further changes (idempotent)
-- vault maintenance: `qrt vault backfill` / `archive` / `backup [--verify]` / `doctor`
-- a status view (`qrt status`) showing vault counts, last backfill, and copy failures
-
-The Milestone A refinery still ships too, but only as tooling you invoke by hand:
-`normalize`/`redact`/`evidence`/`review`/`report`/`export`, plus `daemon
-run-once` and `dogfood`. These are shipped reality, not the future public
-surface; the UI-first contract removes them from `qrt` as replacements land.
-
-## Known P0 gaps (still contracts/docs work)
-
-Two pieces promised in the spec-and-contracts phase (P0-SPEC-AND-CONTRACTS) are not finished yet:
-
-- the config schema (`config.schema.json`) is advertised but **not yet delivered**
-- the JSON schemas (`schemas/*.json`) have two problems: they do not set `additionalProperties`, and no Go test checks them. For now, golden/fixture tests (which compare output against a saved, known-good file) enforce the contract instead.
-
-## Accepted Next Direction
-
-The onboarding direction is now UI-first:
-
-- `qrt init` explains what Qratum found, then preserves existing local sessions
-  and prepares the latest 10 for viewing after confirmation.
-- `qrt open` opens the local Qratum app at `127.0.0.1:9473`.
-- `qrt status`, `qrt doctor`, `qrt import <file-or-folder>`, `qrt sessions`,
-  `qrt session <session_id>`, and `qrt export` are public operator commands.
-- `qrt export` is explicit egress: it must show scope, destination, data class,
-  and confirmation before data leaves Qratum.
-- The old pipeline-shaped public commands are removed as the onboarding surface
-  lands; do not keep hidden compatibility aliases by default.
-
-Details: `specs/current/ui-first-onboarding.md`.
-
-## Still not built (genuine non-goals)
-
-These are not shipped yet. Do not build unrelated future behavior as part of
-the onboarding work:
-
-- import wizard implementation beyond the explicit onboarding contract
-- session revision worker beyond the prepare-from-preserved-raw bridge
-- SQLite projection behavior
-- AI providers
-- lesson/insight generation
-- corpus export changes
-- publisher behavior
-- a standing/resident daemon or review queue; background preservation should use
-  a source hook or OS schedule first unless a later contract accepts a daemon
-- new source adapters beyond accepted schema fixtures
+- the found/preserved/prepared/viewable/open state machine;
+- `prepare` and a raw queue as user workflows;
+- the prohibition on owner-only exact local reading;
+- raw indexes being off by default;
+- the eight-command UI-first CLI contract;
+- Claude-only support as the first usable source shape;
+- review cards as the primary payoff;
+- search being deferred behind lessons or insights; and
+- the 2026-07-10 runtime rebootstrap roadmap.
 
 ## Standing Constraints
 
-These rules always hold, regardless of milestone:
+These remain accepted:
 
-- Go single binary.
-- No Python runtime in Qratum.
-- Local-first raw transcript safety.
-- Do not send raw transcripts to external services.
-- Do not render raw transcripts into shareable reports.
-- Source hooks must stay fast and only do durable capture work.
-- Fixture/golden tests remain the contract where practical.
-- Supply-chain rules in `docs/supply-chain.md` still apply.
+- Go single binary named `qrt`; no Python runtime.
+- Raw transcripts are sensitive and owner-only.
+- Raw content is not silently sent to external services.
+- Raw content is not rendered into shareable reports.
+- External processing is explicit and provenance-bound.
+- Source hooks stay small, local, fast, and network-free.
+- Untrusted source and import inputs fail closed.
+- Product surfaces consume typed DTOs rather than parsing raw internals.
+- Fixture/golden contracts and `docs/supply-chain.md` apply.
+- Published and trusted claims require proof against the exact artifact.
 
-> **Honest boundary — deterministic redaction is best-effort alpha.** Redaction here means automatically stripping secrets, and it is not a guarantee. The shipped redactor only matches a fixed, enumerated set of secret classes, so it has known leak gaps. The known gaps are: a `=>` assignment edge case; the fields `git.branch` / `git.head_sha` / `started_at` / `ended_at` / `source_event_id` are not redacted; and SSH-style git remotes are not caught. Do not describe redaction as a guarantee.
+> Redaction remains best-effort and credentials-oriented. It is not a PII,
+> third-party-content, or share-safety guarantee. Local exact reading and
+> external/share-oriented output are separate boundaries.
 
-## Compatibility
+## Published Baseline Versus New Work
 
-Old commands keep working only until their replacement lands. The UI-first
-onboarding contract intentionally replaces the old pipeline-shaped public
-surface. Remove those old public command paths; do not keep hidden aliases or
-debug entrypoints just to preserve Milestone A behavior.
+The `v0.1.0` tag remains historical release evidence. Preserve its fixtures,
+schemas, and security findings unless an accepted migration intentionally
+changes them.
+
+The current worktree's UI-first shell is donor code. Do not describe it as
+shipped, do not use its command surface as product authority, and do not assume
+its DTOs or state model survive the new tranche contracts.
+
+## Explicitly Deferred
+
+These remain outside the accepted tranches until separately designed:
+
+- verified backup/restore product flow;
+- retention policies and automatic deletion;
+- cross-machine merge;
+- revision/checkpoint history as a user-facing feature;
+- per-line permanent redaction while retaining the rest of a session;
+- corpus generation and publishing;
+- automatic memory writeback;
+- enterprise control plane;
+- MCP and marketplace behavior;
+- skill mining; and
+- claims that deterministic review proves correctness.

@@ -13,8 +13,8 @@ A few terms recur below. Plain meaning first; the term is kept for accuracy.
 - **DTO**: a clean, UI-facing data shape, as opposed to a raw internal model.
 - **Blob store**: a content-addressed file store (each file is keyed by a hash
   of its contents).
-- **Hook**: a small program Claude Code calls on each event; it must stay fast
-  and do almost nothing.
+- **Hook**: a small program a supported source tool calls on an event; it must
+  stay fast and do almost nothing.
 - **Fixture / golden test**: a saved input and its expected output, used to lock
   behavior so changes are caught.
 
@@ -22,19 +22,41 @@ A few terms recur below. Plain meaning first; the term is kept for accuracy.
 
 When you are unsure what's authoritative, start here. `SPEC.md` wins.
 
-For onboarding and the public `qrt` command contract, the following spec is
-authoritative:
+The accepted product direction is authoritative for product intent, user
+journeys, public-surface direction, release order, and the minimum session
+reference:
+
+```txt
+specs/current/product-direction.md
+```
+
+Its complete reviewed user stories live at:
+
+```txt
+docs/reviews/2026-07-10-product-user-stories.md
+docs/reviews/2026-07-12-project-intelligence-user-stories.md
+docs/reviews/2026-07-12-project-intelligence-owner-decisions.md
+```
+
+The product-direction spec incorporates those reviewed documents by reference.
+They are not implementation contracts for Tranches 1 through 6, including
+Tranche 2.5. Each tranche needs a separately accepted technical contract before
+code begins.
+
+The following older files are implementation evidence and historical design,
+not product authority where they conflict with the accepted direction:
 
 ```txt
 specs/current/ui-first-onboarding.md
-```
-
-It wins wherever it conflicts with the older base model. The base model remains
-architecture background, not the current onboarding contract:
-
-```txt
 specs/current/operational-model-redesign.md
+specs/current/qratum-vault-first.md
+specs/current/verification-and-trust-gate.md
+docs/reviews/2026-07-10-runtime-rebootstrap.md
 ```
+
+Read their supersession notices before reusing any decision. Preserve useful
+engineering foundations, but do not carry forward old state, CLI, raw-viewing,
+search, source, memory, or release-order rules by inertia.
 
 The rest of the tree carries different weight:
 
@@ -52,55 +74,63 @@ The rest of the tree carries different weight:
 This is where the project stands and what you may act on.
 
 ```txt
-P1-VAULT-FIRST — SHIPPED (merged, test-backed)
-P2-VERIFY-TRUST-GATE — ACCEPTED / UNLOCKED 2026-06-16
+v0.1.0 — PUBLISHED BASELINE (tag f7e21dc; vault-first runtime,
+         old pipeline-shaped CLI, and P2 trust-gate implementation)
+UI-FIRST RUNTIME — LOCAL CANDIDATE, NOT SHIPPED
+PRODUCT DIRECTION — ACCEPTED 2026-07-11; PROJECT EXTENSION ACCEPTED 2026-07-12
+TRANCHE 0 PRODUCT TRUTH — COMPLETE 2026-07-11 (docs/contract only)
+TRANCHES 1-6, INCLUDING 2.5 — BLOCKED ON ACCEPTED TECHNICAL CONTRACTS
 ```
 
-The vault-first runtime (P1) has shipped and is test-backed (the `qrt` binary
-self-reports `milestone: vault-first`). The P0 contract work (schemas, ADRs,
-source-of-truth cleanup) is substantially complete. P2-VERIFY-TRUST-GATE is now
-accepted and unlocked — implement it per the ductum spec package under
-`docs/reviews/2026-06-15-verification-benchmark/ductum-specs/qratum-verify-trust-gate/`
-(the contract is `specs/current/verification-and-trust-gate.md`).
+The published `v0.1.0` tag is the evidence for the vault-first/P2 baseline. Do
+not project that tag's proof onto later commits or the current candidate without
+re-running the applicable proof against the exact artifact.
 
-Do not implement P3-or-later runtime behavior unless the user explicitly unlocks
-a later milestone.
+The current branch contains a UI-first CLI/API candidate, including `qrt init`
+and `qrt open`, but it has not shipped and its previous product contract is
+superseded. It is donor material for later tranches, not proof that the accepted
+product exists.
 
-## Shipped runtime (no longer "do not implement")
+Tranche 0 is complete and changed documentation/contracts only. Do not
+implement Tranche 1 or later behavior until its accepted technical contract
+resolves the blocking decisions and names concrete acceptance checks.
 
-This is the live code. It is merged, registered in `qrt`, and test-backed, so
-you may change it (carefully). It includes:
+## Published Baseline And Local Candidate
 
-- central workspace at `~/.qratum/` (`QRATUM_HOME` override)
-- copy-on-capture hook + content-addressed blob store
-- `qrt hook install` / `hook status` — shipped P1 commands replaced by the
-  UI-first surface as it lands
-- `qrt vault backfill` / `archive` / `backup [--verify]` / `doctor` — shipped P1
-  commands replaced by `qrt init`, `qrt status`, `qrt doctor`, `qrt import`, and
-  the local app as they land
-- `qrt status`
-- the Milestone A refinery, as on-demand tooling scheduled to leave the public
-  `qrt` surface as UI-first replacements land
+Published `v0.1.0` includes the vault-first preservation baseline, Claude Code
+capture, content-addressed raw storage, the old pipeline-shaped CLI, and the P2
+trust-gate implementation. Treat the tag as historical release evidence.
 
-When changing this shipped runtime, treat it as live code: fixture/golden tests
-remain the contract; do not regress the demo.
+The current worktree candidate additionally contains:
 
-## Still not built (genuine non-goals)
+- a central `QRATUM_HOME` path and prepare-from-preserved-blob bridge;
+- UI-first CLI candidates such as `qrt init`, `qrt open`, `qrt status`,
+  `qrt doctor`, `qrt import`, `qrt sessions`, `qrt session`, and `qrt export`;
+- a loopback DTO/API shell; and
+- retained vault/refinery code and tests.
 
-These are not part of the accepted onboarding slice. Do not build them unless a
-later accepted contract unlocks them:
+None of those candidate surfaces is accepted as shipped product behavior. Keep
+fixture and golden evidence intact unless an accepted contract intentionally
+changes it.
 
-- import wizard implementation beyond `qrt import <file-or-folder>` with an
-  explicit plan
-- session revision worker beyond the prepare-from-preserved-raw bridge
-- SQLite projection behavior
-- AI providers
-- lesson or insight generation
-- corpus export changes
-- publisher behavior
-- a standing/resident daemon or review queue; background preservation should use
-  a source hook or OS schedule first unless a later contract accepts a daemon
-- new source adapters beyond accepted schema fixtures
+## Contract-Locked Work
+
+Do not implement these accepted product tranches until their technical contract
+is accepted:
+
+- Tranche 1 source correctness for Claude Code and Codex;
+- Tranche 2 UI library, exact reader, lexical search, repository awareness,
+  continuation, deletion, exact export, cost, and health;
+- Tranche 2.5 deterministic Projects, project-scoped search, usage/cost, and
+  organization export;
+- Tranche 3 semantic retrieval;
+- Tranche 4 source context, personal-memory handoff, and vendor imports;
+- Tranche 5 optional session enrichment and share-oriented export; and
+- Tranche 6 acceptance-gated Project intelligence.
+
+The blocking decisions and minimum session-reference contract live in
+`specs/current/product-direction.md`. Existing partial code is not permission
+to skip them.
 
 ## Runtime
 
@@ -111,11 +141,13 @@ binary named `qrt`.
 
 ## Compatibility Rules
 
-Old Milestone A public commands are removed from the `qrt` user surface as their
-UI-first replacements land. Do not keep hidden aliases or debug entrypoints just
-to preserve the old public command shape.
+The accepted direction keeps the normal user workflow in the UI and aims for a
+minimal public CLI. The exact Tranche 2 command surface is not accepted yet.
+Do not preserve, add, or delete public commands solely because an older spec or
+candidate already contains them.
 
-Underlying package code may remain only when the new use cases call it.
+Underlying package code may remain only when the shipped use cases or tests call
+it.
 
 If you touch existing capture hook paths while they still exist:
 
@@ -138,14 +170,16 @@ Do not send raw transcripts to external services.
 
 Do not render raw transcripts into shareable reports.
 
-Redaction does not yet fully work — treat it as best-effort, not a guarantee.
-Deterministic redaction is **best-effort alpha**: it matches an enumerated set
-of secret classes and has known leak gaps. The known gaps are: a `=>` assignment
-edge case; `git.branch`/`git.head_sha`/`started_at`/`ended_at`/`source_event_id`
-are not redacted; and SSH-style git remotes are not caught. Do not treat
-redaction as a guarantee, and do not weaken the "no raw in shareable reports"
-rule on the assumption it already holds. Closing these gaps is proposed
-P2-VERIFY-TRUST-GATE work.
+The accepted product direction allows the owner to read exact local history in
+the local app. That local owner-only reader is not an export or a shareable
+report. Its masking, reveal, containment, and deletion behavior remains blocked
+on the Tranche 2 technical contract and proof.
+
+Redaction is **best-effort alpha**: it is credentials-oriented and is not a PII
+or third-party-content guarantee. The published v0.1.0 trust result is historical
+evidence only; the current candidate and every future product claim begin
+unverified under `specs/current/product-direction.md`. Do not weaken the "no raw
+in shareable reports" rule on the assumption redaction is complete.
 
 ## UI Contract Rule
 
@@ -219,3 +253,6 @@ A task is done only when:
    change.
 5. Existing demo behavior still works if affected.
 6. No non-goal feature was implemented.
+7. Any affected user-facing behavior is checked through its accepted fixture or
+   installed flow, and missing reference data reports `unknown` rather than a
+   fabricated value.

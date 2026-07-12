@@ -1,11 +1,35 @@
 # Qratum Operational Model v2
 
-Status: stale base architecture reference. Do not implement directly.
+Status: superseded product model; architecture donor only. Do not implement
+directly.
 
-Supersession: `specs/current/ui-first-onboarding.md` is authoritative for
-first-run onboarding, the local app, the public `qrt` command contract, export
-gates, background behavior, and AI boundaries. Where this document conflicts
-with that spec, `ui-first-onboarding.md` wins.
+Supersession: `specs/current/product-direction.md` is authoritative for product
+intent, user journeys, local raw reading, search, source coverage, memory
+ownership, user-facing state, public-surface direction, and release order.
+
+The following sections are superseded as product rules:
+
+- `One-Sentence Product` and `Locked Product Decisions`;
+- product lifecycle ordering and the found/preserved/prepared/open model;
+- `Config Shape` where it assumes old product defaults;
+- `Trust Boundaries` and `Consent Records` where they disable local raw-derived
+  indexes or exact owner viewing;
+- `Sources` where Claude Code is the only accepted first source;
+- the revision/review presentation in `Session Revisions And Resumes`;
+- `Retention And Deletion` public CLI and object-level user model;
+- review, lesson, insight, corpus, and publishing priority;
+- `AI Providers And Data Policy` where it conflicts with the accepted local
+  exact-history boundary;
+- `Search And Derived Projections` where persistent raw indexes and search are
+  deferred;
+- `Public CLI`, `Local App`, `Setup / Init`, and `No Hidden Processing` user
+  contracts; and
+- `Minimal Implementation Milestones` and later-unlock sequencing.
+
+Retained donor material includes ports-and-adapters guidance, content-addressed
+storage, source-neutral session identity and revisions, provenance, tombstones,
+derived projections, failure records, and fixture-driven contracts. Reuse still
+requires the relevant tranche contract.
 
 ## Plain-language glossary
 
