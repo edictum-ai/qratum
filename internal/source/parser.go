@@ -13,7 +13,16 @@ import (
 	"time"
 )
 
+// maxSourceRecordBytes is 10 MiB: far above observed source records while
+// bounding memory used by one untrusted JSONL value. Scanner rejects an
+// over-cap line and aborts the parse because it cannot safely resume at the
+// next record without replacing the scanner with a bounded discarding reader.
 const maxSourceRecordBytes = 10 << 20
+
+// maxTokenCount is a per-field hard cap for untrusted source-reported counts.
+// One trillion tokens is well above current model context and session counters,
+// while leaving ample int64 headroom for derived per-record totals.
+const maxTokenCount int64 = 1_000_000_000_000
 
 // Parse coverage values distinguish complete interpretation from visible drift.
 const (
@@ -197,6 +206,20 @@ func requiredNonNegativeInt(lineNo int, fields map[string]json.RawMessage, name 
 	return integer, nil
 }
 
+func requiredTokenCount(lineNo int, fields map[string]json.RawMessage, name string) (int64, error) {
+	value, err := requiredNonNegativeInt(lineNo, fields, name)
+	if err != nil {
+		return 0, err
+	}
+	if value > maxTokenCount {
+		return 0, &FormatError{
+			Line:   lineNo,
+			Detail: fmt.Sprintf("%s exceeds the token-count limit of %d", name, maxTokenCount),
+		}
+	}
+	return value, nil
+}
+
 func streamID(context ParseContext) string {
 	value := strings.TrimSpace(context.StreamID)
 	if value == "" {
@@ -240,7 +263,15 @@ func validateParseContext(context ParseContext) error {
 func addIssue(result *ParseResult, issue FormatIssue) {
 	result.Issues = append(result.Issues, issue)
 	result.UnsupportedRecords++
-	result.Coverage = CoverageIncomplete
+	if result.Coverage != CoverageUnsupported {
+		result.Coverage = CoverageIncomplete
+	}
+}
+
+func addUnsupportedIssue(result *ParseResult, issue FormatIssue) {
+	result.Issues = append(result.Issues, issue)
+	result.UnsupportedRecords++
+	result.Coverage = CoverageUnsupported
 }
 
 func stableUsageID(source string, parts ...string) string {

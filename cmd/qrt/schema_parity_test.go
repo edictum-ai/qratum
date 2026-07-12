@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -47,9 +48,63 @@ func TestEmittedStructSchemasMatchJSONTags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.version, func(t *testing.T) {
 			schema := readRegisteredSchema(t, tt.version)
-			assertSchemaMatchesType(t, "$", schema, tt.typ)
+			if err := schemaTypeMismatch("$", schema, tt.typ); err != nil {
+				t.Fatal(err)
+			}
 		})
 	}
+}
+
+func TestSchemaParityRejectsLeafTypeAndRequiredDrift(t *testing.T) {
+	type parityFixture struct {
+		Count   int64  `json:"count"`
+		Enabled bool   `json:"enabled"`
+		Note    string `json:"note,omitempty"`
+	}
+	valid := map[string]any{
+		"type":     "object",
+		"required": []any{"count", "enabled"},
+		"properties": map[string]any{
+			"count":   map[string]any{"type": "integer"},
+			"enabled": map[string]any{"type": "boolean"},
+			"note":    map[string]any{"type": "string"},
+		},
+	}
+
+	t.Run("leaf primitive", func(t *testing.T) {
+		bad := cloneSchema(t, valid)
+		bad["properties"].(map[string]any)["count"] = map[string]any{"type": "string"}
+		if err := schemaTypeMismatch("$", bad, reflect.TypeOf(parityFixture{})); err == nil || !strings.Contains(err.Error(), "want integer") {
+			t.Fatalf("type drift error = %v", err)
+		}
+	})
+	t.Run("required field", func(t *testing.T) {
+		bad := cloneSchema(t, valid)
+		bad["required"] = []any{"enabled"}
+		if err := schemaTypeMismatch("$", bad, reflect.TypeOf(parityFixture{})); err == nil || !strings.Contains(err.Error(), "required/omitempty mismatch") {
+			t.Fatalf("required drift error = %v", err)
+		}
+	})
+	t.Run("omitempty field", func(t *testing.T) {
+		bad := cloneSchema(t, valid)
+		bad["required"] = []any{"count", "enabled", "note"}
+		if err := schemaTypeMismatch("$", bad, reflect.TypeOf(parityFixture{})); err == nil || !strings.Contains(err.Error(), "required/omitempty mismatch") {
+			t.Fatalf("omitempty drift error = %v", err)
+		}
+	})
+}
+
+func cloneSchema(t *testing.T, schema map[string]any) map[string]any {
+	t.Helper()
+	data, err := json.Marshal(schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var clone map[string]any
+	if err := json.Unmarshal(data, &clone); err != nil {
+		t.Fatal(err)
+	}
+	return clone
 }
 
 func readRegisteredSchema(t *testing.T, version string) map[string]any {
@@ -70,44 +125,75 @@ func readRegisteredSchema(t *testing.T, version string) map[string]any {
 	return schema
 }
 
-func assertSchemaMatchesType(t *testing.T, path string, schema map[string]any, typ reflect.Type) {
-	t.Helper()
+func schemaTypeMismatch(path string, schema map[string]any, typ reflect.Type) error {
 	typ = unwrapReflectedType(typ)
 	if typ == nil {
-		return
+		return nil
 	}
 
 	switch typ.Kind() {
 	case reflect.Struct:
 		fields := jsonFieldTypes(typ)
 		if len(fields) == 0 {
-			return
+			return nil
 		}
-		properties := schemaProperties(t, path, schema)
-		assertSameStringSet(t, path, sortedMapKeys(fields), sortedMapKeys(properties))
-		for name, fieldType := range fields {
+		properties, ok := schema["properties"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s: schema is missing object properties", path)
+		}
+		if got, want := sortedMapKeys(fields), sortedMapKeys(properties); !reflect.DeepEqual(got, want) {
+			return fmt.Errorf("%s: JSON tag/schema property mismatch\nstruct: %v\nschema: %v", path, got, want)
+		}
+		required, err := schemaRequired(schema)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		wantRequired := make([]string, 0, len(fields))
+		for name, field := range fields {
+			if !field.omitempty {
+				wantRequired = append(wantRequired, name)
+			}
+		}
+		sort.Strings(wantRequired)
+		if !reflect.DeepEqual(required, wantRequired) {
+			return fmt.Errorf("%s: schema required/omitempty mismatch\nstruct required: %v\nschema required: %v", path, wantRequired, required)
+		}
+		for name, field := range fields {
 			child, ok := properties[name].(map[string]any)
 			if !ok {
-				t.Fatalf("%s.%s: schema property must be an object", path, name)
+				return fmt.Errorf("%s.%s: schema property must be an object", path, name)
 			}
-			assertSchemaMatchesType(t, path+"."+name, child, fieldType)
+			if err := schemaTypeMismatch(path+"."+name, child, field.typ); err != nil {
+				return err
+			}
 		}
 	case reflect.Slice, reflect.Array:
 		if typ.Elem().Kind() == reflect.Uint8 {
-			return
+			return nil
+		}
+		if schemaType(schema) != "array" {
+			return fmt.Errorf("%s: schema type = %q, want array", path, schemaType(schema))
 		}
 		items, ok := schema["items"].(map[string]any)
 		if !ok {
-			return
+			return fmt.Errorf("%s: array schema is missing item schema", path)
 		}
-		assertSchemaMatchesType(t, path+"[]", items, typ.Elem())
+		return schemaTypeMismatch(path+"[]", items, typ.Elem())
 	case reflect.Map:
 		if schemaType(schema) != "object" {
-			t.Fatalf("%s: map field schema type = %q, want object", path, schemaType(schema))
+			return fmt.Errorf("%s: map field schema type = %q, want object", path, schemaType(schema))
 		}
 	case reflect.Interface:
-		return
+		return nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return assertPrimitiveSchemaType(path, schema, "integer")
+	case reflect.String:
+		return assertPrimitiveSchemaType(path, schema, "string")
+	case reflect.Bool:
+		return assertPrimitiveSchemaType(path, schema, "boolean")
 	}
+	return nil
 }
 
 func unwrapReflectedType(typ reflect.Type) reflect.Type {
@@ -117,8 +203,13 @@ func unwrapReflectedType(typ reflect.Type) reflect.Type {
 	return typ
 }
 
-func jsonFieldTypes(typ reflect.Type) map[string]reflect.Type {
-	fields := map[string]reflect.Type{}
+type jsonField struct {
+	typ       reflect.Type
+	omitempty bool
+}
+
+func jsonFieldTypes(typ reflect.Type) map[string]jsonField {
+	fields := map[string]jsonField{}
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 		if field.PkgPath != "" {
@@ -128,9 +219,81 @@ func jsonFieldTypes(typ reflect.Type) map[string]reflect.Type {
 		if name == "" {
 			continue
 		}
-		fields[name] = field.Type
+		fields[name] = jsonField{typ: field.Type, omitempty: jsonTagHasOption(field, "omitempty")}
 	}
 	return fields
+}
+
+func jsonTagHasOption(field reflect.StructField, want string) bool {
+	parts := strings.Split(field.Tag.Get("json"), ",")
+	for _, option := range parts[1:] {
+		if option == want {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaRequired(schema map[string]any) ([]string, error) {
+	raw, ok := schema["required"]
+	if !ok {
+		return []string{}, nil
+	}
+	values, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("schema required must be an array")
+	}
+	required := make([]string, 0, len(values))
+	for _, value := range values {
+		name, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("schema required entries must be strings")
+		}
+		required = append(required, name)
+	}
+	sort.Strings(required)
+	return required, nil
+}
+
+func assertPrimitiveSchemaType(path string, schema map[string]any, want string) error {
+	got := schemaType(schema)
+	if got == "" && schemaValuesHaveType(schema, "const", want) {
+		got = want
+	}
+	if got == "" && schemaValuesHaveType(schema, "enum", want) {
+		got = want
+	}
+	if got != want {
+		return fmt.Errorf("%s: schema type = %q, want %s", path, got, want)
+	}
+	return nil
+}
+
+func schemaValuesHaveType(schema map[string]any, keyword string, want string) bool {
+	value, ok := schema[keyword]
+	if !ok {
+		return false
+	}
+	values := []any{value}
+	if keyword == "enum" {
+		var arrayOK bool
+		values, arrayOK = value.([]any)
+		if !arrayOK || len(values) == 0 {
+			return false
+		}
+	}
+	for _, candidate := range values {
+		candidateType := reflect.TypeOf(candidate)
+		if candidateType == nil {
+			return false
+		}
+		matches := (want == "string" && candidateType.Kind() == reflect.String) ||
+			(want == "boolean" && candidateType.Kind() == reflect.Bool)
+		if !matches {
+			return false
+		}
+	}
+	return true
 }
 
 func jsonFieldName(field reflect.StructField) string {
@@ -145,15 +308,6 @@ func jsonFieldName(field reflect.StructField) string {
 	return name
 }
 
-func schemaProperties(t *testing.T, path string, schema map[string]any) map[string]any {
-	t.Helper()
-	properties, ok := schema["properties"].(map[string]any)
-	if !ok {
-		t.Fatalf("%s: schema is missing object properties", path)
-	}
-	return properties
-}
-
 func schemaType(schema map[string]any) string {
 	value, _ := schema["type"].(string)
 	return value
@@ -166,11 +320,4 @@ func sortedMapKeys[V any](values map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func assertSameStringSet(t *testing.T, path string, got []string, want []string) {
-	t.Helper()
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("%s: JSON tag/schema property mismatch\nstruct: %v\nschema: %v", path, got, want)
-	}
 }

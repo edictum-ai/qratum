@@ -84,7 +84,7 @@ func ParseClaudeCode(reader io.Reader, context ParseContext) (ParseResult, error
 		}
 
 		if _, known := knownClaudeRecordTypes[recordType]; !known {
-			addIssue(&result, FormatIssue{
+			addUnsupportedIssue(&result, FormatIssue{
 				Line:       lineNo,
 				Code:       "unknown_record_type",
 				RecordType: recordType,
@@ -170,19 +170,21 @@ func parseClaudeAssistantUsage(lineNo int, fields map[string]json.RawMessage, ro
 		requestID = messageID
 	}
 
-	input, err := requiredNonNegativeInt(lineNo, usage, "input_tokens")
+	// service_tier is intentionally preserved only in the raw blob in T1.1;
+	// capturing it as pricing input is deferred to T1.4.
+	input, err := requiredTokenCount(lineNo, usage, "input_tokens")
 	if err != nil {
 		return UsageRecord{}, false, nil, err
 	}
-	output, err := requiredNonNegativeInt(lineNo, usage, "output_tokens")
+	output, err := requiredTokenCount(lineNo, usage, "output_tokens")
 	if err != nil {
 		return UsageRecord{}, false, nil, err
 	}
-	cacheCreation, err := requiredNonNegativeInt(lineNo, usage, "cache_creation_input_tokens")
+	cacheCreation, err := requiredTokenCount(lineNo, usage, "cache_creation_input_tokens")
 	if err != nil {
 		return UsageRecord{}, false, nil, err
 	}
-	cacheRead, err := requiredNonNegativeInt(lineNo, usage, "cache_read_input_tokens")
+	cacheRead, err := requiredTokenCount(lineNo, usage, "cache_read_input_tokens")
 	if err != nil {
 		return UsageRecord{}, false, nil, err
 	}
@@ -194,11 +196,11 @@ func parseClaudeAssistantUsage(lineNo int, fields map[string]json.RawMessage, ro
 		return UsageRecord{}, false, nil, err
 	}
 	if hasCacheDetails {
-		cacheFiveMin, err = requiredNonNegativeInt(lineNo, cacheDetails, "ephemeral_5m_input_tokens")
+		cacheFiveMin, err = requiredTokenCount(lineNo, cacheDetails, "ephemeral_5m_input_tokens")
 		if err != nil {
 			return UsageRecord{}, false, nil, err
 		}
-		cacheOneHour, err = requiredNonNegativeInt(lineNo, cacheDetails, "ephemeral_1h_input_tokens")
+		cacheOneHour, err = requiredTokenCount(lineNo, cacheDetails, "ephemeral_1h_input_tokens")
 		if err != nil {
 			return UsageRecord{}, false, nil, err
 		}

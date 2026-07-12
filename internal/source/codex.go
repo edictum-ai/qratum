@@ -109,7 +109,7 @@ func (p *codexParser) parseLine(lineNo int, line []byte) error {
 	case "response_item":
 		return p.parseResponseItem(lineNo, fields)
 	default:
-		addIssue(&p.result, FormatIssue{
+		addUnsupportedIssue(&p.result, FormatIssue{
 			Line:       lineNo,
 			Code:       "unknown_record_type",
 			RecordType: recordType,
@@ -194,7 +194,7 @@ func (p *codexParser) parseEvent(lineNo int, fields map[string]json.RawMessage, 
 		return err
 	}
 	if _, known := knownCodexEventTypes[eventType]; !known {
-		addIssue(&p.result, FormatIssue{
+		addUnsupportedIssue(&p.result, FormatIssue{
 			Line:       lineNo,
 			Code:       "unknown_event_type",
 			RecordType: eventType,
@@ -219,7 +219,7 @@ func (p *codexParser) parseResponseItem(lineNo int, fields map[string]json.RawMe
 		return err
 	}
 	if _, known := knownCodexResponseTypes[itemType]; !known {
-		addIssue(&p.result, FormatIssue{
+		addUnsupportedIssue(&p.result, FormatIssue{
 			Line:       lineNo,
 			Code:       "unknown_response_item_type",
 			RecordType: itemType,
@@ -265,7 +265,10 @@ func (p *codexParser) parseTokenCount(lineNo int, fields map[string]json.RawMess
 		p.epochIndexes = nil
 		p.epochMismatch = false
 	}
-	p.epochSum = addTokenCounts(p.epochSum, last)
+	p.epochSum, err = addTokenCounts(lineNo, p.epochSum, last)
+	if err != nil {
+		return err
+	}
 	p.tokenOrdinal++
 	rawDigest := sha256.Sum256(rawLine)
 	eventDigest := hex.EncodeToString(rawDigest[:])
@@ -301,7 +304,8 @@ func (p *codexParser) parseTokenCount(lineNo int, fields map[string]json.RawMess
 	p.result.UsageRecords = append(p.result.UsageRecords, record)
 	p.epochIndexes = append(p.epochIndexes, len(p.result.UsageRecords)-1)
 
-	if !equalTokenCounts(p.epochSum, total) {
+	switch {
+	case !equalTokenCounts(p.epochSum, total):
 		p.epochMismatch = true
 		for _, index := range p.epochIndexes {
 			p.result.UsageRecords[index].ReconciliationStatus = "mismatch"
@@ -312,33 +316,35 @@ func (p *codexParser) parseTokenCount(lineNo int, fields map[string]json.RawMess
 			RecordType: "token_count",
 			Detail:     "sum of incremental usage does not match cumulative usage for the counter epoch",
 		})
-	} else if !p.epochMismatch {
+	case !p.epochMismatch:
 		for _, index := range p.epochIndexes {
 			p.result.UsageRecords[index].ReconciliationStatus = "matched"
 		}
+	default:
+		p.result.UsageRecords[len(p.result.UsageRecords)-1].ReconciliationStatus = "mismatch"
 	}
 	p.previousTotal = &total
 	return nil
 }
 
 func parseCodexTokenCounts(lineNo int, fields map[string]json.RawMessage) (TokenCounts, error) {
-	input, err := requiredNonNegativeInt(lineNo, fields, "input_tokens")
+	input, err := requiredTokenCount(lineNo, fields, "input_tokens")
 	if err != nil {
 		return TokenCounts{}, err
 	}
-	output, err := requiredNonNegativeInt(lineNo, fields, "output_tokens")
+	output, err := requiredTokenCount(lineNo, fields, "output_tokens")
 	if err != nil {
 		return TokenCounts{}, err
 	}
-	cacheRead, err := requiredNonNegativeInt(lineNo, fields, "cached_input_tokens")
+	cacheRead, err := requiredTokenCount(lineNo, fields, "cached_input_tokens")
 	if err != nil {
 		return TokenCounts{}, err
 	}
-	reasoning, err := requiredNonNegativeInt(lineNo, fields, "reasoning_output_tokens")
+	reasoning, err := requiredTokenCount(lineNo, fields, "reasoning_output_tokens")
 	if err != nil {
 		return TokenCounts{}, err
 	}
-	total, err := requiredNonNegativeInt(lineNo, fields, "total_tokens")
+	total, err := requiredTokenCount(lineNo, fields, "total_tokens")
 	if err != nil {
 		return TokenCounts{}, err
 	}
@@ -351,17 +357,32 @@ func parseCodexTokenCounts(lineNo int, fields map[string]json.RawMessage) (Token
 	}, nil
 }
 
-func addTokenCounts(left TokenCounts, right TokenCounts) TokenCounts {
-	return TokenCounts{
-		Input:                left.Input + right.Input,
-		Output:               left.Output + right.Output,
-		CacheRead:            left.CacheRead + right.CacheRead,
-		CacheCreation:        left.CacheCreation + right.CacheCreation,
-		CacheCreationFiveMin: left.CacheCreationFiveMin + right.CacheCreationFiveMin,
-		CacheCreationOneHour: left.CacheCreationOneHour + right.CacheCreationOneHour,
-		ReasoningOutput:      left.ReasoningOutput + right.ReasoningOutput,
-		Total:                left.Total + right.Total,
+func addTokenCounts(lineNo int, left TokenCounts, right TokenCounts) (TokenCounts, error) {
+	values := []struct {
+		name        string
+		left, right int64
+	}{
+		{"input_tokens", left.Input, right.Input},
+		{"output_tokens", left.Output, right.Output},
+		{"cached_input_tokens", left.CacheRead, right.CacheRead},
+		{"cache_creation_input_tokens", left.CacheCreation, right.CacheCreation},
+		{"cache_creation_5m_input_tokens", left.CacheCreationFiveMin, right.CacheCreationFiveMin},
+		{"cache_creation_1h_input_tokens", left.CacheCreationOneHour, right.CacheCreationOneHour},
+		{"reasoning_output_tokens", left.ReasoningOutput, right.ReasoningOutput},
+		{"total_tokens", left.Total, right.Total},
 	}
+	sums := make([]int64, len(values))
+	for i, value := range values {
+		if value.left > maxTokenCount-value.right {
+			return TokenCounts{}, &FormatError{Line: lineNo, Detail: value.name + " cumulative epoch sum exceeds the token-count limit"}
+		}
+		sums[i] = value.left + value.right
+	}
+	return TokenCounts{
+		Input: sums[0], CacheRead: sums[2], Output: sums[1], CacheCreation: sums[3],
+		CacheCreationFiveMin: sums[4], CacheCreationOneHour: sums[5],
+		ReasoningOutput: sums[6], Total: sums[7],
+	}, nil
 }
 
 func equalTokenCounts(left TokenCounts, right TokenCounts) bool {

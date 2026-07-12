@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -84,11 +86,26 @@ func TestParseClaudeCodeChildStreamKeepsStreamIdentity(t *testing.T) {
 
 func TestParseClaudeCodeReportsUnknownRecord(t *testing.T) {
 	result := parseClaudeFixture(t, "unknown-record.jsonl", ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
-	if result.Coverage != CoverageIncomplete || result.UnsupportedRecords != 1 || len(result.Issues) != 1 {
+	if result.Coverage != CoverageUnsupported || result.UnsupportedRecords != 1 || len(result.Issues) != 1 {
 		t.Fatalf("unknown record result = %#v", result)
 	}
 	if result.Issues[0].Code != "unknown_record_type" || result.Issues[0].RecordType != "future-record" {
 		t.Fatalf("unknown record issue = %#v", result.Issues[0])
+	}
+}
+
+func TestUnknownRecordCoverageRemainsUnsupportedAfterStructuralIssue(t *testing.T) {
+	data := strings.Join([]string{
+		`{"type":"started","version":"2.1.207","sessionId":"11111111-1111-4111-8111-111111111111"}`,
+		`{"type":"future-record","version":"2.1.207","sessionId":"11111111-1111-4111-8111-111111111111"}`,
+		`{"type":"assistant","version":"2.1.207","sessionId":"11111111-1111-4111-8111-111111111111","message":{}}`,
+	}, "\n")
+	result, err := ParseClaudeCode(strings.NewReader(data), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Coverage != CoverageUnsupported {
+		t.Fatalf("coverage = %q, want unsupported", result.Coverage)
 	}
 }
 
@@ -120,7 +137,7 @@ func TestParseClaudeCodeFailsClosedOnVersionAndTypeDrift(t *testing.T) {
 	t.Run("malformed", func(t *testing.T) {
 		_, err := ParseClaudeCode(strings.NewReader("{not-json}\n"), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
 		var formatErr *FormatError
-		if !errors.As(err, &formatErr) {
+		if !errors.As(err, &formatErr) || !strings.Contains(err.Error(), "invalid JSON") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -204,9 +221,22 @@ func TestParseCodexReportsReconciliationMismatch(t *testing.T) {
 	}
 }
 
+func TestParseCodexKeepsDirtyEpochRecordsMismatched(t *testing.T) {
+	result := parseCodexFixture(t, "reconciliation-dirty-epoch.jsonl", ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+	if len(result.UsageRecords) != 3 {
+		t.Fatalf("usage records = %d, want 3", len(result.UsageRecords))
+	}
+	if result.UsageRecords[1].ReconciliationStatus != "mismatch" {
+		t.Fatalf("mismatching record status = %q", result.UsageRecords[1].ReconciliationStatus)
+	}
+	if result.UsageRecords[2].ReconciliationStatus == "matched" {
+		t.Fatalf("recovering dirty-epoch record status = %q, must not be matched", result.UsageRecords[2].ReconciliationStatus)
+	}
+}
+
 func TestParseCodexReportsUnknownShapes(t *testing.T) {
 	result := parseCodexFixture(t, "unknown-record.jsonl", ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
-	if result.Coverage != CoverageIncomplete || result.UnsupportedRecords != 3 || len(result.Issues) != 3 {
+	if result.Coverage != CoverageUnsupported || result.UnsupportedRecords != 3 || len(result.Issues) != 3 {
 		t.Fatalf("unknown result = %#v", result)
 	}
 	wantCodes := []string{"unknown_record_type", "unknown_event_type", "unknown_response_item_type"}
@@ -252,6 +282,140 @@ func TestParseCodexFailsClosedOnVersionAndTypeDrift(t *testing.T) {
 			t.Fatalf("error = %v", err)
 		}
 	})
+	t.Run("malformed", func(t *testing.T) {
+		_, err := ParseCodex(strings.NewReader("{not-json}\n"), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+		var formatErr *FormatError
+		if !errors.As(err, &formatErr) || !strings.Contains(err.Error(), "invalid JSON") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+}
+
+func TestParsersRejectMultipleJSONValuesOnOneLine(t *testing.T) {
+	tests := []struct {
+		name  string
+		parse func(string) error
+	}{
+		{name: "Claude", parse: func(data string) error {
+			_, err := ParseClaudeCode(strings.NewReader(data), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+			return err
+		}},
+		{name: "Codex", parse: func(data string) error {
+			_, err := ParseCodex(strings.NewReader(data), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+			return err
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.parse(`{"type":"future-record"} {"type":"second-record"}` + "\n")
+			var formatErr *FormatError
+			if !errors.As(err, &formatErr) || !strings.Contains(err.Error(), "multiple JSON values") {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestParsersRejectLineOverRecordCap(t *testing.T) {
+	data := strings.Repeat("x", maxSourceRecordBytes+1) + "\n"
+	for _, tt := range []struct {
+		name  string
+		parse func() error
+	}{
+		{name: "Claude", parse: func() error {
+			_, err := ParseClaudeCode(strings.NewReader(data), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+			return err
+		}},
+		{name: "Codex", parse: func() error {
+			_, err := ParseCodex(strings.NewReader(data), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+			return err
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.parse()
+			if err == nil || !strings.Contains(err.Error(), "token too long") {
+				t.Fatalf("over-cap error = %v", err)
+			}
+		})
+	}
+}
+
+func TestTokenCountsEnforceHardCapInBothAdapters(t *testing.T) {
+	values := []struct {
+		name    string
+		value   int64
+		wantErr bool
+	}{
+		{name: "near max int64", value: int64(^uint64(0) >> 1), wantErr: true},
+		{name: "just over ceiling", value: maxTokenCount + 1, wantErr: true},
+		{name: "just under ceiling", value: maxTokenCount - 1, wantErr: false},
+	}
+	for _, adapter := range []struct {
+		name  string
+		parse func(int64) error
+	}{
+		{name: "Claude", parse: parseClaudeTokenLimitFixture},
+		{name: "Codex", parse: parseCodexTokenLimitFixture},
+	} {
+		for _, value := range values {
+			t.Run(adapter.name+"/"+value.name, func(t *testing.T) {
+				err := adapter.parse(value.value)
+				var formatErr *FormatError
+				if value.wantErr && (!errors.As(err, &formatErr) || !strings.Contains(err.Error(), "token-count limit")) {
+					t.Fatalf("error = %v", err)
+				}
+				if !value.wantErr && err != nil {
+					t.Fatalf("just-under-ceiling value rejected: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestParseCodexRejectsCumulativeEpochSumOverCap(t *testing.T) {
+	count := strconv.FormatInt(maxTokenCount, 10)
+	data := codexTokenFixture(
+		fmt.Sprintf(`{"input_tokens":%s,"cached_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":%s}`, count, count),
+		fmt.Sprintf(`{"input_tokens":%s,"cached_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":%s}`, count, count),
+	) + "\n" + codexTokenEvent(
+		`{"input_tokens":1,"cached_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":1}`,
+		fmt.Sprintf(`{"input_tokens":%s,"cached_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":%s}`, count, count),
+		"2026-07-12T09:00:03Z",
+	)
+	_, err := ParseCodex(strings.NewReader(data), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+	var formatErr *FormatError
+	if !errors.As(err, &formatErr) || !strings.Contains(err.Error(), "cumulative epoch sum exceeds") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func parseClaudeTokenLimitFixture(value int64) error {
+	count := strconv.FormatInt(value, 10)
+	data := strings.Join([]string{
+		`{"type":"started","version":"2.1.207","sessionId":"11111111-1111-4111-8111-111111111111"}`,
+		fmt.Sprintf(`{"type":"assistant","version":"2.1.207","sessionId":"11111111-1111-4111-8111-111111111111","uuid":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2","timestamp":"2026-07-12T09:00:01Z","message":{"id":"msg_synthetic_001","model":"claude-test","usage":{"input_tokens":%s,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}`, count),
+	}, "\n")
+	_, err := ParseClaudeCode(strings.NewReader(data), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+	return err
+}
+
+func parseCodexTokenLimitFixture(value int64) error {
+	count := strconv.FormatInt(value, 10)
+	tokens := fmt.Sprintf(`{"input_tokens":%s,"cached_input_tokens":0,"output_tokens":0,"reasoning_output_tokens":0,"total_tokens":%s}`, count, count)
+	_, err := ParseCodex(strings.NewReader(codexTokenFixture(tokens, tokens)), ParseContext{EvidenceRevisionDigest: fixtureEvidenceDigest})
+	return err
+}
+
+func codexTokenFixture(last string, total string) string {
+	return strings.Join([]string{
+		`{"timestamp":"2026-07-12T09:00:00Z","type":"session_meta","payload":{"id":"22222222-2222-4222-8222-222222222222","session_id":"22222222-2222-4222-8222-222222222222","cli_version":"0.144.1","model_provider":"openai"}}`,
+		`{"timestamp":"2026-07-12T09:00:01Z","type":"turn_context","payload":{"turn_id":"33333333-3333-4333-8333-333333333331","cwd":"/tmp/project","model":"gpt-test"}}`,
+		codexTokenEvent(last, total, "2026-07-12T09:00:02Z"),
+	}, "\n")
+}
+
+func codexTokenEvent(last string, total string, timestamp string) string {
+	return fmt.Sprintf(`{"timestamp":%q,"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":%s,"last_token_usage":%s}}}`, timestamp, total, last)
 }
 
 func TestParsersRequireEvidenceDigest(t *testing.T) {

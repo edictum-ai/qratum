@@ -25,4 +25,4 @@ Each source directory contains:
 
 Codex also covers cumulative reconciliation, a counter reset, and a mismatch.
 Parser tests must fail closed on version and type drift and must report unknown
-records as incomplete coverage.
+records as unsupported usage coverage.

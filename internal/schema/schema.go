@@ -85,6 +85,9 @@ func RegistryFile(version string) (string, bool) {
 }
 
 // Validate checks an instance document against a strict subset of JSON Schema.
+// Source parsers enforce negative token-count and illegal field-combination
+// rejection. Supporting JSON Schema minimum and conditional keywords here is a
+// separate ticket; callers must not treat this subset as that parser boundary.
 func Validate(schemaData []byte, instanceData []byte) error {
 	var schema any
 	if err := decodeJSON(schemaData, &schema); err != nil {
