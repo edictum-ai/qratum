@@ -9,7 +9,7 @@
     "data_class": { "const": "published" },
     "catalog_id": { "type": "string" },
     "upstream": { "type": "string" },
-    "resolved_commit": { "type": "string" },
+    "resolved_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "digest": { "type": "string" },
     "retrieved_at": { "type": "string" },
     "retrieval_method": { "enum": ["bundled", "online", "file"] },

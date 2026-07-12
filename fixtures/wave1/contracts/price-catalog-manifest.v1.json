@@ -3,11 +3,11 @@
   "data_class": "published",
   "catalog_id": "litellm-synthetic-version",
   "upstream": "github.com/BerriAI/litellm",
-  "resolved_commit": "synthetic-litellm-commit-not-a-real-sha",
+  "resolved_commit": "0000000000000000000000000000000000000000",
   "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "retrieved_at": "2026-07-12T11:00:00Z",
   "retrieval_method": "online",
-  "source_url": "https://raw.githubusercontent.com/BerriAI/litellm/synthetic-version/model_prices_and_context_window.json",
+  "source_url": "https://raw.githubusercontent.com/BerriAI/litellm/0000000000000000000000000000000000000000/model_prices_and_context_window.json",
   "currency": "USD",
   "transform_version": "litellm-price-map-v1",
   "entry_count": 2500

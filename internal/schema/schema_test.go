@@ -157,6 +157,105 @@ func TestValidatorUsesJSONNumbersForConstEquality(t *testing.T) {
 	}
 }
 
+func TestValidatorPatternKeyword(t *testing.T) {
+	// pattern is an UNANCHORED substring match by JSON Schema semantics; schemas
+	// that need a full-string match anchor with ^...$ themselves. A pattern that
+	// is not a string, or does not compile, fails closed rather than being skipped.
+	t.Run("matching string passes", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"^[0-9a-f]{40}$"}`)
+		if err := Validate(schema, []byte(`"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"`)); err != nil {
+			t.Fatalf("matching string rejected: %v", err)
+		}
+	})
+	t.Run("non-matching string fails", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"^[0-9a-f]{40}$"}`)
+		err := Validate(schema, []byte(`"not-a-sha"`))
+		if err == nil || !strings.Contains(err.Error(), "does not match pattern") {
+			t.Fatalf("error = %v, want pattern rejection", err)
+		}
+	})
+	t.Run("unanchored pattern matches a substring", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"beef"}`)
+		if err := Validate(schema, []byte(`"deadbeefcafe"`)); err != nil {
+			t.Fatalf("unanchored substring match rejected: %v", err)
+		}
+	})
+	t.Run("non-string schema pattern value fails closed", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":123}`)
+		err := Validate(schema, []byte(`"anything"`))
+		if err == nil || !strings.Contains(err.Error(), "schema pattern must be a string") {
+			t.Fatalf("error = %v, want schema pattern type rejection", err)
+		}
+	})
+	t.Run("invalid regexp fails closed", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"([a-z"}`)
+		err := Validate(schema, []byte(`"anything"`))
+		if err == nil || !strings.Contains(err.Error(), "not a valid regexp") {
+			t.Fatalf("error = %v, want invalid regexp rejection", err)
+		}
+	})
+	t.Run("pattern ignores non-string instance; type catches it", func(t *testing.T) {
+		// pattern only applies to string instance values: a non-string value is
+		// ignored by pattern. With a type keyword present the wrong type is
+		// rejected by type; with no type keyword a non-string passes pattern.
+		typed := []byte(`{"type":"string","pattern":"^[0-9a-f]{40}$"}`)
+		err := Validate(typed, []byte(`12345`))
+		if err == nil || !strings.Contains(err.Error(), "is not type string") {
+			t.Fatalf("error = %v, want type rejection rather than pattern", err)
+		}
+		untyped := []byte(`{"pattern":"^[0-9a-f]{40}$"}`)
+		if err := Validate(untyped, []byte(`12345`)); err != nil {
+			t.Fatalf("pattern must ignore a non-string instance when no type keyword: %v", err)
+		}
+	})
+}
+
+func TestPriceCatalogManifestRequiresFullGitSHA(t *testing.T) {
+	root := repoRoot(t)
+	schemaPath, ok := RegistryFile("qratum.price_catalog_manifest.v1")
+	if !ok {
+		t.Fatal("missing registry entry for price catalog manifest")
+	}
+	schemaData := readRepoFile(t, root, schemaPath)
+	fixtureRel := "fixtures/wave1/contracts/price-catalog-manifest.v1.json"
+
+	// Positive: the committed fixture pins a full lowercase 40-hex Git SHA and
+	// validates against the pattern-constrained schema.
+	if err := Validate(schemaData, readRepoFile(t, root, fixtureRel)); err != nil {
+		t.Fatalf("committed price catalog fixture rejected: %v", err)
+	}
+	manifest := readJSONMap(t, root, fixtureRel)
+	commit, _ := manifest["resolved_commit"].(string)
+	if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(commit) {
+		t.Fatalf("fixture resolved_commit %q is not a full 40-hex Git SHA", commit)
+	}
+	sourceURL, _ := manifest["source_url"].(string)
+	if !strings.Contains(sourceURL, commit) {
+		t.Fatalf("fixture source_url %q must embed the resolved commit %q", sourceURL, commit)
+	}
+
+	// Negative: non-immutable commit identities must fail closed with a pattern
+	// error so an online catalog can never be pinned to a mutable ref.
+	cases := []struct {
+		name   string
+		commit string
+	}{
+		{name: "old-synthetic-string", commit: "synthetic-litellm-commit-not-a-real-sha"},
+		{name: "thirty-nine-hex", commit: "deadbeefdeadbeefdeadbeefdeadbeefdeadbee"},
+		{name: "uppercase-hex", commit: "DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bad := readJSONMap(t, root, fixtureRel)
+			bad["resolved_commit"] = tc.commit
+			err := Validate(schemaData, mustJSON(t, bad))
+			if err == nil || !strings.Contains(err.Error(), "does not match pattern") {
+				t.Fatalf("resolved_commit=%q error = %v, want pattern rejection", tc.commit, err)
+			}
+		})
+	}
+}
+
 func TestRegistrySchemaFilesExistAndDeclareVersion(t *testing.T) {
 	root := repoRoot(t)
 	for _, entry := range Registry {

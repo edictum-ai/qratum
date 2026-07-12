@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -137,6 +138,27 @@ func validateValue(path string, schema map[string]any, value any) error {
 		}
 		if err := validateType(path, typeName, value); err != nil {
 			return err
+		}
+	}
+
+	if patternRaw, ok := schema["pattern"]; ok {
+		pattern, ok := patternRaw.(string)
+		if !ok {
+			return fmt.Errorf("%s: schema pattern must be a string", path)
+		}
+		// JSON Schema pattern is an UNANCHORED substring match (RE2 here): it
+		// succeeds when the regex matches anywhere in the string. Schemas that
+		// need a full-string match anchor with ^...$ themselves; we never anchor.
+		// A pattern that is not a string or does not compile fails closed above /
+		// here rather than being skipped.
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return fmt.Errorf("%s: schema pattern %q is not a valid regexp: %w", path, pattern, err)
+		}
+		// pattern applies to string instance values only: a non-string value is
+		// ignored by pattern and, if illegal, is rejected by the type keyword.
+		if str, isString := value.(string); isString && !re.MatchString(str) {
+			return fmt.Errorf("%s: value %s does not match pattern %q", path, describeJSON(value), pattern)
 		}
 	}
 
