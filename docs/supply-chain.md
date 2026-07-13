@@ -25,8 +25,10 @@ artifacts, so the build pipeline must avoid ambient trust.
 Normal Qratum runtime behavior makes no network request. Hooks, capture,
 reconciliation, reading, search, and cost lookup stay local.
 
-The accepted Tranche 1 contract permits one narrow exception: the user may
-explicitly refresh the model-price catalog from its fixed allowlisted source.
+The accepted Wave 1 contract
+(`specs/current/wave-1-reliable-session-capture.md`) permits one narrow
+exception: the user may explicitly refresh the model-price catalog from its
+fixed allowlisted source.
 That refresh downloads data, never code or tools. It sends no transcript,
 session, usage, model, Project, repository, machine, credential, or user data.
 It must resolve an immutable upstream version, validate and size-limit the

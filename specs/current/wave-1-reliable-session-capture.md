@@ -534,8 +534,11 @@ Hooks, scheduled reconciliation, manual reconciliation, discovery scans, and
 session import check the tombstone before copying, parsing full content, or
 publishing. When source identity is not available from the event or
 fixture-locked path mapping, the adapter may perform only its bounded identity
-probe under an accepted source root before the tombstone check. A later source
-file with the erased identity is counted as suppressed, not recaptured.
+probe — under an accepted source root, or, for `qrt import`, on the single
+owner-named file — before the tombstone check. That probe reads only what it
+needs to derive `source` and `source_session_id`; it never parses or copies
+full content before the tombstone check. A later source file, or an imported
+file, with the erased identity is counted as suppressed, not recaptured.
 
 The keyed digest is computed under a single owner-only suppression key. `qrt
 init` creates this key once and stores it with owner-only permissions in the
@@ -657,8 +660,16 @@ Owner-only hook observation:
 - schema/data-class/provenance fields.
 
 No transcript content or prompt text is stored in the event.
-Source version comes from Qratum's last cached source inventory; the hook never
-launches the source CLI to discover a version.
+The event's source version comes from Qratum's last cached source inventory; the
+hook never launches the source CLI to discover a version. To keep that cache
+from going stale after a source upgrade, `qrt init`, `qrt doctor`, and each
+reconcile re-read the installed source version from disk — still never
+launching the source CLI from a hook — and refresh the inventory. When the
+installed version differs from the version an event recorded, or has no reviewed
+fixture, the reconciler parses the affected transcript under the current version
+and marks its parsing and usage coverage unsupported until a reviewed fixture
+for that version exists, rather than parsing a post-upgrade file as a previously
+supported version.
 
 ### `qratum.session_revision.v1`
 
