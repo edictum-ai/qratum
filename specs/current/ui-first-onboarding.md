@@ -1,7 +1,28 @@
 # Qratum UI-First Onboarding
 
-Status: accepted product direction; runtime implementation not shipped yet.
+Status: superseded product contract; retained as candidate-runtime evidence
+
 Date: 2026-06-17
+
+Superseded: 2026-07-11 by `specs/current/product-direction.md`
+
+Do not implement this document as the current product contract. Its UI-first
+intent, DTO boundary principle, loopback-auth design, source-hook minimalism,
+and explicit egress confirmation remain useful donor material. The following
+sections are specifically superseded:
+
+- `User Model` and `First-Run State Machine`;
+- `Public Commands` and every command-specific product workflow;
+- `Prepare` and the raw-queue interaction model;
+- `Background Model` as a single assumed source mechanism;
+- `AI Boundary` where it prohibits any local raw processing by accepted design;
+- `UI DTO Contract` and its state/action enums;
+- the prohibition on owner-only raw transcript viewing; and
+- `Acceptance Criteria` as release authority.
+
+The local shell described here exists only in a local candidate and was not
+published as `v0.1.0`. No `SHIPPED` claim in this document applies to the
+accepted product direction or to the current worktree without fresh proof.
 
 ## Decision
 

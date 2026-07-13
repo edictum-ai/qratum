@@ -1,10 +1,21 @@
 # Qratum Vault-First Revision
 
-Status: Accepted 2026-06-14 (the maintainer). Supersedes
+Status: published v0.1.0 baseline design; superseded for future product shape
+
+Accepted 2026-06-14 (the maintainer). Supersedes
 `specs/current/memory-curation-pipeline.md` (now marked superseded) and
 revises parts of `specs/current/operational-model-redesign.md` (exact edits
 listed under "Spec hygiene"). Source analysis:
 `docs/reviews/2026-06-12-memory-architecture/`.
+
+Product supersession: `specs/current/product-direction.md` became authoritative
+on 2026-07-11. This file remains evidence for the published preservation
+baseline and for reusable vault engineering. Its claims about Qratum not being
+a searchable knowledge product, search waiting for demonstrated pull, the
+vault/refinery CLI, Claude-only first-source sufficiency, review/corpus ordering,
+and the old milestone sequence are not authority for new work. Its separation
+between Qratum provenance/context and personal-memory durable knowledge remains
+consistent with the accepted direction.
 
 Decisions already taken by the maintainer (2026-06-12): all gateway verb work proceeds
 in phases; import namespaces are `personal` + `coding` with an extensible

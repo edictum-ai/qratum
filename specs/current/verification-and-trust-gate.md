@@ -1,8 +1,19 @@
 # Qratum Verification & Trust Gate
 
-Status: **Accepted 2026-06-16.** P2-VERIFY-TRUST-GATE is unlocked; the ductum
-package may be dispatched. (Spec reviewed and approved; the milestone pointer in
-`SPEC.md` is updated to match.)
+Status: published v0.1.0 trust-gate design; current-candidate proof unverified
+
+Accepted 2026-06-16 and implemented in the published v0.1.0 baseline. The
+historical proof surfaces are `make trust` / `qrt trust`. Their result must not
+be projected onto later commits or candidate code without executing the exact
+artifact and every claimed dimension.
+
+Product supersession: `specs/current/product-direction.md` became authoritative
+on 2026-07-11. This file remains security evidence and a source of reusable
+invariants, fixtures, and adversarial findings. Its product scope, public CLI,
+Claude-only source guard, D10 sequencing, raw-index defaults, and claim that D10
+is the only current gap do not govern future tranches. A tranche may reuse a
+dimension from this file only when it checks behavior required by that tranche
+against the exact artifact.
 v2 folds in the adversarial gap review
 (`docs/reviews/2026-06-15-verification-benchmark/GAPS.md`).
 
@@ -12,8 +23,9 @@ Proposed milestone: **P2-VERIFY-TRUST-GATE** (sits after vault-first P1 in
 the trust-gate harness, and the minimal code fixes the gates demand. It does
 **not** build new product surfaces.
 
-**Delivery shape.** This spec is the **design source-of-truth**. Delivery is a
-**Ductum-shaped phased package** — the dispatchable, per-phase task specs live in
+**Historical delivery shape.** This spec was the **design source-of-truth for
+published P2**. It is not the current product authority. Delivery used a
+**Ductum-shaped phased package** — the per-phase task specs live in
 `docs/reviews/2026-06-15-verification-benchmark/ductum-specs/qratum-verify-trust-gate/`.
 This file states *what* must be true and *why*; the ductum specs carve it into
 gated phases that can be dispatched and verified independently.
