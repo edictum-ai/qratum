@@ -531,11 +531,22 @@ The deletion operation removes every Wave 1 representation for the session:
 - temporary files attributable to the session.
 
 Hooks, scheduled reconciliation, manual reconciliation, discovery scans, and
-future imports check the tombstone before copying, parsing full content, or
+session import check the tombstone before copying, parsing full content, or
 publishing. When source identity is not available from the event or
 fixture-locked path mapping, the adapter may perform only its bounded identity
 probe under an accepted source root before the tombstone check. A later source
 file with the erased identity is counted as suppressed, not recaptured.
+
+The keyed digest is computed under a single owner-only suppression key. `qrt
+init` creates this key once and stores it with owner-only permissions in the
+vault state directory, where it persists and is backed up with the vault.
+Qratum never rotates the key automatically, because every stored tombstone
+digest is computed under it; a deliberate rotation is a future migration that
+re-derives every tombstone digest under the new key and is outside Wave 1. If
+the key is missing or unreadable the digest cannot be recomputed, so tombstone
+matching cannot be trusted: `qrt doctor` reports a loud degraded state, and any
+path that would copy, parse, or publish a source session fails closed rather
+than silently treating an unmatched session as new.
 
 Deletion of one session never deletes a shared blob still referenced by a
 different live session. The current donor `EraseRawRef` behavior is insufficient
@@ -570,6 +581,7 @@ It also reports:
 - discovered root and child stream counts;
 - supported/unsupported source-record counts;
 - usage-record coverage and reconciliation state;
+- suppression-key health;
 - schedule installed/active state; and
 - explicit warnings for gather lag, rejected paths, changed-during-copy,
   oversize files, disk pressure, format drift, and suppressed erased sessions.
@@ -691,6 +703,23 @@ digest, currency, effective-date, and transform metadata. The bundled snapshot
 and each explicitly refreshed snapshot are immutable inputs, never silently
 rewritten runtime state.
 
+### `qratum.doctor_report.v1`
+
+The strict versioned DTO returned by `qrt doctor --json`. It carries the same
+status facts `qrt doctor` prints: per-source and per-stream liveness and
+coverage, dirty/retry/scan-checkpoint state, schedule health, the
+suppression-key presence check, each named failure paired with one concrete
+recovery action, and an overall status. It is a stable field contract for
+programmatic and UI consumers, not scraped human text.
+
+### `qratum.trust_scorecard.v1`
+
+The strict versioned DTO returned by `qrt trust --json`. It carries the
+executed-fixture trust headline, per-source live-connected status, named gaps,
+and the evidence digests proving the installed binary produced the result over
+isolated fixtures. It is populated only by an executed proof, never from
+configuration inspection alone.
+
 Existing v1 event, raw-ref, and raw-tombstone schemas remain historical
 compatibility contracts for v0.1.0. Wave 1 does not silently reinterpret
 their fields.
@@ -708,6 +737,7 @@ sessions/revisions/
 sessions/tombstones/
 usage/records/
 state/capture.json
+state/suppression-key
 catalog/model-prices/
 ```
 
@@ -722,13 +752,15 @@ Wave 1.
 `qrt init` is the accepted headless bootstrap path. For Wave 1 it:
 
 1. resolves and secures `QRATUM_HOME`;
-2. inventories Claude Code and Codex source roots and installed versions;
-3. shows the exact user-level hook and OS-schedule plan;
-4. obtains explicit confirmation before modifying source settings or schedules;
-5. writes atomically without discarding unrelated source configuration;
-6. reports Codex hook trust as a separate required user action;
-7. runs initial reconciliation; and
-8. prints truthful source and coverage status.
+2. creates the durable owner-only deletion-suppression key on first run if it is
+   absent, and preserves the existing key otherwise;
+3. inventories Claude Code and Codex source roots and installed versions;
+4. shows the exact user-level hook and OS-schedule plan;
+5. obtains explicit confirmation before modifying source settings or schedules;
+6. writes atomically without discarding unrelated source configuration;
+7. reports Codex hook trust as a separate required user action;
+8. runs initial reconciliation; and
+9. prints truthful source and coverage status.
 
 `qrt init --yes` is the explicit automation equivalent. It prints the same plan
 and changes only the paths/configuration named by that plan.
@@ -736,8 +768,8 @@ and changes only the paths/configuration named by that plan.
 ### Public recovery
 
 `qrt doctor` reports the status contract above and gives one concrete recovery
-action per failure. `qrt doctor --json` exposes the same facts through a strict
-versioned DTO.
+action per failure. `qrt doctor --json` exposes the same facts through the
+strict versioned `qratum.doctor_report.v1` DTO.
 
 ### Public pricing update
 
@@ -746,6 +778,24 @@ above. `qrt pricing refresh --file <path>` performs the same validation and
 atomic update from a local file without network access. Neither command changes
 session history or usage records; it changes only the catalog used for later
 API-equivalent calculations.
+
+### Public session import
+
+`qrt import <path>` ingests an exported or archived Claude Code or Codex CLI
+session file — not a Claude.ai or ChatGPT web export — in the same formats the
+hooks and the one-shot reconciler already parse. It is the single explicit,
+user-initiated read outside the automated source roots, and it runs the same
+file-safety sequence as the reconciler on the owner-named path: regular file
+only, no symlink following, clean absolute resolution, the configured size
+limit and disk-free floor, and one streamed hashing copy. Import reuses the
+source parsers, the content-addressed vault, and the revision model unchanged:
+it checks the session tombstone before it copies or parses full content,
+validates the source format, rejects format drift, and deduplicates by content
+digest so a re-import of the same bytes produces no new revision. A session
+already erased by terminal deletion is counted as suppressed, not recaptured.
+Import performs no summarization, enrichment, or cross-session linking; those
+remain outside Wave 1. It is a session surface, distinct from the price-catalog
+file refresh.
 
 ### Hidden machine entrypoints
 
@@ -763,8 +813,9 @@ legacy pipeline commands are retained merely for debugging.
 ### Self-contained proof
 
 `qrt trust --json` may expose the Wave 1 proof only when it executes its
-isolated fixtures and installed binary. It cannot mark a source live-connected
-from configuration inspection alone.
+isolated fixtures and installed binary, and returns it through the strict
+versioned `qratum.trust_scorecard.v1` DTO. It cannot mark a source
+live-connected from configuration inspection alone.
 
 ## Failure And Recovery Contract
 
@@ -782,6 +833,7 @@ from configuration inspection alone.
 | Schedule missing/inactive | Degraded continuous-capture status | Reinstall/enable schedule |
 | Source file moved to archive | Same session identity; update path observation | Reconciler discovers accepted archive root |
 | Session tombstoned | Suppress every recapture path | No automatic recovery; explicit future policy required |
+| Suppression key missing/unreadable | Tombstone matching untrusted; capture and import fail closed; degraded status | Restore the key from the vault backup |
 | Crash during publication | Prior revision remains; temp removed later | Next run recovers and retries |
 
 ## Security And Privacy Invariants
@@ -789,7 +841,10 @@ from configuration inspection alone.
 - Raw transcripts, paths, repository identity, usage, and hook events are
   owner-only local data.
 - Hook and scanner inputs are untrusted and fail closed.
-- Transcript authorization is an allowlist of source roots.
+- Automated capture — hooks, reconciliation, and discovery scans — authorizes
+  transcript reads only through an allowlist of source roots. `qrt import` is
+  the single explicit, user-initiated exception, reading one owner-named file
+  under the same regular-file, no-symlink, size-capped, streamed checks.
 - All path checks occur after clean/absolute resolution and without following
   symlinks.
 - All transcript reads require a regular file and a size limit.
@@ -864,7 +919,9 @@ from configuration inspection alone.
 - crash after temp write and before rename;
 - owner-only permissions;
 - session erasure with main and multiple children;
-- erased session reappearing through hook, scan, archive move, and import; and
+- erased session reappearing through hook, scan, archive move, and import;
+- suppression key removed or corrupted, proving capture and import fail closed,
+  doctor reports degraded, and no erased session is silently recaptured; and
 - shared blob referenced by one erased and one live session.
 
 ### Pricing fixtures
@@ -900,8 +957,9 @@ Against a built `qrt` and isolated homes:
 
 1. create isolated `QRATUM_HOME`, Claude home, Codex home, schedule directory,
    and synthetic Git repositories/worktrees;
-2. run `qrt init`, inspect the exact plan, confirm it, and verify unrelated
-   source configuration remains byte-for-byte preserved;
+2. run `qrt init`, inspect the exact plan, confirm it, verify unrelated source
+   configuration remains byte-for-byte preserved, and verify the durable
+   suppression key was created owner-only;
 3. invoke the installed Claude and Codex hook entrypoints with fixture payloads
    and assert only bounded owner-only events were written;
 4. run the installed one-shot reconciler and verify exact blobs, revisions,
@@ -916,8 +974,9 @@ Against a built `qrt` and isolated homes:
    while a shared blob remains for a live session;
 9. rerun hook, scan, archive, and import paths and prove the erased session is
    suppressed; and
-10. run `qrt doctor --json` and `qrt trust --json` and validate their strict
-    schemas and executed evidence.
+10. run `qrt doctor --json` and `qrt trust --json` and validate the
+    `qratum.doctor_report.v1` and `qratum.trust_scorecard.v1` schemas and
+    executed evidence.
 
 ### Live owner proof before a source-connected release claim
 
@@ -1009,12 +1068,14 @@ online refresh, and local-file refresh.
 
 ### T1.5 — Terminal session deletion
 
-Add session tombstones, representation enumeration, shared-blob safety,
-recapture suppression, and concurrency tests.
+Add session tombstones, the durable owner-only suppression key, representation
+enumeration, shared-blob safety, recapture suppression across hooks,
+reconciliation, scans, and import, and concurrency tests.
 
-### T1.6 — Init, doctor, trust, and installed proof
+### T1.6 — Init, doctor, trust, import, and installed proof
 
-Wire confirmed source setup, Codex trust status, source diagnostics,
+Wire confirmed source setup, session import, Codex trust status, source
+diagnostics, the `qrt doctor --json` and `qrt trust --json` DTOs,
 self-contained installed proof, and the owner-run live verification record.
 
 No slice starts until the prior slice passes its accepted checks. Wave 2 does
@@ -1035,9 +1096,12 @@ Accepting this contract accepts these externally visible choices:
 9. Claude per-message and Codex delta/cumulative usage semantics;
 10. bundled LiteLLM-style catalog input plus explicit allowlisted online or
     local-file refresh, with no silent update;
-11. session-addressed terminal erasure; and
-12. `qrt init`, `qrt doctor`, `qrt pricing refresh`, hidden hook/reconcile
-    entrypoints, and executed `qrt trust` as the Wave 1 operator surfaces.
+11. session-addressed terminal erasure with a durable owner-only suppression
+    key that is never auto-rotated; and
+12. `qrt init`, `qrt doctor`, `qrt pricing refresh`, `qrt import`, hidden
+    hook/reconcile entrypoints, and executed `qrt trust` as the Wave 1 operator
+    surfaces, with `qrt doctor --json` and `qrt trust --json` returning strict
+    versioned DTOs.
 
 Rejecting or changing any item changes the contract and requires another review
 before implementation.
