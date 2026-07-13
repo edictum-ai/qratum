@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -39,16 +40,22 @@ type RegistryEntry struct {
 var Registry = []RegistryEntry{
 	{Version: "1.1.0", File: "schemas/qratum-adp-strict.v1.schema.json"},
 	{Version: "qratum.config.v1", File: "schemas/qratum-config.v1.schema.json"},
+	{Version: "qratum.capture_event.v2", File: "schemas/qratum-capture-event.v2.schema.json"},
+	{Version: "qratum.capture_state.v1", File: "schemas/qratum-capture-state.v1.schema.json"},
 	{Version: "qratum.event.v1", File: "schemas/qratum-event.v1.schema.json"},
 	{Version: "qratum.evidence.v1", File: "schemas/qratum-evidence.v1.schema.json"},
 	{Version: "qratum.memory_import_receipt.v1", File: "schemas/qratum-memory-import-receipt.v1.schema.json"},
 	{Version: "qratum.provenance.v1", File: "schemas/qratum-provenance.v1.schema.json"},
+	{Version: "qratum.price_catalog_manifest.v1", File: "schemas/qratum-price-catalog-manifest.v1.schema.json"},
 	{Version: "qratum.raw_ref.v1", File: "schemas/qratum-raw-ref.v1.schema.json"},
 	{Version: "qratum.raw_tombstone.v1", File: "schemas/qratum-raw-tombstone.v1.schema.json"},
 	{Version: "qratum.redaction_summary.v1", File: "schemas/qratum-redaction-summary.v1.schema.json"},
 	{Version: "qratum.review_card.v1", File: "schemas/qratum-review-card.v1.schema.json"},
+	{Version: "qratum.session_revision.v1", File: "schemas/qratum-session-revision.v1.schema.json"},
+	{Version: "qratum.session_tombstone.v1", File: "schemas/qratum-session-tombstone.v1.schema.json"},
 	{Version: "qratum.session.v1", File: "schemas/qratum-session.v1.schema.json"},
 	{Version: "qratum.trust_scorecard.v1", File: "schemas/qratum-trust-scorecard.v1.schema.json"},
+	{Version: "qratum.usage_record.v1", File: "schemas/qratum-usage-record.v1.schema.json"},
 	{Version: "qratum.vault_state.v1", File: "schemas/qratum-vault-state.v1.schema.json"},
 	{Version: "qratum.ui.api_error.v1", File: "schemas/ui/api-error.v1.schema.json"},
 	{Version: "qratum.ui.artifact_link.v1", File: "schemas/ui/artifact-link.v1.schema.json"},
@@ -79,6 +86,9 @@ func RegistryFile(version string) (string, bool) {
 }
 
 // Validate checks an instance document against a strict subset of JSON Schema.
+// Source parsers enforce negative token-count and illegal field-combination
+// rejection. Supporting JSON Schema minimum and conditional keywords here is a
+// separate ticket; callers must not treat this subset as that parser boundary.
 func Validate(schemaData []byte, instanceData []byte) error {
 	var schema any
 	if err := decodeJSON(schemaData, &schema); err != nil {
@@ -131,6 +141,41 @@ func validateValue(path string, schema map[string]any, value any) error {
 		}
 	}
 
+	if patternRaw, ok := schema["pattern"]; ok {
+		pattern, ok := patternRaw.(string)
+		if !ok {
+			return fmt.Errorf("%s: schema pattern must be a string", path)
+		}
+		// JSON Schema pattern is an UNANCHORED substring match (RE2 here): it
+		// succeeds when the regex matches anywhere in the string. Schemas that
+		// need a full-string match anchor with ^...$ themselves; we never anchor.
+		// A pattern that is not a string or does not compile fails closed above /
+		// here rather than being skipped.
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return fmt.Errorf("%s: schema pattern %q is not a valid regexp: %w", path, pattern, err)
+		}
+		// pattern applies to string instance values only: a non-string value is
+		// ignored by pattern and, if illegal, is rejected by the type keyword.
+		if str, isString := value.(string); isString && !re.MatchString(str) {
+			return fmt.Errorf("%s: value %s does not match pattern %q", path, describeJSON(value), pattern)
+		}
+	}
+
+	// required is an independent applicator: it constrains object membership even
+	// when the schema declares no "properties" (e.g. a bare "then":
+	// {"required": [...]}). Checking it only inside the properties block would let
+	// such a subschema pass vacuously — a fail-open we must not ship.
+	if _, hasRequired := schema["required"]; hasRequired {
+		object, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s: required applies to an object value", path)
+		}
+		if err := validateRequired(path, schema, object); err != nil {
+			return err
+		}
+	}
+
 	if propertiesRaw, hasProperties := schema["properties"]; hasProperties {
 		object, ok := value.(map[string]any)
 		if !ok {
@@ -139,9 +184,6 @@ func validateValue(path string, schema map[string]any, value any) error {
 		properties, ok := propertiesRaw.(map[string]any)
 		if !ok {
 			return fmt.Errorf("%s: schema properties must be an object", path)
-		}
-		if err := validateRequired(path, schema, object); err != nil {
-			return err
 		}
 		for key, child := range properties {
 			childSchema, ok := child.(map[string]any)
@@ -183,6 +225,75 @@ func validateValue(path string, schema map[string]any, value any) error {
 				return err
 			}
 		}
+	}
+
+	if err := validateConditional(path, schema, value); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateConditional applies the if/then/else applicator keywords. They are
+// ADDITIVE: the object's own base keywords (type, properties, required, ...)
+// still apply unconditionally; if/then/else only layer an extra constraint on
+// top. Semantics follow JSON Schema 2020-12 with one deliberate hardening.
+//
+// Fail-closed posture: JSON Schema treats a lone "if" (no then/else) and a
+// then/else without an "if" as silent no-ops. A no-op'd constraint is exactly
+// the fail-open we are here to close, so this validator instead REJECTS those
+// shapes, along with any if/then/else that is not a JSON object. A malformed or
+// dangling conditional is a schema error, never a skipped check.
+func validateConditional(path string, schema map[string]any, value any) error {
+	ifRaw, hasIf := schema["if"]
+	thenRaw, hasThen := schema["then"]
+	elseRaw, hasElse := schema["else"]
+
+	if !hasIf {
+		// "then"/"else" without "if" can never fire — deny rather than no-op.
+		if hasThen {
+			return fmt.Errorf("%s: schema \"then\" present without \"if\"", path)
+		}
+		if hasElse {
+			return fmt.Errorf("%s: schema \"else\" present without \"if\"", path)
+		}
+		return nil
+	}
+
+	// A dangling "if" with neither branch silently discards the constraint.
+	// Intentionally stricter than the spec's no-op allowance: deny it.
+	if !hasThen && !hasElse {
+		return fmt.Errorf("%s: schema \"if\" present without \"then\" or \"else\"", path)
+	}
+
+	// Structural checks fail closed regardless of which branch the instance
+	// selects: a malformed conditional subschema is rejected up front, so a
+	// mis-typed "then"/"else" can never slip through on the unselected branch.
+	ifSchema, ok := ifRaw.(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s: schema \"if\" must be an object", path)
+	}
+	var thenSchema, elseSchema map[string]any
+	if hasThen {
+		if thenSchema, ok = thenRaw.(map[string]any); !ok {
+			return fmt.Errorf("%s: schema \"then\" must be an object", path)
+		}
+	}
+	if hasElse {
+		if elseSchema, ok = elseRaw.(map[string]any); !ok {
+			return fmt.Errorf("%s: schema \"else\" must be an object", path)
+		}
+	}
+
+	// Evaluate "if" against the instance. A FAILED "if" is NOT an error — it only
+	// selects the "else" branch. if-branch errors must never leak to the caller.
+	if validateValue(path+" (if)", ifSchema, value) == nil {
+		if hasThen {
+			return validateValue(path+" (then)", thenSchema, value)
+		}
+		return nil
+	}
+	if hasElse {
+		return validateValue(path+" (else)", elseSchema, value)
 	}
 	return nil
 }

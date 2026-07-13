@@ -157,6 +157,274 @@ func TestValidatorUsesJSONNumbersForConstEquality(t *testing.T) {
 	}
 }
 
+func TestValidatorPatternKeyword(t *testing.T) {
+	// pattern is an UNANCHORED substring match by JSON Schema semantics; schemas
+	// that need a full-string match anchor with ^...$ themselves. A pattern that
+	// is not a string, or does not compile, fails closed rather than being skipped.
+	t.Run("matching string passes", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"^[0-9a-f]{40}$"}`)
+		if err := Validate(schema, []byte(`"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"`)); err != nil {
+			t.Fatalf("matching string rejected: %v", err)
+		}
+	})
+	t.Run("non-matching string fails", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"^[0-9a-f]{40}$"}`)
+		err := Validate(schema, []byte(`"not-a-sha"`))
+		if err == nil || !strings.Contains(err.Error(), "does not match pattern") {
+			t.Fatalf("error = %v, want pattern rejection", err)
+		}
+	})
+	t.Run("unanchored pattern matches a substring", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"beef"}`)
+		if err := Validate(schema, []byte(`"deadbeefcafe"`)); err != nil {
+			t.Fatalf("unanchored substring match rejected: %v", err)
+		}
+	})
+	t.Run("non-string schema pattern value fails closed", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":123}`)
+		err := Validate(schema, []byte(`"anything"`))
+		if err == nil || !strings.Contains(err.Error(), "schema pattern must be a string") {
+			t.Fatalf("error = %v, want schema pattern type rejection", err)
+		}
+	})
+	t.Run("invalid regexp fails closed", func(t *testing.T) {
+		schema := []byte(`{"type":"string","pattern":"([a-z"}`)
+		err := Validate(schema, []byte(`"anything"`))
+		if err == nil || !strings.Contains(err.Error(), "not a valid regexp") {
+			t.Fatalf("error = %v, want invalid regexp rejection", err)
+		}
+	})
+	t.Run("pattern ignores non-string instance; type catches it", func(t *testing.T) {
+		// pattern only applies to string instance values: a non-string value is
+		// ignored by pattern. With a type keyword present the wrong type is
+		// rejected by type; with no type keyword a non-string passes pattern.
+		typed := []byte(`{"type":"string","pattern":"^[0-9a-f]{40}$"}`)
+		err := Validate(typed, []byte(`12345`))
+		if err == nil || !strings.Contains(err.Error(), "is not type string") {
+			t.Fatalf("error = %v, want type rejection rather than pattern", err)
+		}
+		untyped := []byte(`{"pattern":"^[0-9a-f]{40}$"}`)
+		if err := Validate(untyped, []byte(`12345`)); err != nil {
+			t.Fatalf("pattern must ignore a non-string instance when no type keyword: %v", err)
+		}
+	})
+}
+
+func TestPriceCatalogManifestRequiresFullGitSHA(t *testing.T) {
+	root := repoRoot(t)
+	schemaPath, ok := RegistryFile("qratum.price_catalog_manifest.v1")
+	if !ok {
+		t.Fatal("missing registry entry for price catalog manifest")
+	}
+	schemaData := readRepoFile(t, root, schemaPath)
+	fixtureRel := "fixtures/wave1/contracts/price-catalog-manifest.v1.json"
+
+	// Positive: the committed fixture pins a full lowercase 40-hex Git SHA and
+	// validates against the pattern-constrained schema.
+	if err := Validate(schemaData, readRepoFile(t, root, fixtureRel)); err != nil {
+		t.Fatalf("committed price catalog fixture rejected: %v", err)
+	}
+	manifest := readJSONMap(t, root, fixtureRel)
+	commit, _ := manifest["resolved_commit"].(string)
+	if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(commit) {
+		t.Fatalf("fixture resolved_commit %q is not a full 40-hex Git SHA", commit)
+	}
+	sourceURL, _ := manifest["source_url"].(string)
+	if !strings.Contains(sourceURL, commit) {
+		t.Fatalf("fixture source_url %q must embed the resolved commit %q", sourceURL, commit)
+	}
+
+	// Negative: non-immutable commit identities must fail closed with a pattern
+	// error so an online catalog can never be pinned to a mutable ref.
+	cases := []struct {
+		name   string
+		commit string
+	}{
+		{name: "old-synthetic-string", commit: "synthetic-litellm-commit-not-a-real-sha"},
+		{name: "thirty-nine-hex", commit: "deadbeefdeadbeefdeadbeefdeadbeefdeadbee"},
+		{name: "uppercase-hex", commit: "DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bad := readJSONMap(t, root, fixtureRel)
+			bad["resolved_commit"] = tc.commit
+			err := Validate(schemaData, mustJSON(t, bad))
+			if err == nil || !strings.Contains(err.Error(), "does not match pattern") {
+				t.Fatalf("resolved_commit=%q error = %v, want pattern rejection", tc.commit, err)
+			}
+		})
+	}
+}
+
+func TestValidatorIfThenKeyword(t *testing.T) {
+	// if/then/else are ADDITIVE applicators layered on top of the base keywords.
+	// A failed "if" only selects the branch; it is never itself an error. The
+	// validator is deliberately stricter than JSON Schema 2020-12 on malformed or
+	// dangling conditionals, rejecting them rather than silently no-oping a check.
+	base := []byte(`{
+	  "type": "object",
+	  "additionalProperties": false,
+	  "properties": {
+	    "kind": {"enum": ["a", "b"]},
+	    "extra": {"type": "string"},
+	    "fallback": {"type": "string"}
+	  },
+	  "if": {"properties": {"kind": {"const": "a"}}, "required": ["kind"]},
+	  "then": {"required": ["extra"]},
+	  "else": {"required": ["fallback"]}
+	}`)
+
+	t.Run("if-match enforces then", func(t *testing.T) {
+		err := Validate(base, []byte(`{"kind":"a"}`))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"extra"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming extra", err)
+		}
+	})
+	t.Run("if-match with then satisfied passes", func(t *testing.T) {
+		if err := Validate(base, []byte(`{"kind":"a","extra":"x"}`)); err != nil {
+			t.Fatalf("if-match with then satisfied rejected: %v", err)
+		}
+	})
+	t.Run("if-no-match does not enforce then", func(t *testing.T) {
+		// kind=b: the then branch must NOT fire, so a missing "extra" is fine as
+		// long as the else branch is satisfied.
+		if err := Validate(base, []byte(`{"kind":"b","fallback":"y"}`)); err != nil {
+			t.Fatalf("if-no-match wrongly enforced then: %v", err)
+		}
+	})
+	t.Run("if-no-match enforces else", func(t *testing.T) {
+		err := Validate(base, []byte(`{"kind":"b"}`))
+		if err == nil || !strings.Contains(err.Error(), "(else)") || !strings.Contains(err.Error(), `"fallback"`) {
+			t.Fatalf("error = %v, want else-branch rejection naming fallback", err)
+		}
+	})
+	t.Run("non-object if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","if":123,"then":{"required":["x"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"if" must be an object`) {
+			t.Fatalf("error = %v, want if-type rejection", err)
+		}
+	})
+	t.Run("non-object then fails closed even when if does not match", func(t *testing.T) {
+		// Structural validation runs before branch selection: a broken "then" is
+		// rejected even for an instance that would not select the then path.
+		s := []byte(`{"type":"object","if":{"properties":{"k":{"const":"a"}},"required":["k"]},"then":5}`)
+		err := Validate(s, []byte(`{"k":"b"}`))
+		if err == nil || !strings.Contains(err.Error(), `"then" must be an object`) {
+			t.Fatalf("error = %v, want then-type rejection", err)
+		}
+	})
+	t.Run("non-object else fails closed even when if matches", func(t *testing.T) {
+		s := []byte(`{"type":"object","if":{"properties":{"k":{"const":"a"}},"required":["k"]},"then":{"required":["k"]},"else":9}`)
+		err := Validate(s, []byte(`{"k":"a"}`))
+		if err == nil || !strings.Contains(err.Error(), `"else" must be an object`) {
+			t.Fatalf("error = %v, want else-type rejection", err)
+		}
+	})
+	t.Run("dangling if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","if":{"required":["k"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"if" present without "then" or "else"`) {
+			t.Fatalf("error = %v, want dangling-if rejection", err)
+		}
+	})
+	t.Run("then without if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","then":{"required":["k"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"then" present without "if"`) {
+			t.Fatalf("error = %v, want then-without-if rejection", err)
+		}
+	})
+	t.Run("else without if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","else":{"required":["k"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"else" present without "if"`) {
+			t.Fatalf("error = %v, want else-without-if rejection", err)
+		}
+	})
+}
+
+func TestPriceCatalogManifestOnlineRequiresCommitAndSource(t *testing.T) {
+	root := repoRoot(t)
+	schemaPath, ok := RegistryFile("qratum.price_catalog_manifest.v1")
+	if !ok {
+		t.Fatal("missing registry entry for price catalog manifest")
+	}
+	schemaData := readRepoFile(t, root, schemaPath)
+	fixtureRel := "fixtures/wave1/contracts/price-catalog-manifest.v1.json"
+
+	// The committed online fixture pins commit + source_url and must still validate.
+	if err := Validate(schemaData, readRepoFile(t, root, fixtureRel)); err != nil {
+		t.Fatalf("committed online price catalog fixture rejected: %v", err)
+	}
+
+	t.Run("online missing resolved_commit rejected", func(t *testing.T) {
+		bad := readJSONMap(t, root, fixtureRel)
+		delete(bad, "resolved_commit")
+		err := Validate(schemaData, mustJSON(t, bad))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"resolved_commit"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming resolved_commit", err)
+		}
+	})
+	t.Run("online missing source_url rejected", func(t *testing.T) {
+		bad := readJSONMap(t, root, fixtureRel)
+		delete(bad, "source_url")
+		err := Validate(schemaData, mustJSON(t, bad))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"source_url"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming source_url", err)
+		}
+	})
+	// A bundled catalog legitimately carries no commit or source_url: the online
+	// pin must NOT fire, proving the fix does not break bundled/file retrieval.
+	t.Run("bundled without commit or source_url valid", func(t *testing.T) {
+		bundled := readJSONMap(t, root, fixtureRel)
+		bundled["retrieval_method"] = "bundled"
+		delete(bundled, "resolved_commit")
+		delete(bundled, "source_url")
+		if err := Validate(schemaData, mustJSON(t, bundled)); err != nil {
+			t.Fatalf("bundled catalog without commit/source_url rejected: %v", err)
+		}
+	})
+}
+
+func TestCaptureEventTranscriptPathConditional(t *testing.T) {
+	root := repoRoot(t)
+	schemaPath, ok := RegistryFile("qratum.capture_event.v2")
+	if !ok {
+		t.Fatal("missing registry entry for capture event")
+	}
+	schemaData := readRepoFile(t, root, schemaPath)
+	fixtureRel := "fixtures/wave1/contracts/capture-event.v2.json"
+
+	// The committed claude-code fixture carries transcript_path and must still validate.
+	if err := Validate(schemaData, readRepoFile(t, root, fixtureRel)); err != nil {
+		t.Fatalf("committed claude-code capture event fixture rejected: %v", err)
+	}
+
+	// Core of F2: a Codex event legitimately omits transcript_path (Codex hook
+	// input carries it only optionally) and must validate.
+	t.Run("codex without transcript_path accepted", func(t *testing.T) {
+		codex := readJSONMap(t, root, fixtureRel)
+		codex["source"] = "codex"
+		delete(codex, "transcript_path")
+		if err := Validate(schemaData, mustJSON(t, codex)); err != nil {
+			t.Fatalf("codex event without transcript_path rejected: %v", err)
+		}
+	})
+	// The Claude guarantee is preserved: a claude-code event without
+	// transcript_path fails closed via the then branch. Asserting the "(then)"
+	// path label proves the conditional — not a base required entry — enforces it,
+	// so the test fails if the conditional fix is reverted.
+	t.Run("claude-code without transcript_path rejected", func(t *testing.T) {
+		claude := readJSONMap(t, root, fixtureRel)
+		delete(claude, "transcript_path")
+		err := Validate(schemaData, mustJSON(t, claude))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"transcript_path"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming transcript_path", err)
+		}
+	})
+}
+
 func TestRegistrySchemaFilesExistAndDeclareVersion(t *testing.T) {
 	root := repoRoot(t)
 	for _, entry := range Registry {
@@ -238,6 +506,12 @@ func TestCommittedFixturesValidateAgainstSchemas(t *testing.T) {
 	validateFile(t, root, "qratum.review_card.v1", "fixtures/review/verification-gap.review.golden.json")
 	validateFile(t, root, "qratum.raw_ref.v1", "fixtures/vault/raw-ref.source-metadata.golden.json.tmpl")
 	validateFile(t, root, "qratum.memory_import_receipt.v1", "fixtures/memory-import/synthetic-receipt.json")
+	validateFile(t, root, "qratum.capture_event.v2", "fixtures/wave1/contracts/capture-event.v2.json")
+	validateFile(t, root, "qratum.capture_state.v1", "fixtures/wave1/contracts/capture-state.v1.json")
+	validateFile(t, root, "qratum.price_catalog_manifest.v1", "fixtures/wave1/contracts/price-catalog-manifest.v1.json")
+	validateFile(t, root, "qratum.session_revision.v1", "fixtures/wave1/contracts/session-revision.v1.json")
+	validateFile(t, root, "qratum.session_tombstone.v1", "fixtures/wave1/contracts/session-tombstone.v1.json")
+	validateFile(t, root, "qratum.usage_record.v1", "fixtures/wave1/contracts/usage-record.v1.json")
 	validateFile(t, root, "1.1.0", "fixtures/adp/session.adp-strict.golden.jsonl")
 	validateFile(t, root, "qratum.ui.session_detail.v1", "fixtures/ui/session-detail.golden.json")
 	validateFile(t, root, "qratum.ui.review_card.v1", "fixtures/ui/review.golden.json")
@@ -289,7 +563,7 @@ func TestSchemasRejectInjectedFixtureKeys(t *testing.T) {
 
 func TestRuntimeSchemaVersionLiteralsAreRegistered(t *testing.T) {
 	root := repoRoot(t)
-	versionRE := regexp.MustCompile(`"((?:qratum\.[a-z0-9_\.]+\.v1)|(?:1\.1\.0))"`)
+	versionRE := regexp.MustCompile(`"((?:qratum\.[a-z0-9_\.]+\.v[0-9]+)|(?:1\.1\.0))"`)
 	for _, dir := range []string{"cmd", "internal"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d os.DirEntry, err error) error {
 			if err != nil {

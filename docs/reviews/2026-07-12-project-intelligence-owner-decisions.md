@@ -16,8 +16,8 @@ specs/current/product-direction.md
 ```
 
 Nothing here authorizes implementation. These accepted choices are folded into
-the canonical product direction; the Tranche 1 technical contract is the next
-contract step.
+the canonical product direction. Wave 1 was later accepted in
+`specs/current/wave-1-reliable-session-capture.md`.
 
 ## Already Resolved
 
@@ -25,11 +25,11 @@ contract step.
 - `Unassigned` is healthy, not an inbox.
 - Suggestions are contextual or explicitly requested; there are no standing
   curation queues or unread counts.
-- Tranche 1 captures facts that can disappear and fixture-locks source usage
+- Wave 1 captures facts that can disappear and fixture-locks source usage
   semantics.
-- Tranche 2 keeps the accepted daily session spine and adds only repository
+- Wave 2 keeps the accepted daily session spine and adds only repository
   awareness.
-- The deterministic Project product is a separate Tranche 2.5.
+- The deterministic Project product is a separate Wave 2.5.
 - Workstreams are optional and begin from confirmed continuation threads.
 - Forge references are inert until a separate opt-in integration is accepted.
 - Session deletion removes usage records, recomputes aggregates, and discloses
@@ -37,7 +37,11 @@ contract step.
 - Subscription calculations are labeled `API-equivalent usage value`, not
   spend.
 - The price catalog is a pinned LiteLLM-style snapshot delivered with releases
-  or updated by explicit user import; there is no silent runtime fetch.
+  or updated by explicit user-requested online refresh or file import; there is
+  no silent runtime fetch and no session data leaves with the request.
+- A future Qratum-operated endpoint may publish a reusable versioned pricing
+  catalog for other projects too. It is separate from Wave 1; agent-gathered
+  changes require official-source evidence and deterministic validation.
 - Exact Git identity is owner-only and excluded from share output unless an
   egress plan lists it.
 - The first roadmap uses `Suggested`, `Accepted`, `Done`, and `Rejected`, with
@@ -142,7 +146,7 @@ open loops, and context compression?
 
 - Deterministic Project features never require a model.
 - A proven-local model may read exact history only after the local boundary is
-  fixture- and runtime-verified in its tranche contract.
+  fixture- and runtime-verified in its wave contract.
 - External providers receive no exact history by default.
 - An external request requires a per-action egress preview naming provider,
   model, locality, input class, repository/Project metadata, estimated cost,
@@ -204,9 +208,9 @@ an unreviewed generated backlog.
 Acceptance closed the Project Intelligence product decisions without accepting
 implementation details. The resulting authority change:
 
-1. folded the deterministic Project layer and tranche placement into
+1. folded the deterministic Project layer and wave placement into
    `specs/current/product-direction.md`;
-2. left the acceptance-gated intelligence tranche explicitly conditional; and
-3. authorized a Tranche 1 contract covering source capture, ephemeral Git
+2. left the acceptance-gated intelligence wave explicitly conditional; and
+3. authorized a Wave 1 contract covering source capture, ephemeral Git
    observations, usage fixtures, deletion propagation, and installed-artifact
    verification.

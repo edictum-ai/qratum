@@ -1,0 +1,1 @@
+{"timestamp":"2026-07-12T09:00:00Z","type":"session_meta","payload":{"id":"22222222-2222-4222-8222-222222222222","session_id":"22222222-2222-4222-8222-222222222222","timestamp":"2026-07-12T09:00:00Z","cwd":"/tmp/project","originator":"codex_cli_rs","cli_version":"0.145.0","source":"cli","model_provider":"openai","thread_source":"cli"}}

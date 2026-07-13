@@ -1,0 +1,28 @@
+{
+  "schema_version": "qratum.session_revision.v1",
+  "data_class": "raw",
+  "source": "codex",
+  "source_version": "0.144.1",
+  "root_session_id": "22222222-2222-4222-8222-222222222222",
+  "stream_id": "main",
+  "stream_kind": "main",
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "raw_ref_id": "raw_codex_001",
+  "revision": 2,
+  "source_path": "/Users/example/.codex/sessions/2026/07/12/rollout-synthetic.jsonl",
+  "before": {
+    "identity": "dev:1:ino:2",
+    "size_bytes": 4096,
+    "modified_at": "2026-07-12T10:00:00Z"
+  },
+  "after": {
+    "identity": "dev:1:ino:2",
+    "size_bytes": 4096,
+    "modified_at": "2026-07-12T10:00:00Z"
+  },
+  "observed_at": "2026-07-12T10:00:01Z",
+  "preserved_at": "2026-07-12T10:00:02Z",
+  "adapter_version": "wave1-v1",
+  "parser_version": "codex-0.144.1-v1",
+  "state": "latest"
+}

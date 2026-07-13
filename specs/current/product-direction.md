@@ -6,7 +6,8 @@ Accepted by product owner: 2026-07-11
 
 Project Intelligence extension accepted by product owner: 2026-07-12
 
-Technical implementation status: not accepted; tranche contracts pending
+Technical implementation status: Wave 1 contract accepted 2026-07-12;
+implementation not started; later wave contracts pending
 
 ## Authority
 
@@ -23,7 +24,7 @@ docs/reviews/2026-07-12-project-intelligence-owner-decisions.md
 ```
 
 Those reviewed documents are normative for user needs and product behavior.
-This file owns their place in the repository authority chain, tranche order,
+This file owns their place in the repository authority chain, wave order,
 and the minimum session-reference contract.
 
 Where these files conflict with the following older documents on product
@@ -40,6 +41,13 @@ docs/reviews/2026-07-10-runtime-rebootstrap.md
 Those files remain evidence about shipped v0.1.0, the local runtime candidate,
 preservation architecture, security findings, and previously accepted design.
 They do not authorize implementation of the new product direction.
+
+## Product Language
+
+Qratum explains itself in simple English. Every feature, status, and failure
+says what it does or what happened, why that matters, and how it works or what
+the user should do next. Technical terms are defined before they are used in
+user-facing text.
 
 ## Product Thesis
 
@@ -161,10 +169,16 @@ replace it or turn Qratum into a task tracker.
 
 - Supported Claude Code per-message usage and Codex delta-from-cumulative usage
   default to `exact/source-reported`.
-- Tranche 1 fixtures pin supported source-version field semantics; unknown
+- Wave 1 fixtures pin supported source-version field semantics; unknown
   shapes reduce coverage visibly and fail closed.
-- A pinned LiteLLM-style price-catalog snapshot rides Qratum releases. An
-  explicit user import may update it; silent runtime fetching is forbidden.
+- A pinned LiteLLM-style price-catalog snapshot rides Qratum releases so cost
+  lookup works offline. The user may explicitly refresh it from Qratum's
+  allowlisted pricing source or import a file. Qratum never refreshes pricing
+  silently or sends session data during a refresh.
+- A future separately accepted service may maintain a reusable, versioned price
+  catalog for Qratum and other projects. An agent may gather candidate prices
+  only from allowlisted official sources; deterministic validation and explicit
+  approval protect publication until automated approval is separately proven.
 - Source-reported billed cost, API-equivalent usage value, and unknown cost are
   separate states.
 - Subscription calculations are API-equivalent value, never spend.
@@ -208,12 +222,13 @@ replace it or turn Qratum into a task tracker.
   Suggestions remain outside user-owned `Now`, `Next`, and `Later` columns, and
   Qratum never changes an item's state.
 
-## Release Tranches
+## Release Waves
 
-Tranches are dependency order. A later tranche does not begin until the prior
-tranche has an accepted technical contract and passes its executable proof.
+A wave is one bounded stage of work with its own contract and proof. Waves are
+dependency order: a later wave does not begin until the prior wave has an
+accepted technical contract and passes its executable proof.
 
-### Tranche 0: Product truth
+### Wave 0: Product truth
 
 Status: complete 2026-07-11
 
@@ -222,7 +237,15 @@ Status: complete 2026-07-11
 - mark conflicting older product rules as superseded; and
 - define the minimum reference information every session must expose.
 
-### Tranche 1: Source correctness
+### Wave 1: Reliable session capture
+
+Status: technical contract accepted 2026-07-12; implementation not started
+
+Implementation authority:
+
+```txt
+specs/current/wave-1-reliable-session-capture.md
+```
 
 - separate Claude Code and Codex adapter contracts and fixtures;
 - verify the capture mechanism for each source;
@@ -235,7 +258,7 @@ Status: complete 2026-07-11
   delta-from-cumulative usage semantics; and
 - prove provenance, containment, owner-only storage, and installed behavior.
 
-### Tranche 2: Daily product spine
+### Wave 2: Daily product spine
 
 - UI-first onboarding and normal operation;
 - unified library and exact transcript reader;
@@ -250,7 +273,7 @@ Status: complete 2026-07-11
 - real exact export; and
 - truthful capture, storage, and lexical-index health.
 
-### Tranche 2.5: Deterministic Project product
+### Wave 2.5: Deterministic Project product
 
 - optional multi-repository Projects plus repository and `Unassigned` views;
 - batch assignment, correction, and audit history;
@@ -259,12 +282,12 @@ Status: complete 2026-07-11
 - bookmarks and notes; and
 - owner export of Project organization.
 
-After Tranche 2.5 proves useful, deterministic timeline, transcript-proven code
+After Wave 2.5 proves useful, deterministic timeline, transcript-proven code
 links, cost anomalies, manual Workstreams from continuation threads, and
 deterministic context-pack selection may receive a separately accepted
 follow-up contract.
 
-### Tranche 3: Semantic retrieval
+### Wave 3: Semantic retrieval
 
 - local-default embeddings;
 - hybrid lexical and semantic ranking;
@@ -275,7 +298,7 @@ follow-up contract.
 Project-scoped semantic search and related-session evidence are included.
 Workstream clustering is not.
 
-### Tranche 4: Context and imports
+### Wave 4: Context and imports
 
 - allowlisted observed source context for Claude and Codex;
 - explicit personal-memory handoff contract;
@@ -285,7 +308,7 @@ Workstream clustering is not.
 Project-scoped source context, personal-memory handoff, and imported-session
 Project assignment use the same accepted boundaries.
 
-### Tranche 5: Optional enrichment and sharing
+### Wave 5: Optional enrichment and sharing
 
 - clearly labeled session-level narrative AI summaries, outcomes, and memory
   candidates;
@@ -294,9 +317,9 @@ Project assignment use the same accepted boundaries.
 - real redacted/share-oriented export; and
 - complete provider, locality, input-class, cost, and provenance disclosure.
 
-### Tranche 6: Acceptance-gated Project intelligence
+### Wave 6: Acceptance-gated Project intelligence
 
-This tranche exists only after Projects and manual organization demonstrate
+This wave exists only after Projects and manual organization demonstrate
 real use. Its internal order is:
 
 1. Project and Workstream summaries;
@@ -310,13 +333,14 @@ acceptance or non-use is a kill signal, not permission to generate more.
 
 ## Contract Readiness
 
-Only the product direction and Tranche 0 are accepted. Tranches 1 through 6,
-including Tranche 2.5, are not implementation-ready.
+The product direction, Wave 0, and the Wave 1 technical contract are accepted.
+Wave 1 is implementation-ready but not implemented. Waves 2 through 6,
+including Wave 2.5, are not implementation-ready.
 
-Before code begins for a tranche, its technical contract must:
+Before code begins for a wave, its technical contract must:
 
 1. resolve every product decision that changes externally visible behavior;
-2. define source schemas, stored schemas, and DTOs used by the tranche;
+2. define source schemas, stored schemas, and DTOs used by the wave;
 3. define failure and recovery behavior;
 4. define privacy and deletion boundaries;
 5. name executable acceptance tests and fixtures;
@@ -364,12 +388,14 @@ Unknown times remain `unknown`; Qratum does not invent precision.
 - `unknown` when the usage, model, or applicable price is missing.
 
 The catalog snapshot records its upstream version or commit and rides Qratum
-binary releases. A separate explicit user-initiated import may refresh it.
-Qratum never fetches or updates pricing silently at runtime.
+binary releases. A separate explicit user action may refresh it from Qratum's
+allowlisted pricing source or import it from a file. Qratum never refreshes
+pricing silently and never sends transcript, usage, Project, or repository data
+with the pricing request.
 
 An API-equivalent value is never presented as the user's actual subscription
 charge or spend. Supported Claude Code per-message usage and supported Codex
-delta-from-cumulative usage are treated as exact/source-reported. Tranche 1
+delta-from-cumulative usage are treated as exact/source-reported. Wave 1
 fixtures pin those semantics so future source-format drift reduces visible
 coverage instead of silently changing totals.
 
@@ -389,9 +415,10 @@ coverage instead of silently changing totals.
 - observed source-context versions and observation times; and
 - durable memories sent to personal-memory, including the returned identifier.
 
-The Tranche 1, Tranche 2, and Tranche 2.5 technical contracts will define the
-concrete stored shape and UI DTOs for this reference. They should not invent a
-larger metadata system unless a user story requires it.
+The accepted Wave 1 contract defines its source and stored shapes. The future
+Wave 2 and Wave 2.5 contracts will define the user-facing DTOs for this
+reference. They should not invent a larger metadata system unless a user story
+requires it.
 
 ## Release Truth
 
@@ -399,9 +426,9 @@ The purpose of release checking is narrow: do not describe a behavior as
 available until the installed `qrt` artifact performs that user flow with its
 accepted fixtures.
 
-For each tranche:
+For each wave:
 
-- acceptance checks cover only the behavior the tranche builds;
+- acceptance checks cover only the behavior the wave builds;
 - checks use an isolated `QRATUM_HOME`, never the user's real sessions;
 - missing or unsupported reference fields display `unknown` or `unsupported`;
 - documentation names exactly what the installed artifact can do;
@@ -409,11 +436,11 @@ For each tranche:
 - a failed security, deletion, containment, or data-integrity check blocks the
   affected release claim.
 
-Tranche 0 is complete when `SPEC.md` and `AGENTS.md` select this contract, the
+Wave 0 is complete when `SPEC.md` and `AGENTS.md` select this contract, the
 conflicting older specs and dispatch plans carry supersession notices, and the
 published v0.1.0 baseline is clearly separated from the local candidate.
 
-## Blocking Decisions Before Tranche Contracts
+## Blocking Decisions Before Later Wave Contracts
 
 The accepted product review leaves these decisions open for the relevant
 technical contract:
@@ -421,15 +448,17 @@ technical contract:
 1. local semantic model acquisition, versioning, updating, and execution;
 2. AI enrichment defaults and whether proven-local AI may read exact history;
 3. the exact Claude and Codex context-source allowlists;
-4. the source identifiers that prove a resume;
-5. per-source capture cadence and whether hooks alone meet continuous-gathering
-   expectations;
-6. the explicit personal-memory handoff/correction/deletion mechanism.
+4. the explicit personal-memory handoff/correction/deletion mechanism.
+
+Wave 1 resolved source identity and capture cadence: Claude Code and Codex use
+their source session IDs, child agents add their source agent IDs, and macOS
+uses source hooks plus a five-minute one-shot capture refresh.
 
 The session-pricing authority is resolved: use a pinned LiteLLM-style catalog
 snapshot that rides Qratum releases, with an optional explicit user-initiated
-import and no silent runtime fetch. Only an explicit source-reported charge is
-actual billed cost; calculated values are API-equivalent usage values.
+online refresh or file import and no silent runtime fetch. Only an explicit
+source-reported charge is actual billed cost; calculated values are
+API-equivalent usage values.
 
 These are not permission to design by implementation. Resolve them in the
-tranche contract before code.
+wave contract before code.

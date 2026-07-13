@@ -3,6 +3,13 @@
 This is the source-of-truth index. It separates accepted product direction,
 published history, local candidate code, and future technical contracts.
 
+## Product Language
+
+New Qratum documentation and user-facing text use simple English. Each feature
+or status explains what it is, why it matters, and how it works or how to
+recover. Technical names are defined before they are used. This language rule
+applies to every wave contract and product surface.
+
 ## Source Of Truth
 
 Read these in order:
@@ -11,8 +18,13 @@ Read these in order:
 specs/current/product-direction.md
   Canonical accepted product authority, including the Project Intelligence
   extension accepted 2026-07-12. Governs product
-  intent, user journeys, user-facing language, release tranches, supersession,
+  intent, user journeys, user-facing language, release waves, supersession,
   and the minimum session-reference contract.
+
+specs/current/wave-1-reliable-session-capture.md
+  Accepted Wave 1 technical contract. Governs Claude Code and Codex capture,
+  stable session identity, usage input, macOS scheduling, and its executable
+  proof. Implementation has not started.
 
 docs/reviews/2026-07-10-product-user-stories.md
 docs/reviews/2026-07-12-project-intelligence-user-stories.md
@@ -51,8 +63,9 @@ They do not override the accepted product direction.
 | Remote `main` at the 2026-07-10 audit | no UI-first runtime | Published baseline plus UI-first documentation; not the candidate runtime. |
 | Current worktree candidate | local, not shipped | Contains a UI-first CLI/API shell and prepare-from-preserved-blob work with correctness and trust gaps. |
 | Product direction | accepted 2026-07-11; Project extension 2026-07-12 | Private searchable memory for Claude and Codex work, with exact local reading, hybrid search, continuity, context, repository/Project organization, and truthful usage accounting. |
-| Tranche 0 | complete 2026-07-11 | Authority, supersession, truthful status, and the minimum session-reference contract. No runtime feature work. |
-| Tranches 1-6, including 2.5 | blocked | Require separately accepted technical contracts before implementation. |
+| Wave 0 | complete 2026-07-11 | Authority, supersession, truthful status, and the minimum session-reference contract. No runtime feature work. |
+| Wave 1 | contract accepted 2026-07-12; implementation not started | Reliable Claude Code and Codex capture is authorized for implementation but is not a working or shipped capability. |
+| Waves 2-6, including 2.5 | blocked | Require separately accepted technical contracts before implementation. |
 
 The old statement `UI-FIRST-ONBOARDING-RUNTIME — SHIPPED WITH NAMED
 RESIDUALS` is retracted. Candidate code existing in a branch is not a published
@@ -73,29 +86,33 @@ the three incorporated review documents listed above.
 
 ## Accepted Release Order
 
+A **wave** is one bounded stage of work with its own contract and proof. Qratum
+finishes and verifies one wave before starting the next.
+
 ```txt
-Tranche 0  product truth
-Tranche 1  source correctness for Claude Code and Codex
-Tranche 2  daily UI, exact reader, lexical search, repository awareness,
+Wave 0  product truth
+Wave 1  reliable session capture for Claude Code and Codex
+Wave 2  daily UI, exact reader, lexical search, repository awareness,
            continuation, deletion, exact export, honest cost, and health
-Tranche 2.5 deterministic Projects, project-scoped search, usage/cost, and export
-Tranche 3  semantic retrieval
-Tranche 4  source context, personal-memory handoff, and vendor imports
-Tranche 5  optional session enrichment and share-oriented export
-Tranche 6  acceptance-gated Project intelligence
+Wave 2.5 deterministic Projects, project-scoped search, usage/cost, and export
+Wave 3  semantic retrieval
+Wave 4  source context, personal-memory handoff, and vendor imports
+Wave 5  optional session enrichment and share-oriented export
+Wave 6  acceptance-gated Project intelligence
 ```
 
 This ordering is a dependency graph, not a commitment to implement all
-tranches in one release. A later tranche starts only after the prior tranche's
+waves in one release. A later wave starts only after the prior wave's
 technical contract is accepted and its proof runs.
 
 ## Contract Readiness
 
-The product direction and Tranche 0 are accepted and complete. Existing
-candidate code does not make Tranches 1-6, including 2.5,
-implementation-ready.
+The product direction and Wave 0 are accepted and complete. The Wave 1
+technical contract is accepted and implementation-ready, but no Wave 1 runtime
+behavior is implemented or shipped. Existing candidate code does not satisfy
+that contract. Waves 2-6, including 2.5, remain blocked.
 
-Before implementation, each tranche must resolve its blocking decisions and
+Before implementation, each wave must resolve its blocking decisions and
 define:
 
 - source and storage contracts;
@@ -104,6 +121,12 @@ define:
 - fixture-driven acceptance tests;
 - an installed-artifact user flow for the behavior; and
 - the exact session reference fields it stores and displays.
+
+The accepted Wave 1 implementation authority is:
+
+```txt
+specs/current/wave-1-reliable-session-capture.md
+```
 
 The minimum session reference is normative:
 
@@ -156,11 +179,11 @@ changes them.
 
 The current worktree's UI-first shell is donor code. Do not describe it as
 shipped, do not use its command surface as product authority, and do not assume
-its DTOs or state model survive the new tranche contracts.
+its DTOs or state model survive the new wave contracts.
 
 ## Explicitly Deferred
 
-These remain outside the accepted tranches until separately designed:
+These remain outside the accepted waves until separately designed:
 
 - verified backup/restore product flow;
 - retention policies and automatic deletion;
@@ -170,6 +193,7 @@ These remain outside the accepted tranches until separately designed:
 - corpus generation and publishing;
 - automatic memory writeback;
 - enterprise control plane;
+- shared Qratum-operated pricing-catalog service;
 - MCP and marketplace behavior;
 - skill mining; and
 - claims that deterministic review proves correctness.

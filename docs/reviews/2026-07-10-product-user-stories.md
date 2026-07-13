@@ -319,13 +319,15 @@ The session page shows cost only when it can be calculated honestly:
   pricing is missing.
 
 The bundled catalog records its upstream version or commit and rides Qratum
-binary releases. A separate explicit user-initiated import may update it.
-Qratum never fetches or updates pricing silently at runtime. Historical entries
-remain versioned so a past session uses the price that applied at the session
-time, not whichever price is current when the page is opened.
+binary releases. A separate explicit user action may refresh it from Qratum's
+allowlisted pricing source or import a file. Qratum never updates pricing
+silently or sends session data during a refresh. Catalog versions remain
+immutable. A past session uses the price that applied at its usage time only
+when Qratum has evidence for that price; otherwise the value names the catalog
+date it used and does not claim to be historical billed cost.
 
 Supported Claude Code per-message usage and supported Codex
-delta-from-cumulative usage default to `exact/source-reported`. Tranche 1
+delta-from-cumulative usage default to `exact/source-reported`. Wave 1
 fixtures pin those source-version semantics so format drift reduces visible
 coverage instead of silently changing totals.
 
@@ -740,16 +742,16 @@ Install and launch Qratum
 During daily work, Qratum gathers and indexes in the background. Restarting
 Qratum or resuming a Claude/Codex session does not repeat onboarding.
 
-## Ordered Release Tranches
+## Ordered Release Waves
 
 The following list is dependency order, not a promise that everything ships as
-one release. Work on a later tranche does not begin until the preceding tranche
+one release. Work on a later wave does not begin until the preceding wave
 passes its contract and installed-artifact verification. The daily loop is not
-called usable before Tranche 2, the product does not satisfy its promised search
-experience before Tranche 3, and no capability is called shipped before its
+called usable before Wave 2, the product does not satisfy its promised search
+experience before Wave 3, and no capability is called shipped before its
 proof runs.
 
-### Tranche 0: Product truth
+### Wave 0: Product truth
 
 - accept the product contract;
 - update `SPEC.md` and `AGENTS.md` to point at it;
@@ -757,7 +759,7 @@ proof runs.
   specs as superseded; and
 - define the minimum reference information every session must expose.
 
-### Tranche 1: Source correctness
+### Wave 1: Reliable session capture
 
 - separate Claude Code and Codex adapter contracts and fixtures;
 - verify the accepted capture mechanism for each source;
@@ -766,9 +768,9 @@ proof runs.
 - preserve named provenance and owner-only storage; and
 - prove behavior from the installed artifact.
 
-This tranche is foundation work and is not presented as the usable product.
+This wave is foundation work and is not presented as the usable product.
 
-### Tranche 2: Daily product spine
+### Wave 2: Daily product spine
 
 - UI-first onboarding and normal operation;
 - one unified library;
@@ -784,7 +786,7 @@ This tranche is foundation work and is not presented as the usable product.
 - truthful capture, storage, and lexical-index health; and
 - the minimal public CLI.
 
-### Tranche 3: Semantic retrieval
+### Wave 3: Semantic retrieval
 
 - local-default embeddings;
 - hybrid lexical and semantic ranking;
@@ -792,17 +794,17 @@ This tranche is foundation work and is not presented as the usable product.
 - resumable model-version re-indexing; and
 - installed privacy, deletion, and retrieval verification.
 
-Completion of this tranche is the first point at which Qratum satisfies the
+Completion of this wave is the first point at which Qratum satisfies the
 document's required hybrid-search experience for hundreds of sessions.
 
-### Tranche 4: Context and imports
+### Wave 4: Context and imports
 
 - allowlisted observed source context for Claude and Codex;
 - explicit personal-memory handoff contract for approved durable memories;
 - strict Claude.ai and ChatGPT export import; and
 - truthful source-context timing and provenance.
 
-### Tranche 5: Optional enrichment and sharing
+### Wave 5: Optional enrichment and sharing
 
 - clearly labeled narrative AI summaries, outcomes, decisions, and memory
   candidates;
@@ -871,8 +873,9 @@ or deletion? This is not assumed to be the same mechanism as transcript capture.
 
 Resolved on 2026-07-12: use a pinned LiteLLM-style model-price catalog snapshot
 that rides Qratum binary releases, with an optional explicit user-initiated
-import and no silent runtime fetch. Only an explicit source-reported charge is
-actual billed cost; calculated values are API-equivalent usage values.
+online refresh or file import and no silent runtime fetch. Only an explicit
+source-reported charge is actual billed cost; calculated values are
+API-equivalent usage values labeled with their catalog date.
 
 ## Acceptance Boundary
 
@@ -882,7 +885,9 @@ implementation, schemas, command signatures, model/provider choices, storage
 backend, or release plan. Those require later contracts after the blocking
 decisions are resolved.
 
-The Tranche 0 authority update is recorded in
-`specs/current/product-direction.md`, `SPEC.md`, and `AGENTS.md`. Tranches 1
-through 5 still require separately accepted technical contracts; no agent
-should implement them from this review document alone.
+The Wave 0 authority update is recorded in
+`specs/current/product-direction.md`, `SPEC.md`, and `AGENTS.md`. At this
+document's acceptance, Waves 1 through 5 still required separate contracts.
+Wave 1 was later accepted in
+`specs/current/wave-1-reliable-session-capture.md`; no agent should implement a
+wave from this review document alone.

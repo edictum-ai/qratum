@@ -26,7 +26,7 @@ optional AI to explain what the work means and where it appears to be going.
 
 This document is accepted product evidence, not implementation authority. Its
 accepted rules are incorporated into the canonical product-direction spec;
-every implementation tranche still requires a separate technical contract.
+every implementation wave still requires a separate technical contract.
 
 The Fable review and the product owner's disposition of its usage-reliability
 and pricing findings are recorded in:
@@ -334,7 +334,7 @@ When supplied by the source, Qratum records:
 Supported Claude Code per-message usage and supported Codex
 delta-from-cumulative usage default to `exact/source-reported`. The reliability
 field exists for future sources and format drift, not as a warning on the
-initial supported sources. Tranche 1 fixtures pin the accepted field semantics
+initial supported sources. Wave 1 fixtures pin the accepted field semantics
 for each supported source version. An unrecognized shape reduces visible
 coverage and reports a diagnostic instead of producing silent zeros.
 
@@ -361,10 +361,13 @@ used Ductum merely because it occurred in a repository Ductum also touches.
 - Use a pinned snapshot of a LiteLLM-style model-price catalog, including its
   upstream version or commit identity.
 - Refresh the bundled snapshot through Qratum binary releases. A separate,
-  explicit user-initiated catalog import may update it out of band.
+  explicit user action may refresh it from Qratum's allowlisted pricing source
+  or import it from a file.
 - Never fetch or update the price catalog silently at runtime.
 - Record price source, effective date, currency, and formula.
-- Use the price applicable at the usage time for historical cost.
+- Use the price applicable at the usage time only when the catalog evidence
+  proves it; otherwise show which catalog date was used and do not call the
+  value historical billed cost.
 - A recalculation using today's price may exist only as a separately labeled
   comparison.
 - Subscription charges are not API usage costs.
@@ -836,7 +839,7 @@ they do not silently masquerade as current.
 
 - Exact and deterministic project views work without external AI.
 - Embeddings are local by default under the accepted search boundary.
-- A proven-local model may read exact history only after its tranche contract
+- A proven-local model may read exact history only after its wave contract
   defines and verifies the local boundary.
 - External AI is opt-in and receives only the explicitly displayed input class.
 - External raw input remains blocked unless a later accepted contract changes
@@ -925,12 +928,12 @@ they do not silently masquerade as current.
 - sessions, code links, decisions, workstreams, roadmap changes, releases,
   usage/cost, and durable-memory handoffs.
 
-## Proposed Tranche Placement
+## Proposed Wave Placement
 
-This extension does not change the accepted tranches until approved. If
+This extension does not change the accepted waves until approved. If
 accepted, the smallest coherent placement is:
 
-### Tranche 1 additions: capture-time facts and usage fixtures
+### Wave 1 additions: capture-time facts and usage fixtures
 
 Add only facts that may disappear before a later scan:
 
@@ -947,7 +950,7 @@ Project assignment, price-catalog interpretation, usage aggregation, and cost
 views are re-derivable from preserved history. They do not delay the accepted
 daily spine.
 
-### Tranche 2 additions: repository awareness only
+### Wave 2 additions: repository awareness only
 
 Keep the accepted daily library, reader, lexical search, continuation,
 deletion, export, health, and CLI spine ahead of the new Project product.
@@ -960,7 +963,7 @@ The only additions are:
 These improve the core without requiring the user to create or curate a
 Project.
 
-### Tranche 2.5: deterministic Project product
+### Wave 2.5: deterministic Project product
 
 - optional multi-repository Projects;
 - repository and `Unassigned` views;
@@ -971,7 +974,7 @@ Project.
 - bookmarks and notes; and
 - owner export of Project organization.
 
-### Immediate follow-up after Tranche 2.5 proves useful
+### Immediate follow-up after Wave 2.5 proves useful
 
 - deterministic Project timeline;
 - transcript-proven code links;
@@ -979,16 +982,16 @@ Project.
 - manual Workstreams bootstrapped from continuation threads; and
 - deterministic context-pack selection with round-trip provenance.
 
-### Existing later tranches
+### Existing later waves
 
-- Tranche 3 adds project-scoped semantic search and related-session evidence,
+- Wave 3 adds project-scoped semantic search and related-session evidence,
   but not Workstream clustering.
-- Tranche 4 adds project-scoped source context, personal-memory handoff, and
+- Wave 4 adds project-scoped source context, personal-memory handoff, and
   vendor-import Project assignment.
-- Tranche 5 keeps the already accepted optional enrichment work behind the
+- Wave 5 keeps the already accepted optional enrichment work behind the
   accepted local/external AI boundary.
 
-### Acceptance-gated intelligence tranche
+### Acceptance-gated intelligence wave
 
 Only after Projects and manual organization demonstrate actual use:
 
@@ -1040,7 +1043,8 @@ Resolved decisions:
 - Claude Code per-message usage and Codex delta-from-cumulative usage are the
   accepted initial ledger semantics and default to `exact/source-reported`;
 - a pinned LiteLLM-style price-catalog snapshot rides Qratum releases, with an
-  optional explicit user-initiated import and no silent runtime fetch;
+  optional explicit user-initiated online refresh or file import and no silent
+  runtime fetch;
 - suggestions are on-request or contextual, never standing queues;
 - Workstreams build from confirmed continuation threads and remain optional;
 - forge references are inert identifiers in this extension;
@@ -1068,7 +1072,7 @@ Resolved decisions:
 8. Is a user-owned AI-proposed roadmap a natural extension or a step into
    project-management scope?
 9. Does the LLM boundary keep the deterministic product useful on its own?
-10. Is the proposed tranche placement credible, or does it overload the daily
+10. Is the proposed wave placement credible, or does it overload the daily
     product spine?
 
 ## Acceptance Boundary
@@ -1076,5 +1080,6 @@ Resolved decisions:
 The product owner accepted this extension on 2026-07-12, and its approved rules
 are incorporated into `specs/current/product-direction.md`. That acceptance does
 not accept existing implementation, select concrete model binaries or provider
-versions, or make any tranche implementation-ready. Each tranche still needs a
-separately accepted technical contract.
+versions, or make a wave implementation-ready by itself. Wave 1 was later
+accepted in `specs/current/wave-1-reliable-session-capture.md`; every later wave
+still needs a separately accepted technical contract.
