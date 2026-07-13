@@ -808,6 +808,20 @@ Import performs no summarization, enrichment, or cross-session linking; those
 remain outside Wave 1. It is a session surface, distinct from the price-catalog
 file refresh.
 
+### Public session erasure
+
+`qrt erase <source> <session-id>` performs the session-addressed terminal
+deletion defined above: it removes every Wave 1 representation of the named
+session, writes the tombstone, and suppresses later recapture. Because deletion
+is irreversible and never auto-recovers, the command first prints the exact
+session identity and the representation counts it will remove, and requires
+explicit confirmation before acting; `qrt erase <source> <session-id> --yes` is
+the automation equivalent for that one named session only. It never removes a
+shared blob still referenced by a live session, and it fails closed — erasing
+nothing — if the suppression key is missing or unreadable. A later wave's
+deletion UI wraps this same command; it does not introduce a second deletion
+path.
+
 ### Hidden machine entrypoints
 
 The following are allowed but omitted from public help:
@@ -844,7 +858,7 @@ live-connected from configuration inspection alone.
 | Schedule missing/inactive | Degraded continuous-capture status | Reinstall/enable schedule |
 | Source file moved to archive | Same session identity; update path observation | Reconciler discovers accepted archive root |
 | Session tombstoned | Suppress every recapture path | No automatic recovery; explicit future policy required |
-| Suppression key missing/unreadable | Tombstone matching untrusted; capture and import fail closed; degraded status | Restore the key from the vault backup |
+| Suppression key missing/unreadable | Tombstone matching untrusted; capture, import, and erase fail closed; degraded status | Restore the key from the vault backup |
 | Crash during publication | Prior revision remains; temp removed later | Next run recovers and retries |
 
 ## Security And Privacy Invariants
@@ -931,8 +945,10 @@ live-connected from configuration inspection alone.
 - owner-only permissions;
 - session erasure with main and multiple children;
 - erased session reappearing through hook, scan, archive move, and import;
-- suppression key removed or corrupted, proving capture and import fail closed,
-  doctor reports degraded, and no erased session is silently recaptured; and
+- suppression key removed or corrupted, proving capture, import, and erase fail
+  closed, doctor reports degraded, and no erased session is silently recaptured;
+- `qrt erase` with the suppression key absent writes no tombstone and removes no
+  representation; and
 - shared blob referenced by one erased and one live session.
 
 ### Pricing fixtures
@@ -981,8 +997,9 @@ Against a built `qrt` and isolated homes:
    logical identity with a new revision only when bytes changed;
 7. inject hostile paths, changed-during-copy, format drift, disk pressure, and
    usage mismatch and verify truthful degraded status;
-8. erase one source session and prove every Wave 1 representation is removed
-   while a shared blob remains for a live session;
+8. erase one source session with `qrt erase`, confirming the printed identity
+   and representation counts (or `--yes`), and prove every Wave 1 representation
+   is removed while a shared blob remains for a live session;
 9. rerun hook, scan, archive, and import paths and prove the erased session is
    suppressed; and
 10. run `qrt doctor --json` and `qrt trust --json` and validate the
@@ -1079,9 +1096,10 @@ online refresh, and local-file refresh.
 
 ### T1.5 — Terminal session deletion
 
-Add session tombstones, the durable owner-only suppression key, representation
-enumeration, shared-blob safety, recapture suppression across hooks,
-reconciliation, scans, and import, and concurrency tests.
+Add the confirmed `qrt erase` entrypoint, session tombstones, the durable
+owner-only suppression key, representation enumeration, shared-blob safety,
+recapture suppression across hooks, reconciliation, scans, and import, and
+concurrency tests.
 
 ### T1.6 — Init, doctor, trust, import, and installed proof
 
@@ -1109,10 +1127,10 @@ Accepting this contract accepts these externally visible choices:
     local-file refresh, with no silent update;
 11. session-addressed terminal erasure with a durable owner-only suppression
     key that is never auto-rotated; and
-12. `qrt init`, `qrt doctor`, `qrt pricing refresh`, `qrt import`, hidden
-    hook/reconcile entrypoints, and executed `qrt trust` as the Wave 1 operator
-    surfaces, with `qrt doctor --json` and `qrt trust --json` returning strict
-    versioned DTOs.
+12. `qrt init`, `qrt doctor`, `qrt pricing refresh`, `qrt import`, confirmed
+    `qrt erase`, hidden hook/reconcile entrypoints, and executed `qrt trust` as
+    the Wave 1 operator surfaces, with `qrt doctor --json` and `qrt trust
+    --json` returning strict versioned DTOs.
 
 Rejecting or changing any item changes the contract and requires another review
 before implementation.
