@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-session-tombstone.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "source", "session_identity_digest", "erased_at", "removal_status", "removal_counts"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.session_tombstone.v1" },
+    "data_class": { "const": "raw" },
+    "source": { "enum": ["claude-code", "codex"] },
+    "session_identity_digest": { "type": "string" },
+    "erased_at": { "type": "string" },
+    "removal_status": { "enum": ["complete", "partial"] },
+    "removal_counts": {
+      "type": "object",
+      "required": ["blobs", "raw_refs", "revisions", "usage", "events", "state", "temporary"],
+      "additionalProperties": false,
+      "properties": {
+        "blobs": { "type": "integer" },
+        "raw_refs": { "type": "integer" },
+        "revisions": { "type": "integer" },
+        "usage": { "type": "integer" },
+        "events": { "type": "integer" },
+        "state": { "type": "integer" },
+        "temporary": { "type": "integer" }
+      }
+    }
+  }
+}

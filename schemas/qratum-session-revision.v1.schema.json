@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-session-revision.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "source", "source_version", "root_session_id", "stream_id", "stream_kind", "digest", "raw_ref_id", "revision", "source_path", "before", "after", "observed_at", "preserved_at", "adapter_version", "parser_version", "state"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.session_revision.v1" },
+    "data_class": { "const": "raw" },
+    "source": { "enum": ["claude-code", "codex"] },
+    "source_version": { "type": "string" },
+    "root_session_id": { "type": "string" },
+    "stream_id": { "type": "string" },
+    "stream_kind": { "enum": ["main", "child"] },
+    "agent_id": { "type": "string" },
+    "digest": { "type": "string" },
+    "raw_ref_id": { "type": "string" },
+    "revision": { "type": "integer" },
+    "source_path": { "type": "string" },
+    "before": {
+      "type": "object",
+      "required": ["identity", "size_bytes", "modified_at"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "type": "string" },
+        "size_bytes": { "type": "integer" },
+        "modified_at": { "type": "string" }
+      }
+    },
+    "after": {
+      "type": "object",
+      "required": ["identity", "size_bytes", "modified_at"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "type": "string" },
+        "size_bytes": { "type": "integer" },
+        "modified_at": { "type": "string" }
+      }
+    },
+    "observed_at": { "type": "string" },
+    "preserved_at": { "type": "string" },
+    "adapter_version": { "type": "string" },
+    "parser_version": { "type": "string" },
+    "state": { "enum": ["latest", "superseded"] }
+  }
+}

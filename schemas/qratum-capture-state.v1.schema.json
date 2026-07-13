@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qratum.dev/schemas/qratum-capture-state.v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "data_class", "updated_at", "sources", "streams"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "qratum.capture_state.v1" },
+    "data_class": { "const": "raw" },
+    "updated_at": { "type": "string" },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "status", "configured_hook_events", "hook_trust_state", "pending_event_count", "root_stream_count", "child_stream_count", "supported_record_count", "unsupported_record_count", "usage_coverage", "usage_reconciliation", "schedule_state", "warnings"],
+        "additionalProperties": false,
+        "properties": {
+          "source": { "enum": ["claude-code", "codex"] },
+          "source_version": { "type": "string" },
+          "status": { "enum": ["unsupported", "not_configured", "installed_needs_trust", "connected", "degraded", "failed"] },
+          "configured_hook_events": { "type": "array", "items": { "type": "string" } },
+          "hook_trust_state": { "enum": ["not_applicable", "not_configured", "user_action_required", "live_evidence"] },
+          "last_hook_event_at": { "type": "string" },
+          "pending_event_count": { "type": "integer" },
+          "oldest_pending_event_at": { "type": "string" },
+          "last_refresh_started_at": { "type": "string" },
+          "last_refresh_finished_at": { "type": "string" },
+          "last_refresh_result": { "enum": ["success", "partial", "failed"] },
+          "last_snapshot_at": { "type": "string" },
+          "root_stream_count": { "type": "integer" },
+          "child_stream_count": { "type": "integer" },
+          "supported_record_count": { "type": "integer" },
+          "unsupported_record_count": { "type": "integer" },
+          "usage_coverage": { "enum": ["complete", "incomplete", "unsupported", "unknown"] },
+          "usage_reconciliation": { "enum": ["matched", "mismatch", "pending", "not_applicable"] },
+          "schedule_state": { "enum": ["installed_active", "missing", "inactive", "unsupported"] },
+          "warnings": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "streams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "root_session_id", "stream_id", "state", "retry_count"],
+        "additionalProperties": false,
+        "properties": {
+          "source": { "enum": ["claude-code", "codex"] },
+          "root_session_id": { "type": "string" },
+          "stream_id": { "type": "string" },
+          "state": { "enum": ["observed", "dirty", "copying", "preserved", "retryable_failure", "unsupported", "erased"] },
+          "latest_digest": { "type": "string" },
+          "last_observed_at": { "type": "string" },
+          "last_preserved_at": { "type": "string" },
+          "retry_count": { "type": "integer" },
+          "last_failure": { "type": "string" }
+        }
+      }
+    }
+  }
+}

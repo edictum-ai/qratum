@@ -1,0 +1,17 @@
+{
+  "schema_version": "qratum.session_tombstone.v1",
+  "data_class": "raw",
+  "source": "claude-code",
+  "session_identity_digest": "hmac-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "erased_at": "2026-07-12T11:00:00Z",
+  "removal_status": "complete",
+  "removal_counts": {
+    "blobs": 2,
+    "raw_refs": 2,
+    "revisions": 3,
+    "usage": 8,
+    "events": 1,
+    "state": 2,
+    "temporary": 0
+  }
+}

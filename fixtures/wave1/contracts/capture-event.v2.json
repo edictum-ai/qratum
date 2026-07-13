@@ -1,0 +1,27 @@
+{
+  "schema_version": "qratum.capture_event.v2",
+  "data_class": "raw",
+  "event_id": "evt_wave1_claude_stop_001",
+  "source": "claude-code",
+  "source_version": "2.1.207",
+  "event_type": "Stop",
+  "root_session_id": "11111111-1111-4111-8111-111111111111",
+  "transcript_kind": "main",
+  "transcript_path": "/Users/example/.claude/projects/-tmp-project/11111111-1111-4111-8111-111111111111.jsonl",
+  "cwd": "/tmp/project-worktree",
+  "model": "claude-opus-4-6",
+  "event_time": "2026-07-12T10:00:00Z",
+  "observed_at": "2026-07-12T10:00:00.010Z",
+  "git": {
+    "status": "observed",
+    "repository_root": "/tmp/project-worktree",
+    "common_directory": "/tmp/project/.git",
+    "branch": "feat/example",
+    "head_commit": "synthetic-head-not-a-real-commit",
+    "sanitized_remote": "https://github.com/example/project.git"
+  },
+  "provenance": {
+    "adapter": "claude-code",
+    "adapter_version": "wave1-v1"
+  }
+}
