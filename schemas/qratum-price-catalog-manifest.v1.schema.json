@@ -18,5 +18,7 @@
     "effective_at": { "type": "string" },
     "transform_version": { "type": "string" },
     "entry_count": { "type": "integer" }
-  }
+  },
+  "if": { "properties": { "retrieval_method": { "const": "online" } }, "required": ["retrieval_method"] },
+  "then": { "required": ["resolved_commit", "source_url"] }
 }

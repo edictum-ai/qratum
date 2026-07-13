@@ -162,6 +162,20 @@ func validateValue(path string, schema map[string]any, value any) error {
 		}
 	}
 
+	// required is an independent applicator: it constrains object membership even
+	// when the schema declares no "properties" (e.g. a bare "then":
+	// {"required": [...]}). Checking it only inside the properties block would let
+	// such a subschema pass vacuously — a fail-open we must not ship.
+	if _, hasRequired := schema["required"]; hasRequired {
+		object, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s: required applies to an object value", path)
+		}
+		if err := validateRequired(path, schema, object); err != nil {
+			return err
+		}
+	}
+
 	if propertiesRaw, hasProperties := schema["properties"]; hasProperties {
 		object, ok := value.(map[string]any)
 		if !ok {
@@ -170,9 +184,6 @@ func validateValue(path string, schema map[string]any, value any) error {
 		properties, ok := propertiesRaw.(map[string]any)
 		if !ok {
 			return fmt.Errorf("%s: schema properties must be an object", path)
-		}
-		if err := validateRequired(path, schema, object); err != nil {
-			return err
 		}
 		for key, child := range properties {
 			childSchema, ok := child.(map[string]any)
@@ -214,6 +225,75 @@ func validateValue(path string, schema map[string]any, value any) error {
 				return err
 			}
 		}
+	}
+
+	if err := validateConditional(path, schema, value); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateConditional applies the if/then/else applicator keywords. They are
+// ADDITIVE: the object's own base keywords (type, properties, required, ...)
+// still apply unconditionally; if/then/else only layer an extra constraint on
+// top. Semantics follow JSON Schema 2020-12 with one deliberate hardening.
+//
+// Fail-closed posture: JSON Schema treats a lone "if" (no then/else) and a
+// then/else without an "if" as silent no-ops. A no-op'd constraint is exactly
+// the fail-open we are here to close, so this validator instead REJECTS those
+// shapes, along with any if/then/else that is not a JSON object. A malformed or
+// dangling conditional is a schema error, never a skipped check.
+func validateConditional(path string, schema map[string]any, value any) error {
+	ifRaw, hasIf := schema["if"]
+	thenRaw, hasThen := schema["then"]
+	elseRaw, hasElse := schema["else"]
+
+	if !hasIf {
+		// "then"/"else" without "if" can never fire — deny rather than no-op.
+		if hasThen {
+			return fmt.Errorf("%s: schema \"then\" present without \"if\"", path)
+		}
+		if hasElse {
+			return fmt.Errorf("%s: schema \"else\" present without \"if\"", path)
+		}
+		return nil
+	}
+
+	// A dangling "if" with neither branch silently discards the constraint.
+	// Intentionally stricter than the spec's no-op allowance: deny it.
+	if !hasThen && !hasElse {
+		return fmt.Errorf("%s: schema \"if\" present without \"then\" or \"else\"", path)
+	}
+
+	// Structural checks fail closed regardless of which branch the instance
+	// selects: a malformed conditional subschema is rejected up front, so a
+	// mis-typed "then"/"else" can never slip through on the unselected branch.
+	ifSchema, ok := ifRaw.(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s: schema \"if\" must be an object", path)
+	}
+	var thenSchema, elseSchema map[string]any
+	if hasThen {
+		if thenSchema, ok = thenRaw.(map[string]any); !ok {
+			return fmt.Errorf("%s: schema \"then\" must be an object", path)
+		}
+	}
+	if hasElse {
+		if elseSchema, ok = elseRaw.(map[string]any); !ok {
+			return fmt.Errorf("%s: schema \"else\" must be an object", path)
+		}
+	}
+
+	// Evaluate "if" against the instance. A FAILED "if" is NOT an error — it only
+	// selects the "else" branch. if-branch errors must never leak to the caller.
+	if validateValue(path+" (if)", ifSchema, value) == nil {
+		if hasThen {
+			return validateValue(path+" (then)", thenSchema, value)
+		}
+		return nil
+	}
+	if hasElse {
+		return validateValue(path+" (else)", elseSchema, value)
 	}
 	return nil
 }

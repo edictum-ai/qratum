@@ -256,6 +256,175 @@ func TestPriceCatalogManifestRequiresFullGitSHA(t *testing.T) {
 	}
 }
 
+func TestValidatorIfThenKeyword(t *testing.T) {
+	// if/then/else are ADDITIVE applicators layered on top of the base keywords.
+	// A failed "if" only selects the branch; it is never itself an error. The
+	// validator is deliberately stricter than JSON Schema 2020-12 on malformed or
+	// dangling conditionals, rejecting them rather than silently no-oping a check.
+	base := []byte(`{
+	  "type": "object",
+	  "additionalProperties": false,
+	  "properties": {
+	    "kind": {"enum": ["a", "b"]},
+	    "extra": {"type": "string"},
+	    "fallback": {"type": "string"}
+	  },
+	  "if": {"properties": {"kind": {"const": "a"}}, "required": ["kind"]},
+	  "then": {"required": ["extra"]},
+	  "else": {"required": ["fallback"]}
+	}`)
+
+	t.Run("if-match enforces then", func(t *testing.T) {
+		err := Validate(base, []byte(`{"kind":"a"}`))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"extra"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming extra", err)
+		}
+	})
+	t.Run("if-match with then satisfied passes", func(t *testing.T) {
+		if err := Validate(base, []byte(`{"kind":"a","extra":"x"}`)); err != nil {
+			t.Fatalf("if-match with then satisfied rejected: %v", err)
+		}
+	})
+	t.Run("if-no-match does not enforce then", func(t *testing.T) {
+		// kind=b: the then branch must NOT fire, so a missing "extra" is fine as
+		// long as the else branch is satisfied.
+		if err := Validate(base, []byte(`{"kind":"b","fallback":"y"}`)); err != nil {
+			t.Fatalf("if-no-match wrongly enforced then: %v", err)
+		}
+	})
+	t.Run("if-no-match enforces else", func(t *testing.T) {
+		err := Validate(base, []byte(`{"kind":"b"}`))
+		if err == nil || !strings.Contains(err.Error(), "(else)") || !strings.Contains(err.Error(), `"fallback"`) {
+			t.Fatalf("error = %v, want else-branch rejection naming fallback", err)
+		}
+	})
+	t.Run("non-object if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","if":123,"then":{"required":["x"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"if" must be an object`) {
+			t.Fatalf("error = %v, want if-type rejection", err)
+		}
+	})
+	t.Run("non-object then fails closed even when if does not match", func(t *testing.T) {
+		// Structural validation runs before branch selection: a broken "then" is
+		// rejected even for an instance that would not select the then path.
+		s := []byte(`{"type":"object","if":{"properties":{"k":{"const":"a"}},"required":["k"]},"then":5}`)
+		err := Validate(s, []byte(`{"k":"b"}`))
+		if err == nil || !strings.Contains(err.Error(), `"then" must be an object`) {
+			t.Fatalf("error = %v, want then-type rejection", err)
+		}
+	})
+	t.Run("non-object else fails closed even when if matches", func(t *testing.T) {
+		s := []byte(`{"type":"object","if":{"properties":{"k":{"const":"a"}},"required":["k"]},"then":{"required":["k"]},"else":9}`)
+		err := Validate(s, []byte(`{"k":"a"}`))
+		if err == nil || !strings.Contains(err.Error(), `"else" must be an object`) {
+			t.Fatalf("error = %v, want else-type rejection", err)
+		}
+	})
+	t.Run("dangling if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","if":{"required":["k"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"if" present without "then" or "else"`) {
+			t.Fatalf("error = %v, want dangling-if rejection", err)
+		}
+	})
+	t.Run("then without if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","then":{"required":["k"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"then" present without "if"`) {
+			t.Fatalf("error = %v, want then-without-if rejection", err)
+		}
+	})
+	t.Run("else without if fails closed", func(t *testing.T) {
+		s := []byte(`{"type":"object","else":{"required":["k"]}}`)
+		err := Validate(s, []byte(`{}`))
+		if err == nil || !strings.Contains(err.Error(), `"else" present without "if"`) {
+			t.Fatalf("error = %v, want else-without-if rejection", err)
+		}
+	})
+}
+
+func TestPriceCatalogManifestOnlineRequiresCommitAndSource(t *testing.T) {
+	root := repoRoot(t)
+	schemaPath, ok := RegistryFile("qratum.price_catalog_manifest.v1")
+	if !ok {
+		t.Fatal("missing registry entry for price catalog manifest")
+	}
+	schemaData := readRepoFile(t, root, schemaPath)
+	fixtureRel := "fixtures/wave1/contracts/price-catalog-manifest.v1.json"
+
+	// The committed online fixture pins commit + source_url and must still validate.
+	if err := Validate(schemaData, readRepoFile(t, root, fixtureRel)); err != nil {
+		t.Fatalf("committed online price catalog fixture rejected: %v", err)
+	}
+
+	t.Run("online missing resolved_commit rejected", func(t *testing.T) {
+		bad := readJSONMap(t, root, fixtureRel)
+		delete(bad, "resolved_commit")
+		err := Validate(schemaData, mustJSON(t, bad))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"resolved_commit"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming resolved_commit", err)
+		}
+	})
+	t.Run("online missing source_url rejected", func(t *testing.T) {
+		bad := readJSONMap(t, root, fixtureRel)
+		delete(bad, "source_url")
+		err := Validate(schemaData, mustJSON(t, bad))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"source_url"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming source_url", err)
+		}
+	})
+	// A bundled catalog legitimately carries no commit or source_url: the online
+	// pin must NOT fire, proving the fix does not break bundled/file retrieval.
+	t.Run("bundled without commit or source_url valid", func(t *testing.T) {
+		bundled := readJSONMap(t, root, fixtureRel)
+		bundled["retrieval_method"] = "bundled"
+		delete(bundled, "resolved_commit")
+		delete(bundled, "source_url")
+		if err := Validate(schemaData, mustJSON(t, bundled)); err != nil {
+			t.Fatalf("bundled catalog without commit/source_url rejected: %v", err)
+		}
+	})
+}
+
+func TestCaptureEventTranscriptPathConditional(t *testing.T) {
+	root := repoRoot(t)
+	schemaPath, ok := RegistryFile("qratum.capture_event.v2")
+	if !ok {
+		t.Fatal("missing registry entry for capture event")
+	}
+	schemaData := readRepoFile(t, root, schemaPath)
+	fixtureRel := "fixtures/wave1/contracts/capture-event.v2.json"
+
+	// The committed claude-code fixture carries transcript_path and must still validate.
+	if err := Validate(schemaData, readRepoFile(t, root, fixtureRel)); err != nil {
+		t.Fatalf("committed claude-code capture event fixture rejected: %v", err)
+	}
+
+	// Core of F2: a Codex event legitimately omits transcript_path (Codex hook
+	// input carries it only optionally) and must validate.
+	t.Run("codex without transcript_path accepted", func(t *testing.T) {
+		codex := readJSONMap(t, root, fixtureRel)
+		codex["source"] = "codex"
+		delete(codex, "transcript_path")
+		if err := Validate(schemaData, mustJSON(t, codex)); err != nil {
+			t.Fatalf("codex event without transcript_path rejected: %v", err)
+		}
+	})
+	// The Claude guarantee is preserved: a claude-code event without
+	// transcript_path fails closed via the then branch. Asserting the "(then)"
+	// path label proves the conditional — not a base required entry — enforces it,
+	// so the test fails if the conditional fix is reverted.
+	t.Run("claude-code without transcript_path rejected", func(t *testing.T) {
+		claude := readJSONMap(t, root, fixtureRel)
+		delete(claude, "transcript_path")
+		err := Validate(schemaData, mustJSON(t, claude))
+		if err == nil || !strings.Contains(err.Error(), "(then)") || !strings.Contains(err.Error(), `"transcript_path"`) {
+			t.Fatalf("error = %v, want then-branch rejection naming transcript_path", err)
+		}
+	})
+}
+
 func TestRegistrySchemaFilesExistAndDeclareVersion(t *testing.T) {
 	root := repoRoot(t)
 	for _, entry := range Registry {

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qratum.dev/schemas/qratum-capture-event.v2.schema.json",
   "type": "object",
-  "required": ["schema_version", "data_class", "event_id", "source", "source_version", "event_type", "root_session_id", "transcript_kind", "transcript_path", "cwd", "observed_at", "git", "provenance"],
+  "required": ["schema_version", "data_class", "event_id", "source", "source_version", "event_type", "root_session_id", "transcript_kind", "cwd", "observed_at", "git", "provenance"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "const": "qratum.capture_event.v2" },
@@ -54,5 +54,7 @@
         "adapter_version": { "type": "string" }
       }
     }
-  }
+  },
+  "if": { "properties": { "source": { "const": "claude-code" } }, "required": ["source"] },
+  "then": { "required": ["transcript_path"] }
 }

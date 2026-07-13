@@ -44,17 +44,20 @@ type HarnessMarker struct {
 
 // CaptureEvent is the small owner-only event written by a source hook.
 type CaptureEvent struct {
-	SchemaVersion  string           `json:"schema_version"`
-	DataClass      string           `json:"data_class"`
-	EventID        string           `json:"event_id"`
-	Source         string           `json:"source"`
-	SourceVersion  string           `json:"source_version"`
-	EventType      string           `json:"event_type"`
-	RootSessionID  string           `json:"root_session_id"`
-	AgentID        string           `json:"agent_id,omitempty"`
-	AgentType      string           `json:"agent_type,omitempty"`
-	TranscriptKind string           `json:"transcript_kind"`
-	TranscriptPath string           `json:"transcript_path"`
+	SchemaVersion  string `json:"schema_version"`
+	DataClass      string `json:"data_class"`
+	EventID        string `json:"event_id"`
+	Source         string `json:"source"`
+	SourceVersion  string `json:"source_version"`
+	EventType      string `json:"event_type"`
+	RootSessionID  string `json:"root_session_id"`
+	AgentID        string `json:"agent_id,omitempty"`
+	AgentType      string `json:"agent_type,omitempty"`
+	TranscriptKind string `json:"transcript_kind"`
+	// TranscriptPath is base-optional: Codex hook input carries it only
+	// optionally, so it is required conditionally (claude-code => required) by the
+	// schema's if/then, not by the base required list. omitempty mirrors that.
+	TranscriptPath string           `json:"transcript_path,omitempty"`
 	CWD            string           `json:"cwd"`
 	Model          string           `json:"model,omitempty"`
 	EventTime      string           `json:"event_time,omitempty"`
