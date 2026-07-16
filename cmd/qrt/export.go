@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	qschema "github.com/edictum-ai/qratum/internal/schema"
+	qschema "github.com/acartag7/qratum/internal/schema"
 )
 
 const (

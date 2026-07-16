@@ -58,7 +58,7 @@ jobs:
         run: sh scripts/homebrew-smoke.sh
 
   # Real release on a v* tag: publish the GitHub release and push the formula to
-  # edictum-ai/homebrew-edictum. HOMEBREW_TAP_TOKEN must be a repo secret with
+  # acartag7/homebrew-tap. HOMEBREW_TAP_TOKEN must be a repo secret with
   # write access to the tap.
   release:
     needs: gate

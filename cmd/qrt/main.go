@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/edictum-ai/qratum/internal/vault"
-	"github.com/edictum-ai/qratum/internal/workspace"
+	"github.com/acartag7/qratum/internal/vault"
+	"github.com/acartag7/qratum/internal/workspace"
 )
 
 // version is the build version. It defaults to "dev" for local builds and is

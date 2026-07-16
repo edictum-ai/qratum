@@ -96,8 +96,8 @@ export const qratum = {
   },
 
   install: [
-    "brew tap edictum-ai/edictum",
-    "brew trust edictum-ai/edictum   # Homebrew gates third-party taps",
+    "brew tap acartag7/tap",
+    "brew trust acartag7/tap   # Homebrew gates third-party taps",
     "brew install qratum    # the qrt binary",
     "qrt hook install       # capture every future session",
     "qrt trust              # the self-verification scorecard",

@@ -269,7 +269,7 @@ ship raw — and a branch name can itself be a secret. `redactQratumSession` nev
 routes `started_at`, `ended_at`, `source_event_id`, `git.branch`, or
 `git.head_sha` through `redactString`; `git.remote` is routed but SSH remotes
 match no pattern. The committed golden file even ships
-`git@github.com:edictum-ai/qratum.git` plus branch and timestamps unredacted. A
+`git@github.com:acartag7/qratum.git` plus branch and timestamps unredacted. A
 branch like `feature/customer-acme-prod-keys` would leak straight into the report
 and ADP. (Details: `redact.go:206-246`;
 `fixtures/redaction/secret-session.redacted.golden.json:32`.)
@@ -626,7 +626,7 @@ security tier and an integrity tier; any failure in either tier blocks release.
   temp workspaces; machine-independence (`QRATUM_HOME` + `t.TempDir`, ToSlash);
   stable ADP ordering. This **runs downstream of leak-freedom:** a standalone lint
   asserts **no committed golden contains a known secret or internal identifier**
-  (`edictum-ai/qratum.git`, real head SHAs) — so a regen guard can't certify a
+  (`acartag7/qratum.git`, real head SHAs) — so a regen guard can't certify a
   leak as the intended output.
 - **D6 — Idempotency + crash recovery.** In plain terms: re-running changes
   nothing, a crash mid-write recovers cleanly, and a missing transcript fails

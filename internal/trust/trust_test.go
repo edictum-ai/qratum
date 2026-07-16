@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edictum-ai/qratum/internal/schema"
+	"github.com/acartag7/qratum/internal/schema"
 )
 
 func TestEvaluateEmitsSchemaValidLeakFreeScorecard(t *testing.T) {

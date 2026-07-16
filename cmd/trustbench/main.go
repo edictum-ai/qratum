@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/edictum-ai/qratum/internal/trust"
+	"github.com/acartag7/qratum/internal/trust"
 )
 
 func main() {

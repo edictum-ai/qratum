@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	claudecfg "github.com/edictum-ai/qratum/internal/claude"
-	"github.com/edictum-ai/qratum/internal/textdiff"
+	claudecfg "github.com/acartag7/qratum/internal/claude"
+	"github.com/acartag7/qratum/internal/textdiff"
 )
 
 func hookInstall(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {

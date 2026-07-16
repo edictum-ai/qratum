@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/edictum-ai/qratum/internal/workspace"
+	"github.com/acartag7/qratum/internal/workspace"
 )
 
 type sessionListEntry struct {

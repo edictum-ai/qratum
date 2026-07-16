@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	qschema "github.com/edictum-ai/qratum/internal/schema"
-	"github.com/edictum-ai/qratum/internal/vault"
-	"github.com/edictum-ai/qratum/internal/workspace"
+	qschema "github.com/acartag7/qratum/internal/schema"
+	"github.com/acartag7/qratum/internal/vault"
+	"github.com/acartag7/qratum/internal/workspace"
 )
 
 const (

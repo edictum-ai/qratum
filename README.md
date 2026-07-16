@@ -115,13 +115,13 @@ Honest boundaries — three limits to know about today:
 ## Install
 
 ```sh
-brew tap edictum-ai/edictum
-brew trust edictum-ai/edictum   # Homebrew gates third-party taps
+brew tap acartag7/tap
+brew trust acartag7/tap   # Homebrew gates third-party taps
 brew install qratum             # installs the `qrt` binary
 ```
 
 Prebuilt binaries (darwin/linux × amd64/arm64) are also on each
-[release](https://github.com/edictum-ai/qratum/releases). Or build from source
+[release](https://github.com/acartag7/qratum/releases). Or build from source
 with `make build`.
 
 ## Quick start

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/edictum-ai/qratum/internal/workspace"
+	"github.com/acartag7/qratum/internal/workspace"
 )
 
 const dogfoodImportStatus = "dogfood_imported"

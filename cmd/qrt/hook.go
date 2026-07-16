@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/edictum-ai/qratum/internal/capture"
+	"github.com/acartag7/qratum/internal/capture"
 )
 
 const (
