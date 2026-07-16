@@ -1,12 +1,12 @@
 # Release runbook — `qrt` distribution
 
 Qratum ships as a single Go binary via **GitHub Releases** (cross-platform
-tarballs + checksums) and a **Homebrew formula** in the edictum org tap.
+tarballs + checksums) and a **Homebrew formula** in the personal Homebrew tap.
 
 Install (end users):
 
 ```sh
-brew tap edictum-ai/edictum
+brew tap acartag7/tap
 brew install qratum          # installs the `qrt` binary
 qrt --version
 ```
@@ -15,11 +15,11 @@ Raw binaries are also attached to each GitHub Release for non-brew users.
 
 ## One-time setup
 
-1. **Create the tap repo** `edictum-ai/homebrew-edictum` (public). Homebrew maps
-   `edictum-ai/edictum` → the repo `edictum-ai/homebrew-edictum`. It needs a
+1. **Create the tap repo** `acartag7/homebrew-tap` (public). Homebrew maps
+   `acartag7/tap` → the repo `acartag7/homebrew-tap`. It needs a
    `Formula/` directory (goreleaser commits `Formula/qratum.rb` automatically).
 2. **Create a tap-write token.** A fine-grained PAT (or deploy key) with
-   `contents:write` on `edictum-ai/homebrew-edictum` only. Add it to the
+   `contents:write` on `acartag7/homebrew-tap` only. Add it to the
    **qratum** repo as the secret `HOMEBREW_TAP_TOKEN`. (The release's own
    GitHub release upload uses the built-in `GITHUB_TOKEN`; the separate token is
    only because the formula lands in a *different* repo.)
@@ -57,5 +57,5 @@ PRs that touch the release plumbing (`.goreleaser.yaml`, `release.yml`,
 ## Notes
 
 - `qrt` is pure-stdlib Go, built `CGO_ENABLED=0` → fully static binaries.
-- The tap can also host other edictum CLIs later (e.g. `edictum-go`) under the
-  same `brew tap edictum-ai/edictum`.
+- The tap can also host my other CLIs later, under the same
+  `brew tap acartag7/tap`.

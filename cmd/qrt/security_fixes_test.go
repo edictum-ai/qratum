@@ -16,7 +16,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edictum-ai/qratum/internal/vault"
+	"github.com/acartag7/qratum/internal/vault"
 )
 
 func TestRedactArrowSeparatorLeavesNoResidualSecret(t *testing.T) {
@@ -686,7 +686,7 @@ type lintPattern struct {
 }
 
 var fixtureSecretPatterns = []lintPattern{
-	{name: "internal qratum repo", re: regexp.MustCompile(`edictum-ai/qratum\.git`)},
+	{name: "internal qratum repo", re: regexp.MustCompile(`acartag7/qratum\.git`)},
 	{name: "ssh remote", re: regexp.MustCompile(`git@[^\s"'<>]+:[^\s"'<>]+`)},
 	{name: "OpenAI/Anthropic shaped token", re: regexp.MustCompile(`\bsk-[A-Za-z0-9][A-Za-z0-9_-]{20,}\b`)},
 	{name: "GitHub token", re: regexp.MustCompile(`\bghp_[A-Za-z0-9_]{20,}\b`)},

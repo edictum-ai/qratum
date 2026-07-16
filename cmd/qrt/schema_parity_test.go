@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edictum-ai/qratum/internal/capture"
-	qschema "github.com/edictum-ai/qratum/internal/schema"
-	"github.com/edictum-ai/qratum/internal/trust"
-	"github.com/edictum-ai/qratum/internal/vault"
+	"github.com/acartag7/qratum/internal/capture"
+	qschema "github.com/acartag7/qratum/internal/schema"
+	"github.com/acartag7/qratum/internal/trust"
+	"github.com/acartag7/qratum/internal/vault"
 )
 
 func TestEmittedStructSchemasMatchJSONTags(t *testing.T) {

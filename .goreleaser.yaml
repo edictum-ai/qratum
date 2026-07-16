@@ -38,15 +38,15 @@ changelog:
 
 release:
   github:
-    owner: edictum-ai
+    owner: acartag7
     name: qratum
   draft: false
   prerelease: auto
 
-# Publish a Homebrew formula to the edictum org tap on each release.
-# `brew install edictum-ai/edictum/qratum` installs the `qrt` binary.
+# Publish a Homebrew formula to the personal Homebrew tap on each release.
+# `brew install acartag7/tap/qratum` installs the `qrt` binary.
 # Requires HOMEBREW_TAP_TOKEN (a token with write access to
-# edictum-ai/homebrew-edictum) in the release workflow environment.
+# acartag7/homebrew-tap) in the release workflow environment.
 #
 # Note: goreleaser warns that `brews` is being phased out in favor of
 # `homebrew_casks`. A formula is a deliberate choice here: it works on Linuxbrew
@@ -55,8 +55,8 @@ release:
 brews:
   - name: qratum
     repository:
-      owner: edictum-ai
-      name: homebrew-edictum
+      owner: acartag7
+      name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula

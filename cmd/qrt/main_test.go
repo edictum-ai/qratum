@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edictum-ai/qratum/internal/vault"
+	"github.com/acartag7/qratum/internal/vault"
 )
 
 func TestVersionPrintsFixedDevelopmentVersion(t *testing.T) {

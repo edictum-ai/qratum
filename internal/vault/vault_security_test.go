@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edictum-ai/qratum/internal/workspace"
+	"github.com/acartag7/qratum/internal/workspace"
 )
 
 func TestRawRefIDCollisionUsesFullDigest(t *testing.T) {

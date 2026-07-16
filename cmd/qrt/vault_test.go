@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edictum-ai/qratum/internal/capture"
-	"github.com/edictum-ai/qratum/internal/schedule"
-	"github.com/edictum-ai/qratum/internal/vault"
-	"github.com/edictum-ai/qratum/internal/workspace"
+	"github.com/acartag7/qratum/internal/capture"
+	"github.com/acartag7/qratum/internal/schedule"
+	"github.com/acartag7/qratum/internal/vault"
+	"github.com/acartag7/qratum/internal/workspace"
 )
 
 func TestHookClaudeCodeMissingTranscriptPathRecordsRawMissing(t *testing.T) {

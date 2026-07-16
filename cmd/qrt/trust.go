@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/edictum-ai/qratum/internal/trust"
+	"github.com/acartag7/qratum/internal/trust"
 )
 
 func trustCommand(args []string, stdout io.Writer, stderr io.Writer) int {

@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	claudecfg "github.com/edictum-ai/qratum/internal/claude"
-	"github.com/edictum-ai/qratum/internal/schedule"
-	qschema "github.com/edictum-ai/qratum/internal/schema"
-	"github.com/edictum-ai/qratum/internal/vault"
-	"github.com/edictum-ai/qratum/internal/workspace"
+	claudecfg "github.com/acartag7/qratum/internal/claude"
+	"github.com/acartag7/qratum/internal/schedule"
+	qschema "github.com/acartag7/qratum/internal/schema"
+	"github.com/acartag7/qratum/internal/vault"
+	"github.com/acartag7/qratum/internal/workspace"
 )
 
 const (
