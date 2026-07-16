@@ -4,7 +4,7 @@
 
 Do not open a public GitHub issue for security vulnerabilities.
 
-Email: security@edictum.ai
+Email: cartagena.arnold@gmail.com
 
 We will acknowledge receipt within 48 hours and provide a timeline for a fix.
 
